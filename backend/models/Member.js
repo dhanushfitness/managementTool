@@ -182,6 +182,21 @@ const memberSchema = new mongoose.Schema({
     default: 'walk-in'
   },
   tags: [String],
+  termsAndConditions: {
+    agreementDate: Date,
+    acceptedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    terms: String,
+    conditions: String,
+    specialNotes: String,
+    lastUpdated: Date,
+    lastUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  },
   isActive: {
     type: Boolean,
     default: true

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { getMembers, createMember, deleteMember } from '../api/members'
 import toast from 'react-hot-toast'
 import { Plus, Search, Trash2 } from 'lucide-react'
+import LoadingPage from '../components/LoadingPage'
 
 export default function Members() {
   const [search, setSearch] = useState('')
@@ -83,7 +84,9 @@ export default function Members() {
       {/* Members Table */}
       <div className="card">
         {isLoading ? (
-          <p className="text-center py-8">Loading...</p>
+          <div className="py-12">
+            <LoadingPage message="Loading members..." fullScreen={false} />
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

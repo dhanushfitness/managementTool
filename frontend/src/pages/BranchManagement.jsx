@@ -4,6 +4,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { HelpCircle } from 'lucide-react';
 import { createBranch, updateBranch, getBranch } from '../api/organization';
+import LoadingPage from '../components/LoadingPage';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const dayLabels = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -228,7 +230,7 @@ export default function BranchManagement() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return <LoadingPage message="Loading branch management..." />;
   }
 
   return (

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 import { Search, Plus, UserCircle, LogOut, Building2, Settings, UserCog, MapPin } from 'lucide-react';
+import LoadingPage from '../components/LoadingPage';
 import {
   getRevenueData,
   getLeadManagementData,
@@ -113,7 +114,7 @@ export default function CentralPanel() {
   ];
 
   const renderRevenueTable = () => {
-    if (revenueLoading) return <div className="text-center py-8">Loading...</div>;
+    if (revenueLoading) return <LoadingPage message="Loading revenue data..." fullScreen={false} />;
     if (!revenueData?.success || !revenueData?.data) return <div className="text-center py-8">No data available</div>;
 
     const data = Array.isArray(revenueData.data) ? revenueData.data : [];
@@ -161,7 +162,7 @@ export default function CentralPanel() {
   };
 
   const renderLeadManagementTable = () => {
-    if (leadLoading) return <div className="text-center py-8">Loading...</div>;
+    if (leadLoading) return <LoadingPage message="Loading lead data..." fullScreen={false} />;
     if (!leadData?.success || !leadData?.data) return <div className="text-center py-8">No data available</div>;
 
     const data = Array.isArray(leadData.data) ? leadData.data : [];
@@ -221,7 +222,7 @@ export default function CentralPanel() {
   };
 
   const renderClientsTable = () => {
-    if (clientsLoading) return <div className="text-center py-8">Loading...</div>;
+    if (clientsLoading) return <LoadingPage message="Loading clients data..." fullScreen={false} />;
     if (!clientsData?.success || !clientsData?.data) return <div className="text-center py-8">No data available</div>;
 
     const data = Array.isArray(clientsData.data) ? clientsData.data : [];
@@ -272,7 +273,7 @@ export default function CentralPanel() {
   };
 
   const renderCheckInsTable = () => {
-    if (checkInsLoading) return <div className="text-center py-8">Loading...</div>;
+    if (checkInsLoading) return <LoadingPage message="Loading check-ins data..." fullScreen={false} />;
     if (!checkInsData?.success || !checkInsData?.data) return <div className="text-center py-8">No data available</div>;
 
     const data = Array.isArray(checkInsData.data) ? checkInsData.data : [];

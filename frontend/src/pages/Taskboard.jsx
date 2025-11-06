@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
-import { Calendar, Download, ChevronDown, Info } from 'lucide-react';
+import { Calendar, Download, ChevronDown, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import LoadingTable from '../components/LoadingTable';
 
 export default function Taskboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { token } = useAuthStore();
   const [activeTab, setActiveTab] = useState('upcoming');
   const [fromDate, setFromDate] = useState('');
@@ -16,13 +18,66 @@ export default function Taskboard() {
   const [selectedCallType, setSelectedCallType] = useState('all');
   const [selectedCallStatus, setSelectedCallStatus] = useState('all');
 
-  // Set default dates to today
+  // Set default dates to today or use date from navigation state
   useEffect(() => {
+    // Check if date was passed via navigation state
+    const stateDate = location.state?.date;
+    if (stateDate) {
+      setFromDate(stateDate);
+      setToDate(stateDate);
+      // Clear the state to prevent using stale date on re-renders
+      window.history.replaceState({}, document.title);
+    } else {
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      setFromDate(dateStr);
+      setToDate(dateStr);
+    }
+  }, [location.state]);
+
+  // Function to navigate to previous day
+  const handlePreviousDay = () => {
+    if (fromDate) {
+      const currentDate = new Date(fromDate);
+      currentDate.setDate(currentDate.getDate() - 1);
+      const newDateStr = currentDate.toISOString().split('T')[0];
+      setFromDate(newDateStr);
+      setToDate(newDateStr);
+    }
+  };
+
+  // Function to navigate to next day
+  const handleNextDay = () => {
+    if (fromDate) {
+      const currentDate = new Date(fromDate);
+      currentDate.setDate(currentDate.getDate() + 1);
+      const newDateStr = currentDate.toISOString().split('T')[0];
+      setFromDate(newDateStr);
+      setToDate(newDateStr);
+    }
+  };
+
+  // Format date for display
+  const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
     const today = new Date();
-    const dateStr = today.toISOString().split('T')[0];
-    setFromDate(dateStr);
-    setToDate(dateStr);
-  }, []);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Check if it's today, tomorrow, or yesterday
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+  };
 
   // Fetch staff list
   const { data: staffData } = useQuery({
@@ -171,6 +226,33 @@ export default function Taskboard() {
       {/* Filter Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="flex flex-wrap items-center gap-4">
+          {/* Date Navigation with Arrows */}
+          <div className="flex items-center space-x-3 bg-gray-50 rounded-lg px-4 py-2.5 border border-gray-200">
+            <button
+              onClick={handlePreviousDay}
+              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+              title="Previous day"
+              disabled={!fromDate}
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <div className="flex flex-col items-center min-w-[140px]">
+              <span className="text-xs text-gray-500 font-medium">Date</span>
+              <span className="text-sm font-semibold text-gray-900">
+                {formatDisplayDate(fromDate)}
+              </span>
+              <span className="text-xs text-gray-500">{fromDate || 'Select date'}</span>
+            </div>
+            <button
+              onClick={handleNextDay}
+              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+              title="Next day"
+              disabled={!fromDate}
+            >
+              <ChevronRight className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+
           {/* Date From */}
           <div className="flex items-center space-x-2">
             <label className="text-sm font-medium text-gray-700">Date From:</label>
@@ -178,7 +260,10 @@ export default function Taskboard() {
               <input
                 type="date"
                 value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setToDate(e.target.value);
+                }}
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -192,7 +277,10 @@ export default function Taskboard() {
               <input
                 type="date"
                 value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setToDate(e.target.value);
+                }}
                 className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -347,11 +435,7 @@ export default function Taskboard() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
-                <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
-                    Loading...
-                  </td>
-                </tr>
+                <LoadingTable colSpan={9} message="Loading taskboard..." />
               ) : followUps.length === 0 ? (
                 <tr>
                   <td colSpan="9" className="px-4 py-8 text-center text-gray-500">

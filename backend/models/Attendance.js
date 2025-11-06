@@ -34,6 +34,10 @@ const attendanceSchema = new mongoose.Schema({
   },
   deviceId: String,
   deviceName: String,
+  serviceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Plan'
+  },
   status: {
     type: String,
     enum: ['success', 'blocked', 'expired', 'frozen', 'guest'],

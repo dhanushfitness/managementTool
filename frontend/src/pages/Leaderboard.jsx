@@ -214,9 +214,7 @@ export default function Leaderboard() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {revenueLoading ? (
-                <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center text-gray-500">Loading...</td>
-                </tr>
+                <LoadingTable colSpan={9} message="Loading revenue data..." />
               ) : revenueData?.data?.length === 0 ? (
                 <tr>
                   <td colSpan="9" className="px-4 py-8 text-center text-gray-500">No data found</td>
@@ -296,9 +294,7 @@ export default function Leaderboard() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {closureLoading ? (
-                <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-gray-500">Loading...</td>
-                </tr>
+                <LoadingTable colSpan={8} message="Loading closure data..." />
               ) : closureData?.data?.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="px-4 py-8 text-center text-gray-500">No data found</td>
@@ -358,9 +354,7 @@ export default function Leaderboard() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {contactsLoading ? (
-                <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-gray-500">Loading...</td>
-                </tr>
+                <LoadingTable colSpan={7} message="Loading contacts data..." />
               ) : contactsData?.data?.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="px-4 py-8 text-center text-gray-500">No data found</td>
@@ -422,9 +416,7 @@ export default function Leaderboard() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {callsLoading ? (
-                <tr>
-                  <td colSpan="10" className="px-4 py-8 text-center text-gray-500">Loading...</td>
-                </tr>
+                <LoadingTable colSpan={10} message="Loading calls data..." />
               ) : callsData?.data?.length === 0 ? (
                 <tr>
                   <td colSpan="10" className="px-4 py-8 text-center text-gray-500">No data found</td>

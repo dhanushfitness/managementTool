@@ -12,7 +12,16 @@ import Invoices from './pages/Invoices'
 import Payments from './pages/Payments'
 import Attendance from './pages/Attendance'
 import Staff from './pages/Staff'
+import StaffDetails from './pages/StaffDetails'
+import StaffAdminRights from './pages/StaffAdminRights'
+import StaffTargets from './pages/StaffTargets'
+import StaffAddTarget from './pages/StaffAddTarget'
+import StaffRepChange from './pages/StaffRepChange'
 import Reports from './pages/Reports'
+import BiometricReport from './pages/BiometricReport'
+import OffersReport from './pages/OffersReport'
+import LeadSourceReport from './pages/LeadSourceReport'
+import ReferralReport from './pages/ReferralReport'
 import Settings from './pages/Settings'
 import Setup from './pages/Setup'
 import Enquiries from './pages/Enquiries'
@@ -65,7 +74,16 @@ function App() {
           <Route path="members" element={<Members />} />
           <Route path="members/:id" element={<MemberDetails />} />
           <Route path="staff" element={<Staff />} />
+          <Route path="staff/:id" element={<StaffDetails />} />
+          <Route path="staff/:id/admin-rights" element={<StaffAdminRights />} />
+          <Route path="staff/:id/targets" element={<StaffTargets />} />
+          <Route path="staff/:id/add-target" element={<StaffAddTarget />} />
+          <Route path="staff/:id/rep-change" element={<StaffRepChange />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="reports/biometric" element={<BiometricReport />} />
+          <Route path="reports/offers" element={<OffersReport />} />
+          <Route path="reports/lead-source" element={<LeadSourceReport />} />
+          <Route path="reports/referral" element={<ReferralReport />} />
           <Route path="setup" element={<Setup />} />
           <Route path="settings" element={<Settings />} />
           <Route path="corporates" element={<Corporates />} />

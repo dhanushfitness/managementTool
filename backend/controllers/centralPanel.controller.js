@@ -173,17 +173,9 @@ export const getLeadManagementData = async (req, res) => {
         const enquiries = await Enquiry.find(enquiryQuery);
         
         const enquiriesReceived = enquiries.length;
-        const open = enquiries.filter(e => e.status === 'open').length;
-        const converted = enquiries.filter(e => e.status === 'converted').length;
-        const lost = enquiries.filter(e => e.status === 'lost' || e.status === 'archived').length;
-        
-        // Get trial appointments
-        const trials = enquiries.filter(e => 
-          ['trial-appointment', 'trial-class', 'trial-session'].includes(e.trialType)
-        );
-        const trialsScheduled = trials.length;
-        const completed = trials.filter(t => t.status === 'converted').length;
-        const notAttended = trials.length - completed;
+        const open = enquiries.filter(e => e.enquiryStage === 'opened').length;
+        const converted = enquiries.filter(e => e.enquiryStage === 'converted').length;
+        const lost = enquiries.filter(e => e.enquiryStage === 'lost' || e.enquiryStage === 'archived' || e.isArchived).length;
 
         leadData.push({
           businessName: org.name,
@@ -192,10 +184,7 @@ export const getLeadManagementData = async (req, res) => {
           enquiriesReceived,
           open,
           converted,
-          lost,
-          trialsScheduled,
-          completed,
-          notAttended
+          lost
         });
       }
     }
@@ -204,18 +193,12 @@ export const getLeadManagementData = async (req, res) => {
       enquiriesReceived: acc.enquiriesReceived + item.enquiriesReceived,
       open: acc.open + item.open,
       converted: acc.converted + item.converted,
-      lost: acc.lost + item.lost,
-      trialsScheduled: acc.trialsScheduled + item.trialsScheduled,
-      completed: acc.completed + item.completed,
-      notAttended: acc.notAttended + item.notAttended
+      lost: acc.lost + item.lost
     }), {
       enquiriesReceived: 0,
       open: 0,
       converted: 0,
-      lost: 0,
-      trialsScheduled: 0,
-      completed: 0,
-      notAttended: 0
+      lost: 0
     });
 
     res.json({

@@ -10,8 +10,8 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
     name: '',
     countryCode: '+91',
     phone: '',
+    email: '',
     gender: '',
-    trialType: 'no-trial',
     enquiryDate: new Date().toISOString().split('T')[0],
     service: '',
     leadSource: '',
@@ -50,8 +50,8 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
         name: '',
         countryCode: '+91',
         phone: '',
+        email: '',
         gender: '',
-        trialType: 'no-trial',
         enquiryDate: new Date().toISOString().split('T')[0],
         service: '',
         leadSource: '',
@@ -249,57 +249,24 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
                 </div>
               </div>
 
-              {/* Schedule a trial / meeting */}
+              {/* Email Field */}
               <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
                 <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
                   <span className="w-1 h-6 bg-orange-500 rounded-full mr-3"></span>
-                  Schedule a trial / meeting
+                  Contact Information
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-orange-300 hover:bg-orange-50 transition-all group">
-                    <input
-                      type="radio"
-                      name="trialType"
-                      value="no-trial"
-                      checked={formData.trialType === 'no-trial'}
-                      onChange={handleChange}
-                      className="w-4 h-4 text-orange-500 border-gray-300 focus:ring-orange-500"
-                    />
-                    <span className="ml-3 text-sm font-medium text-gray-700 group-hover:text-orange-600">No Trial</span>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Email
                   </label>
-                  <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-orange-300 hover:bg-orange-50 transition-all group">
-                    <input
-                      type="radio"
-                      name="trialType"
-                      value="appointment"
-                      checked={formData.trialType === 'appointment'}
-                      onChange={handleChange}
-                      className="w-4 h-4 text-orange-500 border-gray-300 focus:ring-orange-500"
-                    />
-                    <span className="ml-3 text-sm font-medium text-gray-700 group-hover:text-orange-600">Trial Appointment</span>
-                  </label>
-                  <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-orange-300 hover:bg-orange-50 transition-all group">
-                    <input
-                      type="radio"
-                      name="trialType"
-                      value="class"
-                      checked={formData.trialType === 'class'}
-                      onChange={handleChange}
-                      className="w-4 h-4 text-orange-500 border-gray-300 focus:ring-orange-500"
-                    />
-                    <span className="ml-3 text-sm font-medium text-gray-700 group-hover:text-orange-600">Trial Class</span>
-                  </label>
-                  <label className="flex items-center p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-orange-300 hover:bg-orange-50 transition-all group">
-                    <input
-                      type="radio"
-                      name="trialType"
-                      value="session"
-                      checked={formData.trialType === 'session'}
-                      onChange={handleChange}
-                      className="w-4 h-4 text-orange-500 border-gray-300 focus:ring-orange-500"
-                    />
-                    <span className="ml-3 text-sm font-medium text-gray-700 group-hover:text-orange-600">Trial Session</span>
-                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="email@example.com"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
+                  />
                 </div>
               </div>
 

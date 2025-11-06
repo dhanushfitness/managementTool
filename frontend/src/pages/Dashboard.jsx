@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { getDashboardStats, getUpcomingRenewals, getPendingPayments } from '../api/dashboard';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
-import { DollarSign, Users, TrendingUp, UserPlus, RefreshCw, Plus, ChevronRight, Calendar, ArrowRight, AlertCircle } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, UserPlus, RefreshCw, Plus, ChevronRight, ChevronLeft, Calendar, ArrowRight, AlertCircle } from 'lucide-react';
+import LoadingPage from '../components/LoadingPage';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -13,6 +14,12 @@ export default function Dashboard() {
   const [showCustomDateRange, setShowCustomDateRange] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  
+  // State for summary date navigation
+  const [summaryDate, setSummaryDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
 
   // Build query params based on filter
   const getQueryParams = () => {
@@ -59,10 +66,10 @@ export default function Dashboard() {
     enabled: !!token
   });
 
-  // Fetch summary
+  // Fetch summary with date parameter
   const { data: summaryData } = useQuery({
-    queryKey: ['dashboard-summary'],
-    queryFn: () => api.get('/dashboard/summary').then(res => res.data),
+    queryKey: ['dashboard-summary', summaryDate],
+    queryFn: () => api.get('/dashboard/summary', { params: { date: summaryDate } }).then(res => res.data),
     enabled: !!token
   });
 
@@ -95,6 +102,45 @@ export default function Dashboard() {
     }).format(amount || 0);
   };
 
+  // Format summary date for display
+  const formatSummaryDate = (dateStr) => {
+    if (!dateStr) return 'Today';
+    const date = new Date(dateStr);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
+  // Handle summary date navigation
+  const handleSummaryPreviousDay = () => {
+    const currentDate = new Date(summaryDate);
+    currentDate.setDate(currentDate.getDate() - 1);
+    setSummaryDate(currentDate.toISOString().split('T')[0]);
+  };
+
+  const handleSummaryNextDay = () => {
+    const currentDate = new Date(summaryDate);
+    currentDate.setDate(currentDate.getDate() + 1);
+    setSummaryDate(currentDate.toISOString().split('T')[0]);
+  };
+
+  const handleSummaryToday = () => {
+    const today = new Date();
+    setSummaryDate(today.toISOString().split('T')[0]);
+  };
+
   const handleDateFilterChange = (value) => {
     setDateFilter(value);
     if (value === 'custom') {
@@ -119,11 +165,7 @@ export default function Dashboard() {
   };
 
   if (statsLoading || renewalsLoading || pendingLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Loading dashboard...</div>
-      </div>
-    );
+    return <LoadingPage message="Loading dashboard..." />;
   }
 
   if (statsError) {
@@ -352,17 +394,40 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 text-lg">Summary</h3>
             <div className="flex items-center space-x-2">
-              <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                <ChevronRight className="w-4 h-4 rotate-180" />
+              <button 
+                onClick={handleSummaryPreviousDay}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                title="Previous day"
+              >
+                <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-sm font-medium text-gray-700">Today</span>
-              <button className="text-gray-400 hover:text-gray-600 transition-colors">
+              <button
+                onClick={handleSummaryToday}
+                className="text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors"
+                title="Go to today"
+              >
+                {formatSummaryDate(summaryDate)}
+              </button>
+              <button 
+                onClick={handleSummaryNextDay}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                title="Next day"
+              >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
           <div className="space-y-3">
-            <SummaryItem title="Follow-ups" count={summaryData?.data?.followUps || 0} total={9} />
+            <SummaryItem 
+              title="Follow-ups" 
+              count={summaryData?.data?.followUps || 0} 
+              total={9} 
+              onClick={() => {
+                const today = new Date();
+                const dateStr = today.toISOString().split('T')[0];
+                navigate('/taskboard', { state: { date: dateStr } });
+              }}
+            />
             <SummaryItem title="Appointments" count={summaryData?.data?.appointments || 0} total={0} />
             <SummaryItem title="Service expiry" count={summaryData?.data?.serviceExpiry || 0} />
             <SummaryItem title="PT expiry" count={0} />
@@ -438,9 +503,14 @@ export default function Dashboard() {
   );
 }
 
-function SummaryItem({ title, count, total }) {
+function SummaryItem({ title, count, total, onClick }) {
   return (
-    <div className="flex items-center justify-between py-2 px-2 hover:bg-gray-50 rounded transition-colors">
+    <div 
+      className={`flex items-center justify-between py-2 px-2 rounded transition-colors ${
+        onClick ? 'hover:bg-gray-50 cursor-pointer' : 'hover:bg-gray-50'
+      }`}
+      onClick={onClick}
+    >
       <span className="text-sm text-gray-700">{title}:</span>
       <span className="font-semibold text-gray-900">
         {total !== undefined ? `(${count}/${total})` : count}

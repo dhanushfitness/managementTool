@@ -46,7 +46,7 @@ const enquirySchema = new mongoose.Schema({
   },
   enquiryStage: {
     type: String,
-    enum: ['opened', 'qualified', 'demo', 'negotiation', 'converted', 'lost', 'archived'],
+    enum: ['opened', 'qualified', 'demo', 'negotiation', 'converted', 'lost', 'archived', 'enquiry', 'future-prospect', 'not-interested'],
     default: 'opened',
     index: true
   },
@@ -77,7 +77,7 @@ const enquirySchema = new mongoose.Schema({
   fitnessGoal: String,
   lastCallStatus: {
     type: String,
-    enum: ['answered', 'missed', 'no-answer', 'busy', 'not-called']
+    enum: ['answered', 'missed', 'no-answer', 'busy', 'not-called', 'enquiry', 'future-prospect', 'not-interested']
   },
   callTag: {
     type: String,

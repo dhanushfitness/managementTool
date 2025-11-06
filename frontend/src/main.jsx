@@ -9,7 +9,19 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: 1,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      retry: (failureCount, error) => {
+        // Don't retry on 429 errors to avoid making it worse
+        if (error?.response?.status === 429) {
+          return false;
+        }
+        // Retry other errors up to 1 time
+        return failureCount < 1;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // Keep unused data in cache for 10 minutes (formerly cacheTime)
     },
   },
 })

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
+import toast from 'react-hot-toast'
 
 const api = axios.create({
   baseURL: '/api',
@@ -24,6 +25,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle 429 Too Many Requests
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'] || error.response.headers['Retry-After'] || 5;
+      const message = error.response?.data?.message || `Too many requests. Please wait ${retryAfter} seconds before trying again.`;
+      
+      // Show user-friendly error message
+      toast.error(message, {
+        duration: 5000,
+        id: 'rate-limit-error', // Prevent duplicate toasts
+      });
+      
+      // Don't retry 429 errors immediately - let React Query handle retry logic
+      return Promise.reject(error);
+    }
+    
     // Don't logout on login/register endpoints
     const isAuthEndpoint = error.config?.url?.includes('/auth/login') || 
                           error.config?.url?.includes('/auth/register')

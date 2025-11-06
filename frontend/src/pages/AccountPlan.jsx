@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { MessageSquare, Mail, Calendar, CalendarCheck, AlertCircle } from 'lucide-react';
 import { getAccountPlan } from '../api/admin';
+import LoadingPage from '../components/LoadingPage';
 
 export default function AccountPlan() {
   const { data, isLoading, error } = useQuery({
@@ -9,11 +10,7 @@ export default function AccountPlan() {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-gray-600">Loading...</div>
-      </div>
-    );
+    return <LoadingPage message="Loading account plan..." fullScreen={false} />;
   }
 
   if (error) {

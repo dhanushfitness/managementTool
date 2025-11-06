@@ -35,7 +35,7 @@ const appointmentSchema = new mongoose.Schema({
   duration: Number, // in minutes
   type: {
     type: String,
-    enum: ['consultation', 'trial', 'assessment', 'follow-up', 'training', 'other'],
+    enum: ['consultation', 'assessment', 'follow-up', 'training', 'other'],
     default: 'consultation'
   },
   staffId: {

@@ -12,9 +12,16 @@ import {
   upgradeDowngradePlan,
   getMemberAttendance,
   getMemberInvoices,
+  getMemberInvoicesWithPayments,
   getMemberPayments,
+  getMemberCalls,
+  createMemberCall,
+  updateMemberCall,
+  getMemberReferrals,
+  createMemberReferral,
   importMembers,
-  searchMembers
+  searchMembers,
+  getMemberStats
 } from '../controllers/member.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
@@ -26,6 +33,7 @@ router.use(authenticate);
 // Member CRUD
 router.post('/', authorize('owner', 'manager', 'staff'), createMember);
 router.get('/', getMembers);
+router.get('/stats', getMemberStats);
 router.get('/search', searchMembers);
 router.get('/:memberId', getMember);
 router.put('/:memberId', authorize('owner', 'manager', 'staff'), updateMember);
@@ -41,7 +49,13 @@ router.post('/:memberId/change-plan', authorize('owner', 'manager'), upgradeDown
 // Member data
 router.get('/:memberId/attendance', getMemberAttendance);
 router.get('/:memberId/invoices', getMemberInvoices);
+router.get('/:memberId/invoices-with-payments', getMemberInvoicesWithPayments);
 router.get('/:memberId/payments', getMemberPayments);
+router.get('/:memberId/calls', getMemberCalls);
+router.post('/:memberId/calls', authorize('owner', 'manager', 'staff'), createMemberCall);
+router.put('/:memberId/calls/:callId', authorize('owner', 'manager', 'staff'), updateMemberCall);
+router.get('/:memberId/referrals', getMemberReferrals);
+router.post('/:memberId/referrals', authorize('owner', 'manager', 'staff'), createMemberReferral);
 
 // Bulk operations
 router.post('/import', authorize('owner', 'manager'), importMembers);

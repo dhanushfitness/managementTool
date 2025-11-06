@@ -6,7 +6,11 @@ import {
   getAttendanceStats,
   getMemberAttendanceHistory,
   getBranchAttendance,
-  exportAttendance
+  exportAttendance,
+  searchMemberByAttendanceId,
+  getMemberActiveServices,
+  updateAttendance,
+  fingerprintCheckIn
 } from '../controllers/attendance.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
@@ -17,9 +21,13 @@ router.use(authenticate);
 
 router.post('/checkin', authorize('owner', 'manager', 'staff'), checkIn);
 router.post('/checkout', authorize('owner', 'manager', 'staff'), checkOut);
+router.get('/search', searchMemberByAttendanceId);
+router.get('/member/:memberId/services', getMemberActiveServices);
+router.get('/member/:memberId', getMemberAttendanceHistory);
+router.put('/:attendanceId', authorize('owner', 'manager', 'staff'), updateAttendance);
+router.post('/fingerprint', fingerprintCheckIn); // Public endpoint for device integration
 router.get('/', getAttendance);
 router.get('/stats', getAttendanceStats);
-router.get('/member/:memberId', getMemberAttendanceHistory);
 router.get('/branch/:branchId', getBranchAttendance);
 router.get('/export', authorize('owner', 'manager'), exportAttendance);
 

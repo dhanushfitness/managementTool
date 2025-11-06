@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
+import LoadingPage from '../components/LoadingPage'
 
 export default function Payments() {
   const { data, isLoading } = useQuery({
@@ -16,7 +17,9 @@ export default function Payments() {
 
       <div className="card">
         {isLoading ? (
-          <p className="text-center py-8">Loading...</p>
+          <div className="py-12">
+            <LoadingPage message="Loading payments..." fullScreen={false} />
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

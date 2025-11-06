@@ -2,6 +2,7 @@ import Enquiry from '../models/Enquiry.js';
 import Member from '../models/Member.js';
 import Invoice from '../models/Invoice.js';
 import AuditLog from '../models/AuditLog.js';
+import Appointment from '../models/Appointment.js';
 
 // Generate enquiry ID
 const generateEnquiryId = async (organizationId) => {
@@ -97,6 +98,7 @@ export const getEnquiries = async (req, res) => {
       .populate('service', 'name')
       .populate('assignedStaff', 'firstName lastName')
       .populate('convertedToMember', 'memberId firstName lastName')
+      .populate('callLogs.staffId', 'firstName lastName')
       .sort({ date: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -404,8 +406,95 @@ export const importEnquiries = async (req, res) => {
 
 export const exportEnquiries = async (req, res) => {
   try {
-    // CSV export logic would go here
-    res.json({ success: true, message: 'Export functionality to be implemented' });
+    const {
+      dateFilter,
+      startDate,
+      endDate,
+      enquiryStage,
+      leadSource,
+      service,
+      staffId,
+      gender,
+      callTag,
+      lastCallStatus,
+      isArchived
+    } = req.query;
+
+    const query = { organizationId: req.organizationId };
+
+    // Date filter (same logic as getEnquiries)
+    if (dateFilter === 'today') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      query.date = { $gte: today, $lt: tomorrow };
+    } else if (dateFilter === 'last7days') {
+      const date = new Date();
+      date.setDate(date.getDate() - 7);
+      query.date = { $gte: date };
+    } else if (dateFilter === 'last30days') {
+      const date = new Date();
+      date.setDate(date.getDate() - 30);
+      query.date = { $gte: date };
+    } else if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+    }
+
+    // Other filters
+    if (enquiryStage) query.enquiryStage = enquiryStage;
+    if (leadSource) query.leadSource = leadSource;
+    if (service) query.service = service;
+    if (staffId) query.assignedStaff = staffId;
+    if (gender) query.gender = gender;
+    if (callTag) query.callTag = callTag;
+    if (lastCallStatus) query.lastCallStatus = lastCallStatus;
+    if (isArchived !== undefined) query.isArchived = isArchived === 'true';
+
+    const enquiries = await Enquiry.find(query)
+      .populate('service', 'name')
+      .populate('assignedStaff', 'firstName lastName')
+      .sort({ date: -1 });
+
+    // Convert to CSV format
+    const headers = ['S.No', 'Enquiry ID', 'Date', 'Name', 'Phone', 'Email', 'Service', 'Lead Source', 'Enquiry Stage', 'Last Call Status', 'Call Tag', 'Staff', 'Gender', 'Notes'];
+    
+    const escapeCsvField = (field) => {
+      if (field === null || field === undefined) return '';
+      const str = String(field);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    let csvContent = headers.join(',') + '\n';
+    
+    enquiries.forEach((enquiry, index) => {
+      const row = [
+        index + 1,
+        enquiry.enquiryId,
+        enquiry.date.toLocaleDateString(),
+        enquiry.name,
+        enquiry.phone,
+        enquiry.email || '',
+        enquiry.serviceName || '',
+        enquiry.leadSource,
+        enquiry.enquiryStage,
+        enquiry.lastCallStatus || '',
+        enquiry.callTag || '',
+        enquiry.assignedStaff ? `${enquiry.assignedStaff.firstName} ${enquiry.assignedStaff.lastName}` : '',
+        enquiry.gender || '',
+        enquiry.notes || ''
+      ];
+      csvContent += row.map(escapeCsvField).join(',') + '\n';
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=enquiries-${Date.now()}.csv`);
+    res.send(csvContent);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -450,6 +539,79 @@ export const bulkChangeStaff = async (req, res) => {
     );
 
     res.json({ success: true, message: 'Staff changed successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Add call log to enquiry
+export const addCallLog = async (req, res) => {
+  try {
+    const { enquiryId } = req.params;
+    const { date, status, notes } = req.body;
+
+    const enquiry = await Enquiry.findOne({
+      _id: enquiryId,
+      organizationId: req.organizationId
+    });
+
+    if (!enquiry) {
+      return res.status(404).json({ success: false, message: 'Enquiry not found' });
+    }
+
+    enquiry.callLogs.push({
+      date: date || new Date(),
+      status,
+      notes,
+      staffId: req.user._id
+    });
+
+    // Update last call status
+    if (status) {
+      enquiry.lastCallStatus = status;
+    }
+
+    await enquiry.save();
+
+    res.json({ success: true, enquiry });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get appointments for enquiry
+export const getEnquiryAppointments = async (req, res) => {
+  try {
+    const { enquiryId } = req.params;
+
+    const appointments = await Appointment.find({
+      enquiryId,
+      organizationId: req.organizationId
+    })
+      .populate('staffId', 'firstName lastName')
+      .sort({ appointmentDate: -1 });
+
+    res.json({ success: true, appointments });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Create appointment for enquiry
+export const createEnquiryAppointment = async (req, res) => {
+  try {
+    const { enquiryId } = req.params;
+    const appointmentData = {
+      ...req.body,
+      organizationId: req.organizationId,
+      branchId: req.body.branchId || req.user.branchId,
+      enquiryId,
+      createdBy: req.user._id
+    };
+
+    const appointment = await Appointment.create(appointmentData);
+
+    res.status(201).json({ success: true, appointment });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

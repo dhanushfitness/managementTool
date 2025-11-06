@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { getAdminProfile, updateAdminProfile, changePassword } from '../api/admin';
+import LoadingPage from '../components/LoadingPage';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 // Country codes for dropdown
 const countryCodes = [
@@ -177,11 +179,7 @@ export default function SuperAdminProfile() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Loading...</div>
-      </div>
-    );
+    return <LoadingPage message="Loading profile..." />;
   }
 
   return (

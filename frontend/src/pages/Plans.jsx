@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
+import LoadingPage from '../components/LoadingPage'
 
 export default function Plans() {
   const { data, isLoading } = useQuery({
@@ -19,7 +20,9 @@ export default function Plans() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          <p>Loading...</p>
+          <div className="col-span-full py-12">
+            <LoadingPage message="Loading plans..." fullScreen={false} />
+          </div>
         ) : (
           data?.data?.plans?.map((plan) => (
             <div key={plan._id} className="card">
