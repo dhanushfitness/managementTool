@@ -2,12 +2,19 @@ import express from 'express';
 import {
   createInvoice,
   getInvoices,
+  getPaidInvoices,
+  getPendingCollections,
+  getCancelledInvoices,
   getInvoice,
   updateInvoice,
   deleteInvoice,
   sendInvoice,
   downloadInvoicePDF,
-  getInvoiceStats
+  getInvoiceStats,
+  exportInvoices,
+  exportPaidInvoices,
+  exportPendingCollections,
+  exportCancelledInvoices
 } from '../controllers/invoice.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
@@ -18,7 +25,14 @@ router.use(authenticate);
 
 router.post('/', authorize('owner', 'manager', 'staff'), createInvoice);
 router.get('/', getInvoices);
+router.get('/paid', getPaidInvoices);
+router.get('/paid/export', exportPaidInvoices);
+router.get('/pending-collections', getPendingCollections);
+router.get('/pending-collections/export', exportPendingCollections);
+router.get('/cancelled', getCancelledInvoices);
+router.get('/cancelled/export', exportCancelledInvoices);
 router.get('/stats', getInvoiceStats);
+router.get('/export', exportInvoices);
 router.get('/:invoiceId', getInvoice);
 router.put('/:invoiceId', authorize('owner', 'manager', 'staff'), updateInvoice);
 router.delete('/:invoiceId', authorize('owner', 'manager'), deleteInvoice);

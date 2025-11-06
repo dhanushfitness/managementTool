@@ -97,9 +97,9 @@ export default function Layout() {
         { name: 'Offers', path: '/reports/offers' },
         { name: 'Lead Source', path: '/reports/lead-source' },
         { name: 'Referral', path: '/reports/referral' },
-        { name: 'SMS Report', path: '/reports?category=marketing&type=sms-report' },
-        { name: 'Business MIS Report', path: '/reports?category=marketing&type=business-mis' },
-        { name: 'Marketing MIS Report', path: '/reports?category=marketing&type=marketing-mis' }
+        { name: 'SMS Report', path: '/reports/sms' },
+        { name: 'Business MIS Report', path: '/reports/business-mis' },
+        { name: 'Marketing MIS Report', path: '/reports/marketing-mis' }
       ]
     },
     {
@@ -107,17 +107,12 @@ export default function Layout() {
       icon: DollarSign,
       expandable: true,
       subItems: [
-        { name: 'Daily sales (DSR)', path: '/reports?category=sales&type=daily-sales' },
-        { name: 'Revenue, Sales Accounting, Effectiv Sale', path: '/reports?category=sales&type=revenue' },
-        { name: 'Expected Revenue', path: '/reports?category=sales&type=expected-revenue' },
-        { name: 'Revenue vs target', path: '/reports?category=sales&type=revenue-vs-target' },
-        { name: 'Revenue month till date', path: '/reports?category=sales&type=revenue-month-till-date' },
-        { name: 'Service sale, service type', path: '/reports?category=sales&type=service-sale' },
-        { name: 'Registration fee', path: '/reports?category=sales&type=registration-fee' },
-        { name: 'Upgrade and cross-sell (3 reports)', path: '/reports?category=sales&type=upgrade-cross-sell' },
-        { name: 'Not interested', path: '/reports?category=sales&type=not-interested' },
-        { name: 'PT Sales Report', path: '/reports?category=sales&type=pt-sales' },
-        { name: 'Corporate sales', path: '/reports?category=sales&type=corporate-sales' }
+        { name: 'DSR Report', path: '/reports/sales/dsr' },
+        { name: 'Revenue', path: '/reports/sales/revenue' },
+        { name: 'Revenue - Month Till Date', path: '/reports/sales/revenue-month-till-date' },
+        { name: 'Service Sales', path: '/reports/sales/service-sales' },
+        { name: 'Service Type', path: '/reports/sales/service-type' },
+        { name: 'Enquiry Conversion Report', path: '/reports/sales/enquiry-conversion' }
       ]
     },
     {
@@ -125,14 +120,20 @@ export default function Layout() {
       icon: CreditCard,
       expandable: true,
       subItems: [
-        { name: 'View all Invoices', path: '/reports?category=finance&type=invoices' },
-        { name: 'Cancellation and refund (3 reports)', path: '/reports?category=finance&type=cancellation-refund' },
-        { name: 'Revenue realisation (4 reports)', path: '/reports?category=finance&type=revenue-realisation' },
-        { name: 'Revenue VS utilisation (2 reports)', path: '/reports?category=finance&type=revenue-utilisation' },
-        { name: 'Collection, POS Payment, Payment', path: '/reports?category=finance&type=collection' },
-        { name: 'Reconciliation', path: '/reports?category=finance&type=reconciliation' },
-        { name: 'Payment mode', path: '/reports?category=finance&type=payment-mode' },
-        { name: 'Advance Payment Received & Utilized', path: '/reports?category=finance&type=advance-payment' }
+        { name: 'All Invoices', path: '/reports/finance/all-invoices' },
+        { name: 'Paid Invoices', path: '/reports/finance/paid-invoices' },
+        { name: 'Receipts', path: '/reports/finance/receipts' },
+        { name: 'Pending Collections', path: '/reports/finance/pending-collections' },
+        { name: 'Cancelled Invoices', path: '/reports/finance/cancelled-invoices' },
+        { name: 'Refund Report', path: '/reports/finance/refund-report' },
+        { name: 'Effective Sales (Accounting)', path: '/reports/finance/effective-sales-accounting' },
+        { name: 'Revenue Realization', path: '/reports/finance/revenue-realization' },
+        { name: 'Revenue Realization (Base Value)', path: '/reports/finance/revenue-realization-base-value' },
+        { name: 'Collection Report', path: '/reports/finance/collection' },
+        { name: 'Cashflow Statement', path: '/reports/finance/cashflow-statement' },
+        { name: 'Payment Mode Report', path: '/reports/finance/payment-mode' },
+        { name: 'Backdated bills-Service Sales', path: '/reports/finance/backdated-bills' },
+        { name: 'Discount Report', path: '/reports/finance/discount' }
       ]
     },
     {
@@ -140,26 +141,31 @@ export default function Layout() {
       icon: Users,
       expandable: true,
       subItems: [
-        { name: 'Renewal vs attrition', path: '/reports?category=client&type=renewal-attrition' },
-        { name: 'New clients', path: '/reports?category=client&type=new-clients' },
-        { name: 'Renewals', path: '/reports?category=client&type=renewals' },
-        { name: 'Membership', path: '/reports?category=client&type=membership' },
-        { name: 'Membeship & PT expiry', path: '/reports?category=client&type=membership-pt-expiry' },
-        { name: 'Members not called', path: '/reports?category=client&type=members-not-called' },
-        { name: 'Irregular members', path: '/reports?category=client&type=irregular-members' },
-        { name: 'Active/Inactive clients Summary(2 reports)', path: '/reports?category=client&type=active-inactive' },
-        { name: 'Multiclub Clients & Multiclub Passport', path: '/reports?category=client&type=multiclub' },
-        { name: 'Archived Clients', path: '/reports?category=client&type=archived' },
-        { name: 'Freeze & Change Date', path: '/reports?category=client&type=freeze-change-date' },
-        { name: 'Attendance heat map', path: '/reports?category=client&type=attendance-heatmap' },
-        { name: 'Service transfer', path: '/reports?category=client&type=service-transfer' },
-        { name: 'Birthdays & Anniversaries', path: '/reports?category=client&type=birthdays-anniversaries' },
-        { name: 'Feedback (2 reports)', path: '/reports?category=client&type=feedback' },
-        { name: 'Client Attendance', path: '/reports?category=client&type=attendance' },
-        { name: 'Data Hygiene/Additional Information', path: '/reports?category=client&type=data-hygiene' },
-        { name: 'Membership retention', path: '/reports?category=client&type=membership-retention' },
-        { name: 'View Member checkins', path: '/reports?category=client&type=member-checkins' },
-        { name: 'Attendance Register', path: '/reports?category=client&type=attendance-register' }
+        { name: 'Renewal Vs Attrition', path: '/reports/client-management/renewal-vs-attrition' },
+        { name: 'Upgrade Report', path: '/reports/client-management/upgrade' },
+        { name: 'Member Check-Ins', path: '/reports/client-management/member-checkins' },
+        { name: 'MultiClub Member Check-Ins', path: '/reports/client-management/multiclub-member-checkins' },
+        { name: 'Member Attendance Register', path: '/reports/client-management/member-attendance-register' },
+        { name: 'New Clients', path: '/reports/client-management/new-clients' },
+        { name: 'Renewals', path: '/reports/client-management/renewals' },
+        { name: 'Membership Report', path: '/reports/client-management/membership' },
+        { name: 'Membership Expiry', path: '/reports/client-management/membership-expiry' },
+        { name: 'Irregular Members', path: '/reports/client-management/irregular-members' },
+        { name: 'Active Members Report', path: '/reports/client-management/active-members' },
+        { name: 'Inactive Members Report', path: '/reports/client-management/inactive-members' },
+        { name: 'Multiclub Clients', path: '/reports/client-management/multiclub-clients' },
+        { name: 'Archived Clients', path: '/reports/client-management/archived-clients' },
+        { name: 'Freeze & Date Change', path: '/reports/client-management/freeze-and-date-change' },
+        { name: 'Suspensions', path: '/reports/client-management/suspensions' },
+        { name: 'Attendance Heat Map', path: '/reports/client-management/attendance-heat-map' },
+        { name: 'Service Transfer Report', path: '/reports/client-management/service-transfer' },
+        { name: 'Client Birthday & Anniversary', path: '/reports/client-management/birthday' },
+        { name: 'Client Attendance', path: '/reports/client-management/client-attendance' },
+        { name: 'Membership Retention', path: '/reports/client-management/membership-retention' },
+        { name: 'Cancellation Report', path: '/reports/client-management/cancellation' },
+        { name: 'Profile Change Report', path: '/reports/client-management/profile-change' },
+        { name: 'One-Time Purchasers', path: '/reports/client-management/one-time-purchaser' },
+        { name: 'Average Lifetime Value', path: '/reports/client-management/average-lifetime-value' }
       ]
     },
     {
@@ -167,12 +173,18 @@ export default function Layout() {
       icon: UserCog,
       expandable: true,
       subItems: [
-        { name: 'No Show and usage (2 reports)', path: '/reports?category=staff&type=no-show-usage' },
-        { name: 'Class & Session utilisation', path: '/reports?category=staff&type=class-session-utilisation' },
-        { name: 'Staff Substitution', path: '/reports?category=staff&type=staff-substitution' },
-        { name: 'View & Update staff Checkins', path: '/reports?category=staff&type=staff-checkins' },
-        { name: 'Staff Birthday & Anniversaries', path: '/reports?category=staff&type=staff-birthdays' },
-        { name: 'Attendance Register', path: '/reports?category=staff&type=attendance-register' }
+        { name: 'Staff Check-Ins', path: '/reports/staff/check-ins' },
+        { name: 'Staff Leave', path: '/reports/staff/leave' },
+        { name: 'Attendance Register', path: '/reports/staff/attendance-register' },
+        { name: 'Class & Session Utilisation', path: '/reports/staff/class-session-utilisation' },
+        { name: 'Trial Utilisation', path: '/reports/staff/trial-utilisation' },
+        { name: 'Class Usage Report', path: '/reports/staff/class-usage' },
+        { name: 'Class No Show Report', path: '/reports/staff/class-no-show' },
+        { name: 'View Staff Substitution', path: '/reports/staff/substitution' },
+        { name: 'Staff Birthday & Anniversary', path: '/reports/staff/birthday-anniversary' },
+        { name: 'Data Hygiene Report', path: '/reports/staff/data-hygiene' },
+        { name: 'Staff Wise Collection Report', path: '/reports/staff/collection' },
+        { name: 'Call Log Report', path: '/reports/staff/call-log' }
       ]
     },
     {

@@ -7,7 +7,9 @@ import {
   createPaymentLink,
   refundPayment,
   getPaymentStats,
-  reconcilePayments
+  reconcilePayments,
+  getReceipts,
+  exportReceipts
 } from '../controllers/payment.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
@@ -21,6 +23,8 @@ router.post('/razorpay', authorize('owner', 'manager', 'staff'), processRazorpay
 router.post('/payment-link', authorize('owner', 'manager', 'staff'), createPaymentLink);
 router.post('/:paymentId/refund', authorize('owner', 'manager'), refundPayment);
 router.get('/', getPayments);
+router.get('/receipts', getReceipts);
+router.get('/receipts/export', exportReceipts);
 router.get('/stats', getPaymentStats);
 router.get('/:paymentId', getPayment);
 router.post('/reconcile', authorize('owner', 'manager'), reconcilePayments);
