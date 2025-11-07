@@ -25,6 +25,7 @@ import adminRoutes from './routes/admin.routes.js';
 import centralPanelRoutes from './routes/centralPanel.routes.js';
 import followupRoutes from './routes/followup.routes.js';
 import leaderboardRoutes from './routes/leaderboard.routes.js';
+import clientManagementRoutes from './routes/clientManagement.routes.js';
 
 // Load environment variables
 dotenv.config();
@@ -84,6 +85,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/central-panel', centralPanelRoutes);
 app.use('/api/followups', followupRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/client-management', clientManagementRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

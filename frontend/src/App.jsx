@@ -44,6 +44,7 @@ import BackdatedBillsReport from './pages/BackdatedBillsReport'
 import DiscountReport from './pages/DiscountReport'
 import CancelledInvoicesReport from './pages/CancelledInvoicesReport'
 import EffectiveSalesAccountingReport from './pages/EffectiveSalesAccountingReport'
+import ExpenseReport from './pages/ExpenseReport'
 import RenewalVsAttritionReport from './pages/RenewalVsAttritionReport'
 import UpgradeReport from './pages/UpgradeReport'
 import MemberCheckinsReport from './pages/MemberCheckinsReport'
@@ -69,8 +70,23 @@ import CancellationReport from './pages/CancellationReport'
 import ProfileChangeReport from './pages/ProfileChangeReport'
 import OneTimePurchaserReport from './pages/OneTimePurchaserReport'
 import AverageLifetimeValueReport from './pages/AverageLifetimeValueReport'
+import StaffCheckinsReport from './pages/StaffCheckinsReport'
+import StaffLeaveReport from './pages/StaffLeaveReport'
+import StaffAttendanceRegisterReport from './pages/StaffAttendanceRegisterReport'
+import StaffBirthdayReport from './pages/StaffBirthdayReport'
+import StaffCallLogReport from './pages/StaffCallLogReport'
 import Settings from './pages/Settings'
 import Setup from './pages/Setup'
+import SetupGettingStarted from './pages/SetupGettingStarted'
+import SetupBrandLogo from './pages/SetupBrandLogo'
+import SetupDefineTax from './pages/SetupDefineTax'
+import SetupBillTemplate from './pages/SetupBillTemplate'
+import SetupServices from './pages/SetupServices'
+import SetupFormCustomization from './pages/SetupFormCustomization'
+import SetupMarketingTemplates from './pages/SetupMarketingTemplates'
+import SetupMarketingLeadSource from './pages/SetupMarketingLeadSource'
+import ClientManagementUpgrade from './pages/ClientManagementUpgrade'
+import ClientManagementExtension from './pages/ClientManagementExtension'
 import Enquiries from './pages/Enquiries'
 import Marketing from './pages/Marketing'
 import Corporates from './pages/Corporates'
@@ -134,6 +150,12 @@ function App() {
           <Route path="reports/sms" element={<SMSReport />} />
           <Route path="reports/business-mis" element={<BusinessMISReport />} />
           <Route path="reports/marketing-mis" element={<MarketingMISReport />} />
+          <Route path="reports/expense/summary" element={<ExpenseReport />} />
+          <Route path="reports/staff/check-ins" element={<StaffCheckinsReport />} />
+          <Route path="reports/staff/leave" element={<StaffLeaveReport />} />
+          <Route path="reports/staff/attendance-register" element={<StaffAttendanceRegisterReport />} />
+          <Route path="reports/staff/birthday" element={<StaffBirthdayReport />} />
+          <Route path="reports/staff/call-log" element={<StaffCallLogReport />} />
           <Route path="reports/sales/dsr" element={<DSRReport />} />
           <Route path="reports/sales/revenue" element={<RevenueReport />} />
           <Route path="reports/sales/revenue-month-till-date" element={<RevenueMonthTillDateReport />} />
@@ -179,6 +201,16 @@ function App() {
           <Route path="reports/client-management/one-time-purchaser" element={<OneTimePurchaserReport />} />
           <Route path="reports/client-management/average-lifetime-value" element={<AverageLifetimeValueReport />} />
           <Route path="setup" element={<Setup />} />
+          <Route path="setup/getting-started" element={<SetupGettingStarted />} />
+          <Route path="setup/brand-logo" element={<SetupBrandLogo />} />
+          <Route path="setup/define-tax" element={<SetupDefineTax />} />
+          <Route path="setup/bill-template" element={<SetupBillTemplate />} />
+          <Route path="setup/services" element={<SetupServices />} />
+          <Route path="setup/form-customization" element={<SetupFormCustomization />} />
+          <Route path="setup/marketing/templates" element={<SetupMarketingTemplates />} />
+          <Route path="setup/marketing/lead-sources" element={<SetupMarketingLeadSource />} />
+          <Route path="setup/client-management/upgrade" element={<ClientManagementUpgrade />} />
+          <Route path="setup/client-management/extension" element={<ClientManagementExtension />} />
           <Route path="settings" element={<Settings />} />
           <Route path="corporates" element={<Corporates />} />
           <Route path="expenses" element={<Expenses />} />

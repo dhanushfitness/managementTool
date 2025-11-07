@@ -40,6 +40,7 @@ import {
   Users2,
   Archive
 } from 'lucide-react'
+import { setupSections } from '../data/setupSections'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, hasSubmenu: false },
@@ -49,7 +50,6 @@ const navigation = [
   { name: 'Staff', href: '/staff', icon: UserCog, hasSubmenu: false },
   { name: 'Reports', href: '/reports', icon: BarChart3, hasSubmenu: true },
   { name: 'Setup', href: '/setup', icon: Settings, hasSubmenu: true },
-  { name: 'Corporates', href: '/corporates', icon: Briefcase, hasSubmenu: false },
 ]
 
 export default function Layout() {
@@ -68,16 +68,20 @@ export default function Layout() {
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showClientMenu, setShowClientMenu] = useState(false)
   const [showReportsMenu, setShowReportsMenu] = useState(false)
+  const [showSetupMenu, setShowSetupMenu] = useState(false)
   const [expandedCategories, setExpandedCategories] = useState({})
   const [expandedReportCategories, setExpandedReportCategories] = useState({})
+  const [expandedSetupCategories, setExpandedSetupCategories] = useState({})
   const [searchQuery, setSearchQuery] = useState('')
   const [reportsSearchQuery, setReportsSearchQuery] = useState('')
+  const [setupSearchQuery, setSetupSearchQuery] = useState('')
   const menuRef = useRef(null)
   const checkInMenuRef = useRef(null)
   const sendMenuRef = useRef(null)
   const profileMenuRef = useRef(null)
   const clientMenuRef = useRef(null)
   const reportsMenuRef = useRef(null)
+  const setupMenuRef = useRef(null)
 
   // Reports categories data
   const reportsCategories = [
@@ -141,31 +145,8 @@ export default function Layout() {
       icon: Users,
       expandable: true,
       subItems: [
-        { name: 'Renewal Vs Attrition', path: '/reports/client-management/renewal-vs-attrition' },
-        { name: 'Upgrade Report', path: '/reports/client-management/upgrade' },
-        { name: 'Member Check-Ins', path: '/reports/client-management/member-checkins' },
-        { name: 'MultiClub Member Check-Ins', path: '/reports/client-management/multiclub-member-checkins' },
-        { name: 'Member Attendance Register', path: '/reports/client-management/member-attendance-register' },
-        { name: 'New Clients', path: '/reports/client-management/new-clients' },
-        { name: 'Renewals', path: '/reports/client-management/renewals' },
-        { name: 'Membership Report', path: '/reports/client-management/membership' },
-        { name: 'Membership Expiry', path: '/reports/client-management/membership-expiry' },
-        { name: 'Irregular Members', path: '/reports/client-management/irregular-members' },
-        { name: 'Active Members Report', path: '/reports/client-management/active-members' },
-        { name: 'Inactive Members Report', path: '/reports/client-management/inactive-members' },
-        { name: 'Multiclub Clients', path: '/reports/client-management/multiclub-clients' },
-        { name: 'Archived Clients', path: '/reports/client-management/archived-clients' },
-        { name: 'Freeze & Date Change', path: '/reports/client-management/freeze-and-date-change' },
-        { name: 'Suspensions', path: '/reports/client-management/suspensions' },
-        { name: 'Attendance Heat Map', path: '/reports/client-management/attendance-heat-map' },
-        { name: 'Service Transfer Report', path: '/reports/client-management/service-transfer' },
-        { name: 'Client Birthday & Anniversary', path: '/reports/client-management/birthday' },
-        { name: 'Client Attendance', path: '/reports/client-management/client-attendance' },
-        { name: 'Membership Retention', path: '/reports/client-management/membership-retention' },
-        { name: 'Cancellation Report', path: '/reports/client-management/cancellation' },
-        { name: 'Profile Change Report', path: '/reports/client-management/profile-change' },
-        { name: 'One-Time Purchasers', path: '/reports/client-management/one-time-purchaser' },
-        { name: 'Average Lifetime Value', path: '/reports/client-management/average-lifetime-value' }
+        { name: 'Upgrade & Cross-Sell', path: '/reports/client-management/upgrade' },
+        { name: 'Transfer & Extension', path: '/reports/client-management/service-transfer' }
       ]
     },
     {
@@ -176,14 +157,7 @@ export default function Layout() {
         { name: 'Staff Check-Ins', path: '/reports/staff/check-ins' },
         { name: 'Staff Leave', path: '/reports/staff/leave' },
         { name: 'Attendance Register', path: '/reports/staff/attendance-register' },
-        { name: 'Class & Session Utilisation', path: '/reports/staff/class-session-utilisation' },
-        { name: 'Trial Utilisation', path: '/reports/staff/trial-utilisation' },
-        { name: 'Class Usage Report', path: '/reports/staff/class-usage' },
-        { name: 'Class No Show Report', path: '/reports/staff/class-no-show' },
-        { name: 'View Staff Substitution', path: '/reports/staff/substitution' },
-        { name: 'Staff Birthday & Anniversary', path: '/reports/staff/birthday-anniversary' },
-        { name: 'Data Hygiene Report', path: '/reports/staff/data-hygiene' },
-        { name: 'Staff Wise Collection Report', path: '/reports/staff/collection' },
+        { name: 'Staff Birthday Report', path: '/reports/staff/birthday' },
         { name: 'Call Log Report', path: '/reports/staff/call-log' }
       ]
     },
@@ -192,7 +166,7 @@ export default function Layout() {
       icon: Receipt,
       expandable: true,
       subItems: [
-        { name: 'Expenses (2 reports)', path: '/reports?category=expense&type=expenses' }
+        { name: 'Expense Summary', path: '/reports/expense/summary' }
       ]
     }
   ]
@@ -308,6 +282,33 @@ export default function Layout() {
     })
   }
 
+  const toggleSetupCategory = (categoryId) => {
+    setExpandedSetupCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }))
+  }
+
+  const handleSetupItemAction = (section, item) => {
+    if (item.comingSoon) return
+
+    if (item.path) {
+      navigate(item.path)
+    } else if (typeof item.onClick === 'function') {
+      item.onClick(navigate)
+    } else {
+      navigate('/setup', {
+        state: {
+          sectionId: section.id,
+          itemId: item.id
+        }
+      })
+    }
+
+    setShowSetupMenu(false)
+    setExpandedSetupCategories({})
+  }
+
   const filteredSegments = clientSegments.filter(segment => {
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
@@ -320,6 +321,14 @@ export default function Layout() {
     const query = reportsSearchQuery.toLowerCase()
     return category.name.toLowerCase().includes(query) ||
            (category.subItems && category.subItems.some(item => item.name.toLowerCase().includes(query)))
+  })
+
+  const filteredSetupSections = setupSections.filter(section => {
+    if (!setupSearchQuery) return true
+    const query = setupSearchQuery.toLowerCase()
+    const matchesSection = section.title.toLowerCase().includes(query)
+    const matchesItem = section.items.some(item => item.title.toLowerCase().includes(query))
+    return matchesSection || matchesItem
   })
 
   // Close dropdowns when clicking outside
@@ -343,16 +352,19 @@ export default function Layout() {
       if (reportsMenuRef.current && !reportsMenuRef.current.contains(event.target)) {
         setShowReportsMenu(false)
       }
+      if (setupMenuRef.current && !setupMenuRef.current.contains(event.target)) {
+        setShowSetupMenu(false)
+      }
     }
 
-    if (showAddMenu || showCheckInMenu || showSendMenu || showProfileMenu || showClientMenu || showReportsMenu) {
+    if (showAddMenu || showCheckInMenu || showSendMenu || showProfileMenu || showClientMenu || showReportsMenu || showSetupMenu) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showAddMenu, showCheckInMenu, showSendMenu, showProfileMenu, showClientMenu, showReportsMenu])
+  }, [showAddMenu, showCheckInMenu, showSendMenu, showProfileMenu, showClientMenu, showReportsMenu, showSetupMenu])
 
   const addMenuOptions = [
     { name: 'Enquiry', icon: HelpCircle, path: '/enquiries', action: 'create' },
@@ -418,6 +430,7 @@ export default function Layout() {
               const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
               const isClientItem = item.name === 'Client'
               const isReportsItem = item.name === 'Reports'
+              const isSetupItem = item.name === 'Setup'
               
               if (isClientItem && !isSidebarCollapsed) {
                 return (
@@ -426,6 +439,12 @@ export default function Layout() {
                       onClick={() => {
                         setShowClientMenu(!showClientMenu)
                         setSearchQuery('')
+                        setShowReportsMenu(false)
+                        setShowSetupMenu(false)
+                        setShowAddMenu(false)
+                        setShowCheckInMenu(false)
+                        setShowSendMenu(false)
+                        setShowProfileMenu(false)
                       }}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                         isActive
@@ -528,6 +547,12 @@ export default function Layout() {
                       onClick={() => {
                         setShowReportsMenu(!showReportsMenu)
                         setReportsSearchQuery('')
+                        setShowClientMenu(false)
+                        setShowSetupMenu(false)
+                        setShowAddMenu(false)
+                        setShowCheckInMenu(false)
+                        setShowSendMenu(false)
+                        setShowProfileMenu(false)
                       }}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                         isActive
@@ -622,6 +647,104 @@ export default function Layout() {
                   </div>
                 )
               }
+
+              if (isSetupItem && !isSidebarCollapsed) {
+                return (
+                  <div key={item.name} className="relative" ref={setupMenuRef}>
+                    <button
+                      onClick={() => {
+                        setShowSetupMenu(!showSetupMenu)
+                        setSetupSearchQuery('')
+                        setShowClientMenu(false)
+                        setShowReportsMenu(false)
+                        setShowAddMenu(false)
+                        setShowCheckInMenu(false)
+                        setShowSendMenu(false)
+                        setShowProfileMenu(false)
+                      }}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                        isActive
+                          ? 'bg-orange-100 text-orange-700 font-medium'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <Icon className="w-5 h-5 mr-3" />
+                        {item.name}
+                      </div>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    {showSetupMenu && (
+                      <div className="fixed left-64 top-0 ml-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col" style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
+                        <div className="p-4 border-b border-gray-200 flex-shrink-0 bg-white sticky top-0 z-10">
+                          <h3 className="text-lg font-bold text-gray-900 mb-3">Setup</h3>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Search"
+                              value={setupSearchQuery}
+                              onChange={(e) => setSetupSearchQuery(e.target.value)}
+                              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto bg-white" style={{ minHeight: 0 }}>
+                          {filteredSetupSections.length === 0 ? (
+                            <div className="p-6 text-center text-sm text-gray-500">
+                              No setup categories match “{setupSearchQuery.trim()}”.
+                            </div>
+                          ) : (
+                            filteredSetupSections.map((section) => {
+                              const SectionIcon = section.icon
+                              const isExpanded = !!expandedSetupCategories[section.id]
+
+                              return (
+                                <div key={section.id} className="border-b border-gray-100">
+                                  <button
+                                    onClick={() => toggleSetupCategory(section.id)}
+                                    className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                  >
+                                    <div className="flex items-center text-left">
+                                      {SectionIcon && <SectionIcon className="w-4 h-4 mr-3 text-gray-500" />}
+                                      <span className="font-medium text-gray-800">{section.title}</span>
+                                    </div>
+                                    <ChevronDown
+                                      className={`w-4 h-4 text-gray-400 transition-transform ${
+                                        isExpanded ? 'transform rotate-180' : ''
+                                      }`}
+                                    />
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="bg-gray-50">
+                                      {section.items.map((itemOption) => (
+                                        <button
+                                          key={itemOption.id}
+                                          onClick={() => handleSetupItemAction(section, itemOption)}
+                                          disabled={itemOption.comingSoon}
+                                          className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                                            itemOption.comingSoon
+                                              ? 'text-gray-400 cursor-not-allowed'
+                                              : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
+                                          }`}
+                                        >
+                                          <span className="font-medium text-left">{itemOption.title}</span>
+                                          <ChevronRight className={`h-4 w-4 ${itemOption.comingSoon ? 'text-gray-300' : 'text-orange-400'}`} />
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              }
               
               return (
                 <Link
@@ -686,6 +809,9 @@ export default function Layout() {
                     setShowCheckInMenu(false)
                     setShowSendMenu(false)
                     setShowProfileMenu(false)
+                    setShowClientMenu(false)
+                    setShowReportsMenu(false)
+                    setShowSetupMenu(false)
                   }}
                   className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all backdrop-blur-sm border border-white/20"
                 >
@@ -723,6 +849,9 @@ export default function Layout() {
                     setShowAddMenu(false)
                     setShowSendMenu(false)
                     setShowProfileMenu(false)
+                    setShowClientMenu(false)
+                    setShowReportsMenu(false)
+                    setShowSetupMenu(false)
                   }}
                   className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all backdrop-blur-sm border border-white/20"
                 >
@@ -767,6 +896,9 @@ export default function Layout() {
                     setShowAddMenu(false)
                     setShowCheckInMenu(false)
                     setShowProfileMenu(false)
+                    setShowClientMenu(false)
+                    setShowReportsMenu(false)
+                    setShowSetupMenu(false)
                   }}
                   className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all backdrop-blur-sm border border-white/20"
                 >
@@ -827,6 +959,9 @@ export default function Layout() {
                     setShowAddMenu(false)
                     setShowCheckInMenu(false)
                     setShowSendMenu(false)
+                    setShowClientMenu(false)
+                    setShowReportsMenu(false)
+                    setShowSetupMenu(false)
                   }}
                   className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center cursor-pointer hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg border-2 border-white/20"
                 >

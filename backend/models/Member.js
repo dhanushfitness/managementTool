@@ -155,6 +155,16 @@ const memberSchema = new mongoose.Schema({
     },
     createdAt: Date
   }],
+  extensionHistory: [{
+    fromDate: Date,
+    extensionDays: Number,
+    reason: String,
+    extendedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    extendedAt: { type: Date, default: Date.now }
+  }],
   attendanceStats: {
     totalCheckIns: { type: Number, default: 0 },
     lastCheckIn: Date,

@@ -86,6 +86,26 @@ const branchSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  clientManagementSettings: {
+    upgrade: {
+      upgradeDeadlineDays: { type: Number, default: 30 },
+      enableTransferFee: { type: Boolean, default: false },
+      enableFreezeFee: { type: Boolean, default: false },
+      autoSelectAssetsOnTransfer: { type: Boolean, default: false }
+    },
+    crossSell: {
+      sameCategoryAsCrossSell: { type: Boolean, default: false }
+    },
+    extension: {
+      lastRunAt: Date,
+      lastRunBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      lastFromDate: Date,
+      lastExtensionDays: Number,
+      lastReason: String,
+      processedCount: { type: Number, default: 0 },
+      skippedCount: { type: Number, default: 0 }
+    }
+  },
   operatingHours: {
     monday: { 
       open: String, 
