@@ -21,7 +21,81 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { email, password, phone, firstName, lastName, organizationName, branchName } = req.body;
+    const {
+      email,
+      password,
+      phone,
+      firstName,
+      lastName,
+      organizationName,
+      branchName,
+      organizationPhone,
+      organizationEmail,
+      addressStreet,
+      addressCity,
+      addressState,
+      addressZip,
+      addressCountry,
+      gstNumber,
+      taxRate,
+      taxInclusive,
+      currency,
+      timezone
+    } = req.body;
+
+    const normalizedTaxRate = taxRate !== undefined && taxRate !== '' ? parseFloat(taxRate) : undefined;
+    const normalizedTaxInclusive = typeof taxInclusive === 'string'
+      ? taxInclusive.toLowerCase() === 'true'
+      : typeof taxInclusive === 'boolean'
+        ? taxInclusive
+        : undefined;
+
+    const address = {
+      street: addressStreet || '',
+      city: addressCity || '',
+      state: addressState || '',
+      zipCode: addressZip || '',
+      country: addressCountry || ''
+    };
+
+    const hasAddress = Object.values(address).some(value => Boolean(value));
+
+    const taxSettings = {};
+    if (gstNumber) taxSettings.gstNumber = gstNumber;
+    if (normalizedTaxRate !== undefined && !Number.isNaN(normalizedTaxRate)) {
+      taxSettings.taxRate = normalizedTaxRate;
+    }
+    if (typeof normalizedTaxInclusive === 'boolean') taxSettings.taxInclusive = normalizedTaxInclusive;
+
+    const organizationData = {
+      name: organizationName,
+      email: (organizationEmail || email || '').trim(),
+      phone: (organizationPhone || phone || '').trim(),
+      createdBy: null
+    };
+
+    if (hasAddress) {
+      organizationData.address = {
+        ...address,
+        country: address.country || 'India'
+      };
+    }
+
+    if (currency) {
+      organizationData.currency = currency;
+    }
+
+    if (timezone) {
+      organizationData.timezone = timezone;
+    }
+
+    if (Object.keys(taxSettings).length > 0) {
+      organizationData.taxSettings = { ...taxSettings };
+    }
+
+    if (req.file) {
+      organizationData.logo = `/uploads/organizations/${req.file.filename}`;
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -30,18 +104,34 @@ export const register = async (req, res) => {
     }
 
     // Create organization
-    const organization = await Organization.create({
-      name: organizationName,
-      email,
-      phone,
-      createdBy: null // Will update after user creation
-    });
+    const organization = await Organization.create(organizationData);
 
-    // Create default branch
+    const branchAddress = {
+      street: addressStreet || '',
+      city: addressCity || '',
+      state: addressState || '',
+      zipCode: addressZip || '',
+      country: addressCountry || 'India',
+      fullAddress: [addressStreet, addressCity, addressState, addressZip, addressCountry]
+        .filter(Boolean)
+        .join(', ')
+    };
+
     const branch = await Branch.create({
       organizationId: organization._id,
       name: branchName || 'Main Branch',
-      code: 'MAIN'
+      code: 'MAIN',
+      brandName: organizationName,
+      businessType: 'fitness',
+      locality: addressStreet || 'Primary Location',
+      city: addressCity || 'Unknown City',
+      state: addressState || 'Unknown State',
+      country: addressCountry || 'India',
+      currency: currency || 'INR',
+      timezone: timezone || 'Asia/Kolkata',
+      phone: organizationPhone || phone,
+      email: organizationEmail || email,
+      address: branchAddress
     });
 
     // Create user (owner)
