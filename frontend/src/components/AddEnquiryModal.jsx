@@ -3,6 +3,7 @@ import { X, Calendar } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import DateInput from './DateInput'
 
 export default function AddEnquiryModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('personal')
@@ -281,17 +282,13 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Enquiry Date <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        name="enquiryDate"
-                        value={formData.enquiryDate}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                      />
-                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-                    </div>
+                  <DateInput
+                    name="enquiryDate"
+                    value={formData.enquiryDate}
+                    onChange={handleChange}
+                    required
+                    className="px-4 py-3"
+                  />
                   </div>
 
                   <div>
@@ -366,15 +363,12 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Date & Time
                       </label>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          name="followUpDate"
-                          value={formData.followUpDate}
-                          onChange={handleChange}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                        />
-                      </div>
+                      <DateInput
+                        name="followUpDate"
+                        value={formData.followUpDate}
+                        onChange={handleChange}
+                        className="px-4 py-3"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">

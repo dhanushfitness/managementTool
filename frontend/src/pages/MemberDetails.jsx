@@ -5,6 +5,8 @@ import { getMember, updateMember, getMemberInvoices, getMemberInvoicesWithPaymen
 import api from '../api/axios'
 import LoadingPage from '../components/LoadingPage'
 import AttendanceTab from '../components/AttendanceTab'
+import DateInput from '../components/DateInput'
+import Breadcrumbs from '../components/Breadcrumbs'
 import toast from 'react-hot-toast'
 import {
   User,
@@ -263,13 +265,13 @@ export default function MemberDetails() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <nav className="text-sm">
-        <Link to="/clients" className="text-gray-600 hover:text-orange-600">Home</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <Link to="/clients" className="text-gray-600 hover:text-orange-600">Clients</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <span className="text-orange-600 font-medium">Profile - {member.firstName?.toUpperCase()} {member.lastName?.toUpperCase()}</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: 'Home', to: '/' },
+          { label: 'Clients', to: '/clients' },
+          { label: `Profile - ${member.firstName?.toUpperCase()} ${member.lastName?.toUpperCase()}`.trim() }
+        ]}
+      />
 
       {/* Main Tabs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -497,16 +499,11 @@ export default function MemberDetails() {
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                           Date of Birth
                         </label>
-                        <div className="relative">
-                          <input
-                            type="date"
-                            value={formData.dateOfBirth}
-                            onChange={(e) => handleChange('dateOfBirth', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
-                          />
-                          <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                        </div>
+                        <DateInput
+                          value={formData.dateOfBirth}
+                          onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                          disabled={!isEditing}
+                        />
                       </div>
 
                       <div>
@@ -2058,28 +2055,20 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
 
                 <div className="flex items-center space-x-2">
                   <label className="text-sm text-gray-600">From:</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
+                  <DateInput
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    containerClassName="w-[170px]"
+                  />
                 </div>
 
                 <div className="flex items-center space-x-2">
                   <label className="text-sm text-gray-600">To:</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
+                  <DateInput
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    containerClassName="w-[170px]"
+                  />
                 </div>
 
                 <button
@@ -2744,11 +2733,10 @@ function TermsConditionsTab({ member }) {
             Agreement Date
           </label>
           {isEditing ? (
-            <input
-              type="date"
+            <DateInput
               value={formData.agreementDate}
               onChange={(e) => handleChange('agreementDate', e.target.value)}
-              className="w-full max-w-md px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              containerClassName="max-w-md"
             />
           ) : (
             <p className="text-gray-900">

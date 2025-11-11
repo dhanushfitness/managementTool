@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Calendar } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getSMSReport } from '../api/reports'
+import DateInput from '../components/DateInput'
 
 export default function SMSReport() {
   const [fromDate, setFromDate] = useState(() => {
@@ -220,33 +221,23 @@ export default function SMSReport() {
           {/* From Date */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700 whitespace-nowrap">From</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 min-w-[140px]"
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Calendar className="w-4 h-4 text-gray-400" />
-              </div>
-            </div>
+          <DateInput
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            containerClassName="min-w-[140px]"
+            className="pr-10"
+          />
           </div>
 
           {/* To Date */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700 whitespace-nowrap">To</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 min-w-[140px]"
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Calendar className="w-4 h-4 text-gray-400" />
-              </div>
-            </div>
+          <DateInput
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            containerClassName="min-w-[140px]"
+            className="pr-10"
+          />
           </div>
 
           {/* Go Button */}

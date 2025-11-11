@@ -5,6 +5,7 @@ import LoadingPage from '../components/LoadingPage'
 import { getBusinessMISReport, exportBusinessMISReport } from '../api/reports'
 import { getBranches } from '../api/organization'
 import api from '../api/axios'
+import DateInput from '../components/DateInput'
 
 export default function BusinessMISReport() {
   const [fromDate, setFromDate] = useState(() => {
@@ -254,33 +255,21 @@ export default function BusinessMISReport() {
           {/* From Date */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700 whitespace-nowrap min-w-[60px]">From</label>
-            <div className="relative flex-1">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700"
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Calendar className="w-4 h-4 text-gray-400" />
-              </div>
-            </div>
+            <DateInput
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="pr-10"
+            />
           </div>
 
           {/* To Date */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700 whitespace-nowrap min-w-[60px]">To</label>
-            <div className="relative flex-1">
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700"
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Calendar className="w-4 h-4 text-gray-400" />
-              </div>
-            </div>
+            <DateInput
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="pr-10"
+            />
           </div>
 
           {/* Studio Type */}

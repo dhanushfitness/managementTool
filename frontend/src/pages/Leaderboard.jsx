@@ -5,6 +5,8 @@ import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
 import { Download, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
+import LoadingTable from '../components/LoadingTable';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 const months = [
   { value: 1, label: 'Jan' },
@@ -107,10 +109,7 @@ export default function Leaderboard() {
     <div className="space-y-6">
       {/* Breadcrumbs and Navigation */}
       <div className="flex items-center justify-between">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home / Dashboard / </span>
-          <span className="text-orange-600 font-medium">Leaderboards</span>
-        </nav>
+        <Breadcrumbs />
         <div className="flex border-b border-gray-200 bg-white rounded-lg shadow-sm">
           <button
             onClick={() => navigate('/')}

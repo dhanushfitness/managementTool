@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Download, ChevronDown } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getPaidInvoices, exportPaidInvoices } from '../api/invoices'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function PaidInvoicesReport() {
   const navigate = useNavigate()
@@ -110,15 +111,7 @@ export default function PaidInvoicesReport() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <nav className="text-sm">
-        <Link to="/dashboard" className="text-gray-600 hover:text-orange-600">Home</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <Link to="/reports" className="text-gray-600 hover:text-orange-600">Reports</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <Link to="/reports" className="text-gray-600 hover:text-orange-600">Finance</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <span className="text-orange-600 font-medium">Paid Invoices</span>
-      </nav>
+      <Breadcrumbs />
 
       {/* Page Title */}
       <h1 className="text-3xl font-bold text-gray-900 text-center">Paid Invoices</h1>

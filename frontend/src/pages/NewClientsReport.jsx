@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download, Calendar, ChevronDown } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getNewClientsReport, exportNewClientsReport } from '../api/reports'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import DateInput from '../components/DateInput'
 
 export default function NewClientsReport() {
   const getDefaultFromDate = () => {
@@ -60,6 +61,12 @@ export default function NewClientsReport() {
     setPage(1)
     refetch()
   }
+
+  useEffect(() => {
+    if (!hasSearched) {
+      setHasSearched(true)
+    }
+  }, [hasSearched])
 
   const handleExportExcel = async () => {
     try {
@@ -119,20 +126,18 @@ export default function NewClientsReport() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
-            <input
-              type="date"
+            <DateInput
               value={filters.fromDate}
               onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-              className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              containerClassName="w-40"
             />
           </div>
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
-            <input
-              type="date"
+            <DateInput
               value={filters.toDate}
               onChange={(e) => handleFilterChange('toDate', e.target.value)}
-              className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              containerClassName="w-40"
             />
           </div>
           <div>
@@ -263,7 +268,7 @@ export default function NewClientsReport() {
         </div>
       )}
 
-      {!hasSearched && (
+      {!hasSearched && !isLoading && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-500">
           Please select date range and click "Go" to view the report
         </div>

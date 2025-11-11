@@ -1,11 +1,24 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useEffect, useMemo, useState, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
-import { Calendar, Download, ChevronDown, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Download,
+  ChevronDown,
+  Info,
+  PhoneCall as PhoneCallIcon,
+  CreditCard as CreditCardIcon,
+  Wallet,
+  FileText
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingTable from '../components/LoadingTable';
+import Breadcrumbs from '../components/Breadcrumbs';
+import DateInput from '../components/DateInput';
+import CallLogModal from '../components/CallLogModal';
+import AddInvoiceModal from '../components/AddInvoiceModal';
 
 export default function Taskboard() {
   const navigate = useNavigate();
@@ -17,15 +30,15 @@ export default function Taskboard() {
   const [selectedStaff, setSelectedStaff] = useState('all');
   const [selectedCallType, setSelectedCallType] = useState('all');
   const [selectedCallStatus, setSelectedCallStatus] = useState('all');
+  const [callLogModalState, setCallLogModalState] = useState({ open: false, enquiryId: null });
+  const [invoiceModalState, setInvoiceModalState] = useState({ open: false, member: null });
 
   // Set default dates to today or use date from navigation state
   useEffect(() => {
-    // Check if date was passed via navigation state
     const stateDate = location.state?.date;
     if (stateDate) {
       setFromDate(stateDate);
       setToDate(stateDate);
-      // Clear the state to prevent using stale date on re-renders
       window.history.replaceState({}, document.title);
     } else {
       const today = new Date();
@@ -34,50 +47,6 @@ export default function Taskboard() {
       setToDate(dateStr);
     }
   }, [location.state]);
-
-  // Function to navigate to previous day
-  const handlePreviousDay = () => {
-    if (fromDate) {
-      const currentDate = new Date(fromDate);
-      currentDate.setDate(currentDate.getDate() - 1);
-      const newDateStr = currentDate.toISOString().split('T')[0];
-      setFromDate(newDateStr);
-      setToDate(newDateStr);
-    }
-  };
-
-  // Function to navigate to next day
-  const handleNextDay = () => {
-    if (fromDate) {
-      const currentDate = new Date(fromDate);
-      currentDate.setDate(currentDate.getDate() + 1);
-      const newDateStr = currentDate.toISOString().split('T')[0];
-      setFromDate(newDateStr);
-      setToDate(newDateStr);
-    }
-  };
-
-  // Format date for display
-  const formatDisplayDate = (dateStr) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    // Check if it's today, tomorrow, or yesterday
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === tomorrow.toDateString()) {
-      return 'Tomorrow';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    }
-  };
 
   // Fetch staff list
   const { data: staffData } = useQuery({
@@ -89,32 +58,50 @@ export default function Taskboard() {
   // Fetch taskboard stats
   const { data: statsData, refetch: refetchStats } = useQuery({
     queryKey: ['taskboard-stats', fromDate, toDate, selectedStaff, selectedCallType],
-    queryFn: () =>
-      api.get('/followups/taskboard/stats', {
-        params: {
-          fromDate,
-          toDate,
-          staffId: selectedStaff,
-          callType: selectedCallType
-        }
-      }).then(res => res.data),
+    queryFn: () => {
+      const params = {
+        fromDate,
+        toDate,
+      };
+
+      if (selectedStaff && selectedStaff !== 'all') {
+        params.staffId = selectedStaff;
+      }
+      if (selectedCallType && selectedCallType !== 'all') {
+        params.callType = selectedCallType;
+      }
+
+      return api
+        .get('/followups/taskboard/stats', { params })
+        .then(res => res.data);
+    },
     enabled: !!token && !!fromDate && !!toDate
   });
 
   // Fetch taskboard data
   const { data: taskboardData, isLoading, refetch: refetchTaskboard } = useQuery({
     queryKey: ['taskboard', fromDate, toDate, selectedStaff, selectedCallType, selectedCallStatus, activeTab],
-    queryFn: () =>
-      api.get('/followups/taskboard', {
-        params: {
-          fromDate,
-          toDate,
-          staffId: selectedStaff,
-          callType: selectedCallType,
-          callStatus: selectedCallStatus,
-          tab: activeTab
-        }
-      }).then(res => res.data),
+    queryFn: () => {
+      const params = {
+        fromDate,
+        toDate,
+        tab: activeTab
+      };
+
+      if (selectedStaff && selectedStaff !== 'all') {
+        params.staffId = selectedStaff;
+      }
+      if (selectedCallType && selectedCallType !== 'all') {
+        params.callType = selectedCallType;
+      }
+      if (selectedCallStatus && selectedCallStatus !== 'all') {
+        params.callStatus = selectedCallStatus;
+      }
+
+      return api
+        .get('/followups/taskboard', { params })
+        .then(res => res.data);
+    },
     enabled: !!token && !!fromDate && !!toDate
   });
 
@@ -147,14 +134,23 @@ export default function Taskboard() {
 
   const handleExportExcel = async () => {
     try {
+      const params = {
+        fromDate,
+        toDate
+      };
+
+      if (selectedStaff && selectedStaff !== 'all') {
+        params.staffId = selectedStaff;
+      }
+      if (selectedCallType && selectedCallType !== 'all') {
+        params.callType = selectedCallType;
+      }
+      if (selectedCallStatus && selectedCallStatus !== 'all') {
+        params.callStatus = selectedCallStatus;
+      }
+
       const response = await api.get('/followups/taskboard/export', {
-        params: {
-          fromDate,
-          toDate,
-          staffId: selectedStaff,
-          callType: selectedCallType,
-          callStatus: selectedCallStatus
-        },
+        params,
         responseType: 'blob'
       });
 
@@ -173,8 +169,67 @@ export default function Taskboard() {
     }
   };
 
-  const handleStatusChange = (followUpId, newStatus) => {
-    updateStatusMutation.mutate({ followUpId, callStatus: newStatus });
+  const handleUpdateCallAction = (followUp) => {
+    if (followUp.entityType !== 'enquiry' && !followUp.isEnquiry) {
+      toast.error('Update call is available only for enquiries.');
+      return;
+    }
+    if (!followUp.entityId) {
+      toast.error('Enquiry details are not available for this follow-up.');
+      return;
+    }
+    setCallLogModalState({ open: true, enquiryId: followUp.entityId });
+  };
+
+  const handleServiceCardAction = (followUp) => {
+    if (followUp.entityType !== 'member') {
+      toast.error('Service card is available only for members.');
+      return;
+    }
+    navigate(`/clients/${followUp.entityId}?tab=service-card`);
+  };
+
+  const handlePaymentsAction = (followUp) => {
+    if (followUp.entityType !== 'member') {
+      toast.error('Payments are available only for members.');
+      return;
+    }
+    navigate(`/clients/${followUp.entityId}?tab=payments`);
+  };
+
+  const handleNewInvoiceAction = (followUp) => {
+    if (followUp.entityType !== 'member') {
+      toast.error('Invoices can be created only for members.');
+      return;
+    }
+    if (!followUp.entityId) {
+      toast.error('Member details are not available for this follow-up.');
+      return;
+    }
+    setInvoiceModalState({
+      open: true,
+      member: {
+        id: followUp.entityId,
+        name: followUp.memberName,
+        phone: followUp.memberMobile
+      }
+    });
+  };
+
+  const handleCloseCallLogModal = (shouldRefresh = false) => {
+    setCallLogModalState({ open: false, enquiryId: null });
+    if (shouldRefresh) {
+      refetchTaskboard();
+      refetchStats();
+    }
+  };
+
+  const handleCloseInvoiceModal = (shouldRefresh = false) => {
+    setInvoiceModalState({ open: false, member: null });
+    if (shouldRefresh) {
+      refetchTaskboard();
+      refetchStats();
+    }
   };
 
   const formatCallType = (type) => {
@@ -191,14 +246,60 @@ export default function Taskboard() {
   const stats = statsData?.stats || {};
   const followUps = taskboardData?.followUps || [];
 
+  const groupedFollowUps = useMemo(() => {
+    if (!followUps || followUps.length === 0) return [];
+
+    const groupsMap = followUps.reduce((acc, followUp) => {
+      let timeValue = null;
+
+      if (followUp.effectiveScheduledTime) {
+        const date = new Date(followUp.effectiveScheduledTime);
+        timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+      } else if (followUp.scheduledTime) {
+        const date = new Date(followUp.scheduledTime);
+        timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+      } else if (followUp.dueDate) {
+        const date = new Date(followUp.dueDate);
+        timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+      }
+
+      const key =
+        followUp.dateLabel ||
+        (timeValue !== null
+          ? new Date(timeValue).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : 'No Scheduled Date');
+
+      if (!acc[key]) {
+        acc[key] = {
+          key,
+          sortValue: timeValue ?? Number.MAX_SAFE_INTEGER,
+          label: key,
+          items: []
+        };
+      }
+
+      acc[key].items.push({
+        ...followUp,
+        effectiveScheduledTime: timeValue
+      });
+
+      return acc;
+    }, {});
+
+    return Object.keys(groupsMap)
+      .map(key => groupsMap[key])
+      .map(group => ({
+        ...group,
+        items: group.items.sort((a, b) => (a.effectiveScheduledTime ?? Number.MAX_SAFE_INTEGER) - (b.effectiveScheduledTime ?? Number.MAX_SAFE_INTEGER))
+      }))
+      .sort((a, b) => a.sortValue - b.sortValue);
+  }, [followUps]);
+
   return (
     <div className="space-y-6">
       {/* Breadcrumbs and Navigation */}
       <div className="flex items-center justify-between">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home / Dashboard / </span>
-          <span className="text-orange-600 font-medium">Follow-ups</span>
-        </nav>
+        <Breadcrumbs />
         <div className="flex border-b border-gray-200 bg-white rounded-lg shadow-sm">
           <button
             onClick={() => navigate('/')}
@@ -226,65 +327,28 @@ export default function Taskboard() {
       {/* Filter Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="flex flex-wrap items-center gap-4">
-          {/* Date Navigation with Arrows */}
-          <div className="flex items-center space-x-3 bg-gray-50 rounded-lg px-4 py-2.5 border border-gray-200">
-            <button
-              onClick={handlePreviousDay}
-              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-              title="Previous day"
-              disabled={!fromDate}
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <div className="flex flex-col items-center min-w-[140px]">
-              <span className="text-xs text-gray-500 font-medium">Date</span>
-              <span className="text-sm font-semibold text-gray-900">
-                {formatDisplayDate(fromDate)}
-              </span>
-              <span className="text-xs text-gray-500">{fromDate || 'Select date'}</span>
-            </div>
-            <button
-              onClick={handleNextDay}
-              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
-              title="Next day"
-              disabled={!fromDate}
-            >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-
           {/* Date From */}
           <div className="flex items-center space-x-2">
             <label className="text-sm font-medium text-gray-700">Date From:</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setToDate(e.target.value);
-                }}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            </div>
+            <DateInput
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+              }}
+              className="pl-10 pr-4"
+            />
           </div>
 
           {/* Date To */}
           <div className="flex items-center space-x-2">
             <label className="text-sm font-medium text-gray-700">To:</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
-                  setToDate(e.target.value);
-                }}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            </div>
+            <DateInput
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+              }}
+              className="pl-10 pr-4"
+            />
           </div>
 
           {/* Staff Dropdown */}
@@ -355,10 +419,18 @@ export default function Taskboard() {
       </div>
 
       {/* Summary/KPI Bar */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+          <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">OVERALL</p>
+          <p className="text-2xl font-bold text-black">
+            ({stats.total || 0}) {stats.total ? '100%' : '0%'}
+          </p>
+        </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
           <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">SCHEDULED</p>
-          <p className="text-2xl font-bold text-orange-600">({stats.scheduled?.count || 0})</p>
+          <p className="text-2xl font-bold text-orange-600">
+            ({stats.scheduled?.count || 0}) {stats.scheduled?.percent || 0}%
+          </p>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
           <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">ATTEMPTED</p>
@@ -436,116 +508,228 @@ export default function Taskboard() {
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <LoadingTable colSpan={9} message="Loading taskboard..." />
-              ) : followUps.length === 0 ? (
+              ) : groupedFollowUps.length === 0 ? (
                 <tr>
                   <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
                     No follow-ups found
                   </td>
                 </tr>
               ) : (
-                followUps.map((followUp) => (
-                  <tr key={followUp._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">{followUp.sNo}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{followUp.time}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{formatCallType(followUp.callType)}</td>
-                    <td className="px-4 py-3 text-sm text-red-600 font-medium">{followUp.memberName}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <div>
-                        <span className="text-red-600 font-medium">{followUp.memberMobile}</span>
-                        {followUp.memberMobileDate && (
-                          <div className="text-xs text-gray-500 mt-1">{followUp.memberMobileDate}</div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <StatusBadge status={followUp.callStatus} />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{followUp.staffName}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <button className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors">
-                        <Info className="w-3 h-3" />
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <ActionDropdown
-                        followUp={followUp}
-                        onStatusChange={handleStatusChange}
-                      />
-                    </td>
-                  </tr>
+                groupedFollowUps.map((group) => (
+                  <Fragment key={group.key}>
+                    <tr>
+                      <td
+                        colSpan="9"
+                        className="px-4 py-2 text-sm font-semibold text-orange-600 bg-orange-50 border-b border-orange-100 uppercase tracking-wide"
+                      >
+                        {group.label}
+                      </td>
+                    </tr>
+                    {group.items.map((followUp) => (
+                      <tr key={followUp._id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 text-sm text-gray-900">{followUp.sNo}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{followUp.time || followUp.timeLabel}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {formatCallType(followUp.callType)}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-semibold text-orange-600 uppercase">
+                          {followUp.memberName}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{followUp.memberMobile}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <StatusBadge status={followUp.callStatus} />
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{followUp.staffName}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <button className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors">
+                            <Info className="w-3 h-3" />
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <ActionDropdown
+                            followUp={followUp}
+                            onUpdateCall={handleUpdateCallAction}
+                            onServiceCard={handleServiceCardAction}
+                            onPayments={handlePaymentsAction}
+                            onNewInvoice={handleNewInvoiceAction}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {callLogModalState.open && (
+        <CallLogModal
+          isOpen={callLogModalState.open}
+          enquiryId={callLogModalState.enquiryId}
+          onClose={(shouldRefresh) => handleCloseCallLogModal(Boolean(shouldRefresh))}
+        />
+      )}
+
+      {invoiceModalState.open && (
+        <AddInvoiceModal
+          isOpen={invoiceModalState.open}
+          onClose={(shouldRefresh) => handleCloseInvoiceModal(Boolean(shouldRefresh))}
+          defaultMemberId={invoiceModalState.member?.id}
+          defaultMemberName={invoiceModalState.member?.name}
+          defaultMemberPhone={invoiceModalState.member?.phone}
+        />
+      )}
     </div>
   );
 }
 
 function StatusBadge({ status }) {
   const statusConfig = {
-    scheduled: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Scheduled' },
-    attempted: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Attempted' },
-    contacted: { bg: 'bg-green-100', text: 'text-green-800', label: 'Contacted' },
-    'not-contacted': { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Not Contacted' },
-    missed: { bg: 'bg-red-100', text: 'text-red-800', label: 'Missed' }
+    scheduled: {
+      bg: 'bg-orange-50',
+      text: 'text-orange-700',
+      border: 'border border-orange-200',
+      label: 'Scheduled'
+    },
+    attempted: {
+      bg: 'bg-blue-50',
+      text: 'text-blue-700',
+      border: 'border border-blue-200',
+      label: 'Attempted'
+    },
+    contacted: {
+      bg: 'bg-green-50',
+      text: 'text-green-700',
+      border: 'border border-green-200',
+      label: 'Contacted'
+    },
+    'not-contacted': {
+      bg: 'bg-gray-50',
+      text: 'text-gray-700',
+      border: 'border border-gray-200',
+      label: 'Not Contacted'
+    },
+    missed: {
+      bg: 'bg-red-50',
+      text: 'text-red-600',
+      border: 'border border-red-300',
+      label: 'Missed'
+    }
   };
 
   const config = statusConfig[status] || statusConfig.scheduled;
 
   return (
-    <span className={`px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+    <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-semibold ${config.bg} ${config.text} ${config.border}`}>
       {config.label}
     </span>
   );
 }
 
-function ActionDropdown({ followUp, onStatusChange }) {
+function ActionDropdown({
+  followUp,
+  onUpdateCall,
+  onServiceCard,
+  onPayments,
+  onNewInvoice
+}) {
   const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
-  const statusOptions = [
-    { value: 'scheduled', label: 'Mark as Scheduled' },
-    { value: 'attempted', label: 'Mark as Attempted' },
-    { value: 'contacted', label: 'Mark as Contacted' },
-    { value: 'not-contacted', label: 'Mark as Not Contacted' },
-    { value: 'missed', label: 'Mark as Missed' }
+  const quickActions = [
+    { label: 'Update Call', icon: PhoneCallIcon, handler: onUpdateCall },
+    { label: 'Service Card', icon: CreditCardIcon, handler: onServiceCard },
+    { label: 'Payments', icon: Wallet, handler: onPayments },
+    { label: 'New Invoice', icon: FileText, handler: onNewInvoice }
   ];
 
+  const closeMenu = () => setIsOpen(false);
+
+  const handleActionClick = (handler) => {
+    closeMenu();
+    if (typeof handler === 'function') {
+      handler(followUp);
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    const updatePosition = () => {
+      const triggerRect = triggerRef.current?.getBoundingClientRect();
+      const menuRect = menuRef.current?.getBoundingClientRect();
+      if (!triggerRect || !menuRect) return;
+
+      let top = triggerRect.bottom + 8;
+      if (top + menuRect.height > window.innerHeight - 16) {
+        top = triggerRect.top - menuRect.height - 8;
+        if (top < 16) {
+          top = Math.min(triggerRect.bottom + 8, window.innerHeight - menuRect.height - 16);
+        }
+      }
+
+      let left = triggerRect.right - menuRect.width;
+      if (left < 16) left = 16;
+      if (left + menuRect.width > window.innerWidth - 16) {
+        left = window.innerWidth - menuRect.width - 16;
+      }
+
+      setMenuPosition({ top, left });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen]);
+
   return (
-    <div className="relative">
+    <>
       <button
+        ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="px-4 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-1"
+        className="px-4 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
       >
-        <span>Select</span>
+        <span>Actions</span>
         <ChevronDown className="w-4 h-4" />
       </button>
-      {isOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-            <div className="py-1">
-              {statusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => {
-                    onStatusChange(followUp._id, option.value);
-                    setIsOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  {option.label}
-                </button>
-              ))}
+
+      {isOpen &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[80]" onClick={closeMenu} />
+            <div
+              ref={menuRef}
+              style={{ top: menuPosition.top, left: menuPosition.left }}
+              className="fixed z-[90] w-56 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden"
+            >
+              <div className="py-2 space-y-1">
+                {quickActions.map(({ label, icon: Icon, handler }) => (
+                  <button
+                    key={label}
+                    onClick={() => handleActionClick(handler)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                  >
+                    <span className="flex items-center space-x-3">
+                      <Icon className="w-4 h-4" />
+                      <span>{label}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>,
+          document.body
+        )}
+    </>
   );
 }
 

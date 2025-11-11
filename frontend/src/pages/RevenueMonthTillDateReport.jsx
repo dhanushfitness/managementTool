@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Calendar, Download } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getRevenueMonthTillDateReport, exportRevenueMonthTillDateReport } from '../api/reports'
+import DateInput from '../components/DateInput'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function RevenueMonthTillDateReport() {
   const currentDate = new Date()
@@ -118,15 +120,7 @@ export default function RevenueMonthTillDateReport() {
     <div className="space-y-6 max-w-full w-full overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
       {/* Breadcrumb Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full max-w-full overflow-hidden">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Sales</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Revenue - Month till date Report</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
       {/* Page Title */}
@@ -140,17 +134,11 @@ export default function RevenueMonthTillDateReport() {
           {/* Date Input */}
           <div className="relative flex-1 max-w-xs">
             <label className="block text-sm font-medium text-gray-700 mb-2">Till Date</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={convertToInputFormat(tillDate)}
-                onChange={handleDateChange}
-                className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700"
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none top-8">
-                <Calendar className="w-4 h-4 text-gray-400" />
-              </div>
-            </div>
+            <DateInput
+              value={convertToInputFormat(tillDate)}
+              onChange={handleDateChange}
+              className="pr-10"
+            />
           </div>
 
           {/* Action Buttons */}

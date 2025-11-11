@@ -5,6 +5,7 @@ import LoadingPage from '../components/LoadingPage'
 import { getClientAttendanceReport, exportClientAttendanceReport } from '../api/reports'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import DateInput from '../components/DateInput'
 
 export default function ClientAttendanceReport() {
   const getDefaultFromDate = () => {
@@ -118,20 +119,18 @@ export default function ClientAttendanceReport() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
-            <input
-              type="date"
+            <DateInput
               value={filters.fromDate}
               onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-              className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              containerClassName="w-40"
             />
           </div>
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
-            <input
-              type="date"
+            <DateInput
               value={filters.toDate}
               onChange={(e) => handleFilterChange('toDate', e.target.value)}
-              className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              containerClassName="w-40"
             />
           </div>
           <div>

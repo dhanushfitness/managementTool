@@ -6,6 +6,7 @@ import LoadingPage from '../components/LoadingPage'
 import { getDiscountReport, exportDiscountReport } from '../api/reports'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function DiscountReport() {
   const [filters, setFilters] = useState({
@@ -111,15 +112,7 @@ export default function DiscountReport() {
     <div className="space-y-6 max-w-full w-full overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
       {/* Breadcrumb Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full max-w-full overflow-hidden">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Finance</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Discount Report</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
       {/* Page Title */}

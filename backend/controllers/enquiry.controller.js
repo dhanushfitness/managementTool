@@ -548,7 +548,7 @@ export const bulkChangeStaff = async (req, res) => {
 export const addCallLog = async (req, res) => {
   try {
     const { enquiryId } = req.params;
-    const { date, status, notes } = req.body;
+    const { type, calledBy, callStatus, notes, scheduleAt } = req.body;
 
     const enquiry = await Enquiry.findOne({
       _id: enquiryId,
@@ -559,21 +559,36 @@ export const addCallLog = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Enquiry not found' });
     }
 
-    enquiry.callLogs.push({
-      date: date || new Date(),
-      status,
+    const callLogEntry = {
+      date: scheduleAt ? new Date(scheduleAt) : new Date(),
+      type: type || 'enquiry-call',
+      status: callStatus || 'scheduled',
       notes,
-      staffId: req.user._id
-    });
+      staffId: req.user._id,
+      calledBy: calledBy || undefined
+    };
 
-    // Update last call status
-    if (status) {
-      enquiry.lastCallStatus = status;
+    enquiry.callLogs.push(callLogEntry);
+
+    if (callStatus) {
+      enquiry.lastCallStatus = callStatus;
+    }
+
+    if (scheduleAt) {
+      enquiry.followUpDate = new Date(scheduleAt);
     }
 
     await enquiry.save();
 
-    res.json({ success: true, enquiry });
+    const populatedCallLogs = await enquiry.populate({
+      path: 'callLogs.staffId',
+      select: 'firstName lastName'
+    });
+
+    res.json({
+      success: true,
+      callLog: populatedCallLogs.callLogs[populatedCallLogs.callLogs.length - 1]
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

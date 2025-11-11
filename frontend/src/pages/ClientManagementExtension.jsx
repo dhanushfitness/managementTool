@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { getBranches } from '../api/organization'
 import { applyMembershipExtension, getExtensionSummary } from '../api/clientManagement'
 import { useAuthStore } from '../store/authStore'
+import DateInput from '../components/DateInput'
 
 const SummaryItem = ({ icon: Icon, label, value, helper }) => (
   <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
@@ -195,12 +196,10 @@ export default function ClientManagementExtension() {
               <label htmlFor="extension-from-date" className="text-sm font-medium text-gray-700">
                 From Date
               </label>
-              <input
+              <DateInput
                 id="extension-from-date"
-                type="date"
                 value={formValues.fromDate}
                 onChange={(event) => handleInputChange('fromDate', event.target.value)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
               />
             </div>
 

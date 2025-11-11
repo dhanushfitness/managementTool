@@ -4,6 +4,7 @@ import { ChevronDown, Download, ChevronLeft, ChevronRight, ChevronsLeft, Chevron
 import LoadingPage from '../components/LoadingPage'
 import { getServiceTypeReport, exportServiceTypeReport } from '../api/reports'
 import api from '../api/axios'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function ServiceTypeReport() {
   const [dateRange, setDateRange] = useState('last-30-days')

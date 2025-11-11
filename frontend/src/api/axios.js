@@ -3,10 +3,7 @@ import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 
 const api = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: '/api'
 })
 
 api.interceptors.request.use(

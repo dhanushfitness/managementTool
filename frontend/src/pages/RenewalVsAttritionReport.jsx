@@ -4,6 +4,7 @@ import { Download, Eye } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getRenewalVsAttritionReport, exportRenewalVsAttritionReport, getRenewalVsAttritionList } from '../api/reports'
 import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function RenewalVsAttritionReport() {
   const currentDate = new Date()
@@ -93,15 +94,7 @@ export default function RenewalVsAttritionReport() {
     <div className="space-y-6 max-w-full w-full overflow-x-hidden">
       {/* Breadcrumb Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Client Management</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Membership Renewal vs Attrition</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
       {/* Filter Section */}

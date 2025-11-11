@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Download, ChevronDown, Plus } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
@@ -8,9 +8,11 @@ import { getBranches } from '../api/organization'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import AddInvoiceModal from '../components/AddInvoiceModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function PendingCollectionsReport() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [showAddModal, setShowAddModal] = useState(false)
   const [filters, setFilters] = useState({
     dateRange: 'last-30-days',
@@ -129,6 +131,12 @@ export default function PendingCollectionsReport() {
     }
   }
 
+  useEffect(() => {
+    if (location.state?.auto && !hasSearched) {
+      setHasSearched(true)
+    }
+  }, [location.state, hasSearched])
+
   if (isLoading && hasSearched) {
     return <LoadingPage />
   }
@@ -136,15 +144,7 @@ export default function PendingCollectionsReport() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <nav className="text-sm">
-        <Link to="/dashboard" className="text-gray-600 hover:text-orange-600">Home</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <Link to="/reports" className="text-gray-600 hover:text-orange-600">Reports</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <Link to="/reports" className="text-gray-600 hover:text-orange-600">Finance</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <span className="text-orange-600 font-medium">Pending Collections</span>
-      </nav>
+      <Breadcrumbs />
 
       {/* Page Title */}
       <h1 className="text-3xl font-bold text-gray-900 text-center">Pending Collections</h1>

@@ -6,6 +6,7 @@ import LoadingPage from '../components/LoadingPage'
 import { getBackdatedBillsReport, exportBackdatedBillsReport } from '../api/reports'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function BackdatedBillsReport() {
   const [filters, setFilters] = useState({
@@ -116,15 +117,7 @@ export default function BackdatedBillsReport() {
     <div className="space-y-6 max-w-full w-full overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
       {/* Breadcrumb Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full max-w-full overflow-hidden">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Finance</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Backdated bills-Service Sales</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
       {/* Page Title */}

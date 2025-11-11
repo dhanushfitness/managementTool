@@ -1,6 +1,8 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from './store/authStore'
+import { isTokenExpired } from './utils/auth'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
@@ -96,22 +98,33 @@ import Support from './pages/Support'
 import SuperAdminProfile from './pages/SuperAdminProfile'
 import AccountPlan from './pages/AccountPlan'
 import CentralPanel from './pages/CentralPanel'
+import NotFound from './pages/NotFound'
 import BranchManagement from './pages/BranchManagement'
 import Taskboard from './pages/Taskboard'
 import Leaderboard from './pages/Leaderboard'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
-  const { token, user } = useAuthStore()
-  
-  // Check if we have auth data
-  const hasAuth = token && user
-  
-  // If no auth, redirect to login
-  if (!hasAuth) {
-    return <Navigate to="/login" replace />
+  const location = useLocation()
+  const { token, user, logout, hydrated } = useAuthStore()
+
+  useEffect(() => {
+    if (!hydrated) return
+    if (token && isTokenExpired(token)) {
+      logout()
+    }
+  }, [hydrated, token, logout])
+
+  if (!hydrated) {
+    return null
   }
-  
+
+  const hasValidAuth = Boolean(token && user && !isTokenExpired(token))
+
+  if (!hasValidAuth) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
   return children
 }
 
@@ -171,6 +184,7 @@ function App() {
           <Route path="reports/finance/collection" element={<CollectionReport />} />
           <Route path="reports/finance/cashflow-statement" element={<CashFlowStatementReport />} />
           <Route path="reports/finance/payment-mode" element={<PaymentModeReport />} />
+          <Route path="reports/finance/service-payments-collected" element={<Payments />} />
           <Route path="reports/finance/backdated-bills" element={<BackdatedBillsReport />} />
           <Route path="reports/finance/discount" element={<DiscountReport />} />
           <Route path="reports/finance/cancelled-invoices" element={<CancelledInvoicesReport />} />
@@ -221,6 +235,7 @@ function App() {
           <Route path="branches" element={<BranchManagement />} />
           <Route path="taskboard" element={<Taskboard />} />
           <Route path="leaderboard" element={<Leaderboard />} />
+          <Route path="*" element={<Navigate to="/not-found" replace />} />
         </Route>
         <Route
           path="central-panel"
@@ -230,6 +245,15 @@ function App() {
             </PrivateRoute>
           }
         />
+        <Route
+          path="/not-found"
+          element={
+            <PrivateRoute>
+              <NotFound />
+            </PrivateRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/not-found" replace />} />
       </Routes>
       <Toaster position="top-right" />
     </>

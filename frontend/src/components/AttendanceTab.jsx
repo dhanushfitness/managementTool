@@ -8,6 +8,7 @@ import {
 import { Clock, Calendar, User, CheckCircle2, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from './LoadingSpinner'
+import DateInput from './DateInput'
 
 export default function AttendanceTab({ member }) {
   const queryClient = useQueryClient()
@@ -324,16 +325,12 @@ export default function AttendanceTab({ member }) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Date*
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={checkInDate}
-                    onChange={(e) => setCheckInDate(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    required
-                  />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                </div>
+              <DateInput
+                value={checkInDate}
+                onChange={(e) => setCheckInDate(e.target.value)}
+                className="px-4 py-2.5"
+                required
+              />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">

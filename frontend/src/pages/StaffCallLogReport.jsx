@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { PhoneCall, Download, Filter, Clock4, AlertTriangle, CheckCircle, Calendar } from 'lucide-react'
+import DateInput from '../components/DateInput'
 
 const enquiryLogs = [
   {
@@ -190,20 +191,16 @@ export default function StaffCallLogReport() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">From</label>
-            <input
-              type="date"
+            <DateInput
               value={filters.from}
               onChange={(event) => setFilters(prev => ({ ...prev, from: event.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             />
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">To</label>
-            <input
-              type="date"
+            <DateInput
               value={filters.to}
               onChange={(event) => setFilters(prev => ({ ...prev, to: event.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             />
           </div>
           <div className="flex flex-col gap-2">

@@ -5,6 +5,8 @@ import LoadingPage from '../components/LoadingPage'
 import { getRevenueRealizationReport, exportRevenueRealizationReport } from '../api/reports'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
+import DateInput from '../components/DateInput'
 
 export default function RevenueRealizationReport() {
   // Get default date range (last 3 months)
@@ -125,15 +127,7 @@ export default function RevenueRealizationReport() {
     <div className="space-y-6 max-w-full w-full overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
       {/* Breadcrumb Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full max-w-full overflow-hidden">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Finance</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Revenue Realization</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
       {/* Page Title */}
@@ -147,29 +141,23 @@ export default function RevenueRealizationReport() {
           {/* From Date */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={filters.fromDate}
-                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-                className="px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 min-w-[150px]"
-              />
-              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+            <DateInput
+              value={filters.fromDate}
+              onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+              containerClassName="min-w-[150px]"
+              className="pr-10"
+            />
           </div>
 
           {/* To Date */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={filters.toDate}
-                onChange={(e) => handleFilterChange('toDate', e.target.value)}
-                className="px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 min-w-[150px]"
-              />
-              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+            <DateInput
+              value={filters.toDate}
+              onChange={(e) => handleFilterChange('toDate', e.target.value)}
+              containerClassName="min-w-[150px]"
+              className="pr-10"
+            />
           </div>
 
           {/* Bill Number */}

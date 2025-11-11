@@ -1,11 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, Calendar, Plus, Trash2, Search } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
+import DateInput from './DateInput'
 
-export default function AddInvoiceModal({ isOpen, onClose }) {
+export default function AddInvoiceModal({
+  isOpen,
+  onClose,
+  defaultMemberId,
+  defaultMemberName,
+  defaultMemberPhone
+}) {
   const { user } = useAuthStore()
   const [invoiceType, setInvoiceType] = useState('service')
   const [formData, setFormData] = useState({
@@ -68,8 +75,7 @@ export default function AddInvoiceModal({ isOpen, onClose }) {
       toast.success('Pro Forma Invoice created successfully')
       queryClient.invalidateQueries(['invoices'])
       queryClient.invalidateQueries(['dashboard-stats'])
-      onClose()
-      resetForm()
+      handleClose(true)
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Failed to create invoice')
@@ -305,6 +311,24 @@ export default function AddInvoiceModal({ isOpen, onClose }) {
 
   const totals = calculateTotals()
 
+  useEffect(() => {
+    if (isOpen && defaultMemberId) {
+      setFormData(prev => ({
+        ...prev,
+        memberId: defaultMemberId,
+        memberName: defaultMemberName || prev.memberName,
+        memberPhone: defaultMemberPhone || prev.memberPhone
+      }))
+    }
+  }, [isOpen, defaultMemberId, defaultMemberName, defaultMemberPhone])
+
+  const handleClose = (shouldRefresh = false) => {
+    resetForm()
+    if (typeof onClose === 'function') {
+      onClose(shouldRefresh)
+    }
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -312,7 +336,7 @@ export default function AddInvoiceModal({ isOpen, onClose }) {
         className={`fixed inset-0 bg-black z-40 transition-opacity duration-300 ${
           isOpen ? 'bg-opacity-50 opacity-100' : 'bg-opacity-0 opacity-0 pointer-events-none'
         }`}
-        onClick={onClose}
+        onClick={() => handleClose(false)}
       />
       
       {/* Full Width Modal */}
@@ -323,7 +347,7 @@ export default function AddInvoiceModal({ isOpen, onClose }) {
         <div className="sticky top-0 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 px-8 py-5 flex items-center justify-between z-10 shadow-sm">
           <h2 className="text-2xl font-bold text-gray-900">Add Pro Forma Invoice</h2>
           <button
-            onClick={onClose}
+            onClick={() => handleClose(false)}
             className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
           >
             <X className="w-5 h-5" />
@@ -436,16 +460,12 @@ export default function AddInvoiceModal({ isOpen, onClose }) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Invoice Date
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="invoiceDate"
-                    value={formData.invoiceDate}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                  />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-                </div>
+                <DateInput
+                  name="invoiceDate"
+                  value={formData.invoiceDate}
+                  onChange={handleChange}
+                  className="px-4 py-3"
+                />
               </div>
 
               <div>
@@ -536,21 +556,19 @@ export default function AddInvoiceModal({ isOpen, onClose }) {
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
                               <label className="text-gray-600">Start date:</label>
-                              <input
-                                type="date"
-                                value={item.startDate}
-                                onChange={(e) => handleItemChange(index, 'startDate', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded mt-1"
-                              />
+                            <DateInput
+                              value={item.startDate}
+                              onChange={(e) => handleItemChange(index, 'startDate', e.target.value)}
+                              className="px-2 py-1"
+                            />
                             </div>
                             <div>
                               <label className="text-gray-600">Expiry date:</label>
-                              <input
-                                type="date"
-                                value={item.expiryDate}
-                                onChange={(e) => handleItemChange(index, 'expiryDate', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 rounded mt-1"
-                              />
+                            <DateInput
+                              value={item.expiryDate}
+                              onChange={(e) => handleItemChange(index, 'expiryDate', e.target.value)}
+                              className="px-2 py-1"
+                            />
                             </div>
                             <div>
                               <label className="text-gray-600">Number of sessions:</label>
@@ -836,7 +854,7 @@ export default function AddInvoiceModal({ isOpen, onClose }) {
           <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 px-8 py-5 -mx-8 -mb-8 shadow-lg flex justify-end space-x-3 mt-8">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => handleClose(false)}
               className="px-6 py-3 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all"
             >
               Cancel

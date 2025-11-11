@@ -24,6 +24,7 @@ import {
 import LoadingTable from '../components/LoadingTable'
 import LoadingPage from '../components/LoadingPage'
 import ClientFilterModal from '../components/ClientFilterModal'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function Clients() {
   const location = useLocation()
@@ -57,19 +58,27 @@ export default function Clients() {
   const filterType = searchParams.get('filter') || 'all'
   
   // Build breadcrumb based on filter
-  const getBreadcrumb = () => {
+  const getBreadcrumbItems = () => {
+    const baseItems = [
+      { label: 'Home', to: '/' },
+      { label: 'Clients', to: '/clients' }
+    ]
+
     if (filterType === 'validity') {
+      const validityBase = { label: 'Validity Based', to: '/clients?filter=validity&type=all' }
       if (validityFilter === 'active') {
-        return { path: 'Home / Clients / Validity Based / Active Clients', active: 'Active Clients' }
-      } else if (validityFilter === 'inactive') {
-        return { path: 'Home / Clients / Validity Based / Inactive Clients', active: 'Inactive Clients' }
+        return [...baseItems, validityBase, { label: 'Active Clients' }]
       }
-      return { path: 'Home / Clients / Validity Based / All Clients', active: 'All Clients' }
+      if (validityFilter === 'inactive') {
+        return [...baseItems, validityBase, { label: 'Inactive Clients' }]
+      }
+      return [...baseItems, validityBase, { label: 'All Clients' }]
     }
-    return { path: 'Home / Clients / All Members', active: 'All Members' }
+
+    return [...baseItems, { label: 'All Members' }]
   }
 
-  const breadcrumb = getBreadcrumb()
+  const breadcrumbItems = getBreadcrumbItems()
   
   // Build query params
   const queryParams = {
@@ -220,20 +229,7 @@ export default function Clients() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         {/* Breadcrumb and Title */}
         <div className="mb-6">
-          <nav className="text-sm mb-2">
-            {breadcrumb.path.split(' / ').map((segment, index, array) => (
-              <span key={index}>
-                {index === array.length - 1 ? (
-                  <span className="text-orange-600 font-medium">{segment}</span>
-                ) : (
-                  <>
-                    <span className="text-gray-600">{segment}</span>
-                    <span className="text-gray-400 mx-2">/</span>
-                  </>
-                )}
-              </span>
-            ))}
-          </nav>
+          <Breadcrumbs items={breadcrumbItems} className="mb-2" />
           <h1 className="text-3xl font-bold text-gray-900">All Members</h1>
         </div>
 

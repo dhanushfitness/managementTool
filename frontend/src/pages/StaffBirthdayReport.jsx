@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CalendarHeart, Download, Filter } from 'lucide-react'
+import DateInput from '../components/DateInput'
 
 const celebrationDataset = [
   {
@@ -118,20 +119,16 @@ export default function StaffBirthdayReport() {
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">From</label>
-            <input
-              type="date"
+            <DateInput
               value={filters.from}
               onChange={(event) => setFilters(prev => ({ ...prev, from: event.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             />
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">To</label>
-            <input
-              type="date"
+            <DateInput
               value={filters.to}
               onChange={(event) => setFilters(prev => ({ ...prev, to: event.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             />
           </div>
           <div className="flex items-end gap-3">

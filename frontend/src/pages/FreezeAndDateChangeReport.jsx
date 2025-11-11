@@ -4,6 +4,8 @@ import { Download, Calendar } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getFreezeAndDateChangeReport, exportFreezeAndDateChangeReport } from '../api/reports'
 import toast from 'react-hot-toast'
+import DateInput from '../components/DateInput'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function FreezeAndDateChangeReport() {
   const getDefaultFromDate = () => {
@@ -88,15 +90,7 @@ export default function FreezeAndDateChangeReport() {
     <div className="space-y-6 max-w-full w-full overflow-x-hidden">
       {/* Breadcrumb Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Client Management</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Freeze and Date Change</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
       {/* Page Title */}
@@ -109,27 +103,19 @@ export default function FreezeAndDateChangeReport() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={filters.fromDate}
-                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-                className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              />
-              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+            <DateInput
+              value={filters.fromDate}
+              onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+              containerClassName="w-40"
+            />
           </div>
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={filters.toDate}
-                onChange={(e) => handleFilterChange('toDate', e.target.value)}
-                className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              />
-              <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+            <DateInput
+              value={filters.toDate}
+              onChange={(e) => handleFilterChange('toDate', e.target.value)}
+              containerClassName="w-40"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Member Name/Mobile</label>

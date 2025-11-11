@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getStaffMember, updateStaff } from '../api/staff'
 import LoadingPage from '../components/LoadingPage'
 import toast from 'react-hot-toast'
+import DateInput from '../components/DateInput'
 import {
   User,
   Calendar,
@@ -524,30 +525,22 @@ export default function StaffDetails() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Date of Birth</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={formData.dateOfBirth}
-                      onChange={(e) => handleChange('dateOfBirth', e.target.value)}
-                      disabled={!isEditing}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                  </div>
+                  <DateInput
+                    value={formData.dateOfBirth}
+                    onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                    disabled={!isEditing}
+                    className="px-4 py-2.5"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Anniversary</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={formData.anniversary}
-                      onChange={(e) => handleChange('anniversary', e.target.value)}
-                      disabled={!isEditing}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                  </div>
+                  <DateInput
+                    value={formData.anniversary}
+                    onChange={(e) => handleChange('anniversary', e.target.value)}
+                    disabled={!isEditing}
+                    className="px-4 py-2.5"
+                  />
                 </div>
 
                 <div>
@@ -601,16 +594,12 @@ export default function StaffDetails() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Date of Joining</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={formData.dateOfJoining}
-                      onChange={(e) => handleChange('dateOfJoining', e.target.value)}
-                      disabled={!isEditing}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                  </div>
+                  <DateInput
+                    value={formData.dateOfJoining}
+                    onChange={(e) => handleChange('dateOfJoining', e.target.value)}
+                    disabled={!isEditing}
+                    className="px-4 py-2.5"
+                  />
                 </div>
 
                 <div>

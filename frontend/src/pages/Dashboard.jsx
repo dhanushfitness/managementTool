@@ -6,6 +6,8 @@ import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
 import { DollarSign, Users, TrendingUp, UserPlus, RefreshCw, Plus, ChevronRight, ChevronLeft, Calendar, ArrowRight, AlertCircle } from 'lucide-react';
 import LoadingPage from '../components/LoadingPage';
+import DateInput from '../components/DateInput';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -20,6 +22,16 @@ export default function Dashboard() {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
+
+  const getRelativeDateString = (offset) => {
+    const baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + offset);
+    return baseDate.toISOString().split('T')[0];
+  };
+
+  const todayDateString = getRelativeDateString(0);
+  const yesterdayDateString = getRelativeDateString(-1);
+  const tomorrowDateString = getRelativeDateString(1);
 
   // Build query params based on filter
   const getQueryParams = () => {
@@ -125,15 +137,23 @@ export default function Dashboard() {
 
   // Handle summary date navigation
   const handleSummaryPreviousDay = () => {
-    const currentDate = new Date(summaryDate);
-    currentDate.setDate(currentDate.getDate() - 1);
-    setSummaryDate(currentDate.toISOString().split('T')[0]);
+    if (summaryDate === tomorrowDateString) {
+      setSummaryDate(todayDateString);
+      return;
+    }
+    if (summaryDate === todayDateString) {
+      setSummaryDate(yesterdayDateString);
+    }
   };
 
   const handleSummaryNextDay = () => {
-    const currentDate = new Date(summaryDate);
-    currentDate.setDate(currentDate.getDate() + 1);
-    setSummaryDate(currentDate.toISOString().split('T')[0]);
+    if (summaryDate === yesterdayDateString) {
+      setSummaryDate(todayDateString);
+      return;
+    }
+    if (summaryDate === todayDateString) {
+      setSummaryDate(tomorrowDateString);
+    }
   };
 
   const handleSummaryToday = () => {
@@ -182,10 +202,7 @@ export default function Dashboard() {
       <div className="lg:col-span-2 space-y-6">
         {/* Breadcrumbs */}
         <div className="flex items-center justify-between">
-          <nav className="text-sm">
-            <span className="text-gray-600">Home / </span>
-            <span className="text-orange-600 font-medium">Dashboard</span>
-          </nav>
+          <Breadcrumbs />
         </div>
 
         {/* Update Message */}
@@ -213,21 +230,19 @@ export default function Dashboard() {
               <div className="flex items-center space-x-3 flex-1">
                 <div className="flex items-center space-x-2">
                   <label className="text-sm text-gray-700 font-medium">From:</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    hideIcon
                   />
                 </div>
                 <ArrowRight className="w-4 h-4 text-gray-400" />
                 <div className="flex items-center space-x-2">
                   <label className="text-sm text-gray-700 font-medium">To:</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    hideIcon
                   />
                 </div>
                 <button
@@ -261,6 +276,7 @@ export default function Dashboard() {
             iconColor="text-orange-600"
             textColor="text-gray-900"
             borderColor="border-orange-200"
+            onViewMore={() => navigate('/reports/sales/service-sales')}
           />
           <StatCard
             title="PAYMENTS COLLECTED"
@@ -270,6 +286,7 @@ export default function Dashboard() {
             iconColor="text-yellow-600"
             textColor="text-gray-900"
             borderColor="border-yellow-200"
+            onViewMore={() => navigate('/reports/finance/service-payments-collected')}
           />
           <StatCard
             title="PAYMENTS PENDING"
@@ -279,6 +296,7 @@ export default function Dashboard() {
             iconColor="text-purple-600"
             textColor="text-gray-900"
             borderColor="border-purple-200"
+            onViewMore={() => navigate('/reports/finance/pending-collections')}
           />
         </div>
 
@@ -292,6 +310,7 @@ export default function Dashboard() {
             iconColor="text-blue-600"
             textColor="text-blue-600"
             borderColor="border-blue-200"
+            onViewMore={() => navigate('/reports/client-management/new-clients')}
           />
           <StatCard
             title="RENEWALS"
@@ -301,6 +320,7 @@ export default function Dashboard() {
             iconColor="text-green-600"
             textColor="text-green-600"
             borderColor="border-green-200"
+            onViewMore={() => navigate('/reports/client-management/renewals')}
           />
           <StatCard
             title="CHECK-INS"
@@ -310,6 +330,7 @@ export default function Dashboard() {
             iconColor="text-red-600"
             textColor="text-red-600"
             borderColor="border-red-200"
+            onViewMore={() => navigate('/reports/client-management/member-checkins')}
           />
         </div>
 
@@ -396,7 +417,8 @@ export default function Dashboard() {
             <div className="flex items-center space-x-2">
               <button 
                 onClick={handleSummaryPreviousDay}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className={`text-gray-400 transition-colors ${summaryDate === yesterdayDateString ? 'cursor-not-allowed opacity-40' : 'hover:text-gray-600'}`}
+                disabled={summaryDate === yesterdayDateString}
                 title="Previous day"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -410,7 +432,8 @@ export default function Dashboard() {
               </button>
               <button 
                 onClick={handleSummaryNextDay}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className={`text-gray-400 transition-colors ${summaryDate === tomorrowDateString ? 'cursor-not-allowed opacity-40' : 'hover:text-gray-600'}`}
+                disabled={summaryDate === tomorrowDateString}
                 title="Next day"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -428,14 +451,10 @@ export default function Dashboard() {
                 navigate('/taskboard', { state: { date: dateStr } });
               }}
             />
-            <SummaryItem title="Appointments" count={summaryData?.data?.appointments || 0} total={0} />
             <SummaryItem title="Service expiry" count={summaryData?.data?.serviceExpiry || 0} />
-            <SummaryItem title="PT expiry" count={0} />
             <SummaryItem title="Upgrades" count={summaryData?.data?.upgrades || 0} />
             <SummaryItem title="Client birthdays" count={summaryData?.data?.clientBirthdays || 0} />
-            <SummaryItem title="Client Anniversaries" count={0} />
             <SummaryItem title="Staff birthdays" count={summaryData?.data?.staffBirthdays || 0} />
-            <SummaryItem title="Staff Anniversaries" count={0} />
           </div>
         </div>
 
@@ -473,26 +492,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Advance Payment */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <h3 className="font-bold text-gray-900 mb-4 text-lg">Advance Payment</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
-              <span className="text-sm font-semibold text-gray-700">COLLECTED:</span>
-              <span className="text-lg font-bold text-green-600">{formatCurrency(advancePayments?.data?.collected || 0)}</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-200">
-              <span className="text-sm font-semibold text-gray-700">UTILISED:</span>
-              <span className="text-lg font-bold text-red-600">{formatCurrency(advancePayments?.data?.utilized || 0)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* End of shift/day button */}
-        <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg">
-          End of shift/day
-        </button>
-
         {/* Expenses */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <h3 className="font-bold text-gray-900 mb-3 text-lg">Expenses</h3>
@@ -519,7 +518,9 @@ function SummaryItem({ title, count, total, onClick }) {
   );
 }
 
-function StatCard({ title, value, icon: Icon, bgColor, iconColor, textColor, borderColor }) {
+function StatCard({ title, value, icon: Icon, bgColor, iconColor, textColor, borderColor, onViewMore }) {
+  const isClickable = typeof onViewMore === 'function';
+
   return (
     <div className={`${bgColor} rounded-xl shadow-sm border-2 ${borderColor} p-6 hover:shadow-md transition-shadow`}>
       <div className="flex items-center justify-between mb-3">
@@ -527,10 +528,21 @@ function StatCard({ title, value, icon: Icon, bgColor, iconColor, textColor, bor
         {Icon && <Icon className={`w-5 h-5 ${iconColor}`} />}
       </div>
       <p className={`text-3xl font-bold ${textColor} mb-2`}>{value}</p>
-      <a href="#" className="text-orange-600 text-xs font-semibold hover:underline flex items-center">
-        VIEW MORE
-        <ChevronRight className="w-3 h-3 ml-1" />
-      </a>
+      {isClickable ? (
+        <button
+          type="button"
+          onClick={onViewMore}
+          className="text-orange-600 text-xs font-semibold hover:underline flex items-center"
+        >
+          VIEW MORE
+          <ChevronRight className="w-3 h-3 ml-1" />
+        </button>
+      ) : (
+        <span className="text-orange-200 text-xs font-semibold flex items-center cursor-not-allowed">
+          VIEW MORE
+          <ChevronRight className="w-3 h-3 ml-1" />
+        </span>
+      )}
     </div>
   );
 }

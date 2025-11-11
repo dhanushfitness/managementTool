@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Download, ChevronDown, Plus, Eye, Printer, Trash2 } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
@@ -7,6 +7,7 @@ import { getCancelledInvoices, exportCancelledInvoices } from '../api/invoices'
 import { getBranches } from '../api/organization'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import Breadcrumbs from '../components/Breadcrumbs'
 import AddInvoiceModal from '../components/AddInvoiceModal'
 
 export default function CancelledInvoicesReport() {
@@ -149,15 +150,7 @@ export default function CancelledInvoicesReport() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <nav className="text-sm">
-        <Link to="/dashboard" className="text-gray-600 hover:text-orange-600">Home</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <Link to="/reports" className="text-gray-600 hover:text-orange-600">Reports</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <Link to="/reports" className="text-gray-600 hover:text-orange-600">Finance</Link>
-        <span className="text-gray-400 mx-2">/</span>
-        <span className="text-orange-600 font-medium">Cancelled Invoices</span>
-      </nav>
+      <Breadcrumbs />
 
       {/* Page Title */}
       <h1 className="text-3xl font-bold text-gray-900 text-center">Cancelled Service Sales</h1>

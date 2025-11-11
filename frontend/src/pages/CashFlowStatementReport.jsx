@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Download } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getCashFlowStatementReport, exportCashFlowStatementReport } from '../api/reports'
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function CashFlowStatementReport() {
   const [dateRange, setDateRange] = useState('last-30-days')
@@ -65,15 +66,7 @@ export default function CashFlowStatementReport() {
     <div className="space-y-6 max-w-full w-full overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
       {/* Breadcrumb Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full max-w-full overflow-hidden">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Finance</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Cashflow Statement</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
       {/* Page Title */}

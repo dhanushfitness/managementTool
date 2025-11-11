@@ -3,6 +3,7 @@ import { X, Calendar, Upload, User, Eye, EyeOff } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import DateInput from './DateInput'
 
 export default function AddStaffModal({ isOpen, onClose }) {
   const [showPassword, setShowPassword] = useState(false)
@@ -502,32 +503,24 @@ export default function AddStaffModal({ isOpen, onClose }) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Date of Birth
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                  />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-                </div>
+                <DateInput
+                  name="dateOfBirth"
+                  value={formData.dateOfBirth}
+                  onChange={handleChange}
+                  className="px-4 py-3"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Anniversary
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="anniversary"
-                    value={formData.anniversary}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                  />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-                </div>
+                <DateInput
+                  name="anniversary"
+                  value={formData.anniversary}
+                  onChange={handleChange}
+                  className="px-4 py-3"
+                />
               </div>
 
               <div>
@@ -588,16 +581,12 @@ export default function AddStaffModal({ isOpen, onClose }) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Date of Joining
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="dateOfJoining"
-                    value={formData.dateOfJoining}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                  />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-                </div>
+                <DateInput
+                  name="dateOfJoining"
+                  value={formData.dateOfJoining}
+                  onChange={handleChange}
+                  className="px-4 py-3"
+                />
               </div>
 
               <div>

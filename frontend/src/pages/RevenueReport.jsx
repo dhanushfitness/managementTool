@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Download } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
+import Breadcrumbs from '../components/Breadcrumbs'
 import { getRevenueReport, exportRevenueReport } from '../api/reports'
 
 export default function RevenueReport() {
@@ -122,15 +123,7 @@ export default function RevenueReport() {
     <div className="space-y-6 max-w-full w-full overflow-x-hidden" style={{ boxSizing: 'border-box' }}>
       {/* Breadcrumb Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full max-w-full overflow-hidden">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Sales</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Revenue Report</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
       {/* Page Title */}
