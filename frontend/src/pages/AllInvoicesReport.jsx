@@ -25,7 +25,7 @@ export default function AllInvoicesReport() {
   })
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [hasSearched, setHasSearched] = useState(true)
 
   // Fetch branches
   const { data: branchesData } = useQuery({
@@ -71,9 +71,8 @@ export default function AllInvoicesReport() {
   }
 
   const handleSearch = () => {
-    setHasSearched(true)
     setPage(1)
-    refetch()
+    setHasSearched(true)
   }
 
   const handleExportExcel = async () => {

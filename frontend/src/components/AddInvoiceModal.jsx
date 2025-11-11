@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X, Calendar, Plus, Trash2, Search } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import DateInput from './DateInput'
+import { getOrganizationDetails } from '../api/organization'
+import { searchMembers as searchMembersApi } from '../api/members'
 
 export default function AddInvoiceModal({
   isOpen,
@@ -45,6 +47,11 @@ export default function AddInvoiceModal({
       amount: 0
     }]
   })
+  const [memberSearch, setMemberSearch] = useState('')
+  const [memberSearchResults, setMemberSearchResults] = useState([])
+  const [isMemberSearching, setIsMemberSearching] = useState(false)
+  const [memberSearchError, setMemberSearchError] = useState('')
+  const memberSearchBlurTimeout = useRef(null)
 
   const queryClient = useQueryClient()
 
@@ -68,6 +75,98 @@ export default function AddInvoiceModal({
     queryFn: () => api.get('/members').then(res => res.data),
     enabled: isOpen
   })
+
+  const { data: organizationResponse } = useQuery({
+    queryKey: ['organization-details'],
+    queryFn: getOrganizationDetails,
+    enabled: isOpen
+  })
+
+  const organization = organizationResponse?.organization
+  const organizationName = organization?.name || user?.organizationName || 'AIRFIT'
+  const organizationPhone = organization?.phone || user?.organizationPhone || 'N/A'
+  const organizationAddress = [
+    organization?.address?.street,
+    organization?.address?.city,
+    organization?.address?.state,
+    organization?.address?.zipCode,
+    organization?.address?.country
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  const handleMemberInputChange = async (value) => {
+    if (value !== memberSearch && formData.memberId) {
+      setFormData(prev => ({
+        ...prev,
+        memberId: '',
+        memberName: '',
+        memberPhone: ''
+      }))
+    }
+    setMemberSearch(value)
+    setMemberSearchError('')
+ 
+     const trimmed = value.trim()
+     if (trimmed.length < 2) {
+       setMemberSearchResults([])
+       setIsMemberSearching(false)
+       return
+     }
+ 
+     setIsMemberSearching(true)
+     try {
+       const response = await searchMembersApi(trimmed)
+       const members = response?.data?.members || response?.members || []
+       setMemberSearchResults(members)
+       if (members.length === 0) {
+         setMemberSearchError('No members found')
+       }
+     } catch (error) {
+       console.error('Member search failed', error)
+       setMemberSearchError('Failed to search members')
+       setMemberSearchResults([])
+     } finally {
+       setIsMemberSearching(false)
+     }
+   }
+
+  const handleMemberSelectFromSearch = (member) => {
+     if (!member) return
+     if (memberSearchBlurTimeout.current) {
+       clearTimeout(memberSearchBlurTimeout.current)
+       memberSearchBlurTimeout.current = null
+     }
+     setFormData(prev => ({
+       ...prev,
+       memberId: member._id,
+       memberName: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
+       memberPhone: member.phone || ''
+     }))
+     const displayText = [`${member.firstName || ''} ${member.lastName || ''}`.trim(), member.phone]
+       .filter(Boolean)
+       .join(' - ')
+     setMemberSearch(displayText)
+     setMemberSearchResults([])
+     setMemberSearchError('')
+   }
+
+  const handleMemberInputFocus = () => {
+    if (memberSearchBlurTimeout.current) {
+      clearTimeout(memberSearchBlurTimeout.current)
+      memberSearchBlurTimeout.current = null
+    }
+    if (memberSearch.trim().length >= 2 && memberSearchResults.length === 0 && !isMemberSearching) {
+      handleMemberInputChange(memberSearch)
+    }
+  }
+
+  const handleMemberInputBlur = () => {
+    memberSearchBlurTimeout.current = setTimeout(() => {
+      setMemberSearchResults([])
+      setIsMemberSearching(false)
+    }, 150)
+  }
 
   const createInvoiceMutation = useMutation({
     mutationFn: (data) => api.post('/invoices', data),
@@ -113,6 +212,10 @@ export default function AddInvoiceModal({
         amount: 0
       }]
     })
+    setMemberSearch('')
+    setMemberSearchResults([])
+    setMemberSearchError('')
+    setIsMemberSearching(false)
   }
 
   const handleSubmit = (e) => {
@@ -260,24 +363,63 @@ export default function AddInvoiceModal({
   }
 
   const handleMemberSelect = (memberId) => {
-    const member = membersData?.members?.find(m => m._id === memberId)
-    if (member) {
-      setFormData(prev => ({
-        ...prev,
-        memberId: member._id,
-        memberName: `${member.firstName} ${member.lastName}`,
-        memberPhone: member.phone
-      }))
-    }
-  }
+     const member = membersData?.members?.find(m => m._id === memberId)
+     if (member) {
+       setFormData(prev => ({
+         ...prev,
+         memberId: member._id,
+         memberName: `${member.firstName} ${member.lastName}`,
+         memberPhone: member.phone
+       }))
+      const displayText = [`${member.firstName || ''} ${member.lastName || ''}`.trim(), member.phone]
+        .filter(Boolean)
+        .join(' - ')
+      setMemberSearch(displayText)
+      setMemberSearchResults([])
+      setMemberSearchError('')
+     }
+   }
 
   const handleServiceSelect = (index, serviceId) => {
-    const service = plansData?.plans?.find(p => p._id === serviceId)
-    if (service) {
-      handleItemChange(index, 'serviceId', serviceId)
-      handleItemChange(index, 'description', service.name)
-      handleItemChange(index, 'unitPrice', service.price)
-      handleItemChange(index, 'taxRate', service.taxRate || 0)
+     const service = plansData?.plans?.find(p => p._id === serviceId)
+     if (service) {
+       handleItemChange(index, 'serviceId', serviceId)
+       handleItemChange(index, 'description', service.name)
+       handleItemChange(index, 'unitPrice', service.price)
+       handleItemChange(index, 'taxRate', service.taxRate || 0)
+
+      const baseDate = formData.items[index]?.startDate
+        ? new Date(formData.items[index].startDate)
+        : new Date(formData.invoiceDate || new Date())
+
+      if (service.duration?.value && service.duration?.unit) {
+        const startDate = new Date(baseDate)
+        let endDate = new Date(startDate)
+
+        switch (service.duration.unit) {
+          case 'days':
+            endDate.setDate(endDate.getDate() + service.duration.value)
+            break
+          case 'weeks':
+            endDate.setDate(endDate.getDate() + service.duration.value * 7)
+            break
+          case 'months':
+            endDate.setMonth(endDate.getMonth() + service.duration.value)
+            break
+          case 'years':
+            endDate.setFullYear(endDate.getFullYear() + service.duration.value)
+            break
+          default:
+            endDate = null
+        }
+
+        if (!Number.isNaN(startDate.getTime())) {
+          handleItemChange(index, 'startDate', startDate.toISOString().split('T')[0])
+        }
+        if (endDate && !Number.isNaN(endDate.getTime())) {
+          handleItemChange(index, 'expiryDate', endDate.toISOString().split('T')[0])
+        }
+      }
     }
   }
 
@@ -312,15 +454,25 @@ export default function AddInvoiceModal({
   const totals = calculateTotals()
 
   useEffect(() => {
-    if (isOpen && defaultMemberId) {
-      setFormData(prev => ({
-        ...prev,
-        memberId: defaultMemberId,
-        memberName: defaultMemberName || prev.memberName,
-        memberPhone: defaultMemberPhone || prev.memberPhone
-      }))
+     if (isOpen && defaultMemberId) {
+       setFormData(prev => ({
+         ...prev,
+         memberId: defaultMemberId,
+         memberName: defaultMemberName || prev.memberName,
+         memberPhone: defaultMemberPhone || prev.memberPhone
+       }))
+      const displayText = [defaultMemberName, defaultMemberPhone].filter(Boolean).join(' - ')
+      setMemberSearch(displayText)
+      setMemberSearchResults([])
+      setMemberSearchError('')
+     }
+   }, [isOpen, defaultMemberId, defaultMemberName, defaultMemberPhone])
+
+  useEffect(() => () => {
+    if (memberSearchBlurTimeout.current) {
+      clearTimeout(memberSearchBlurTimeout.current)
     }
-  }, [isOpen, defaultMemberId, defaultMemberName, defaultMemberPhone])
+  }, [])
 
   const handleClose = (shouldRefresh = false) => {
     resetForm()
@@ -399,9 +551,9 @@ export default function AddInvoiceModal({
             {/* Left Column - Company/Client Info */}
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                <h3 className="font-bold text-gray-900 mb-2">AIRFIT</h3>
-                <p className="text-sm text-gray-600">
-                  2nd floor, 1886, 5th main, 8th cross, HAL 3rd Stage, 3rd stage, New Tippasandra, Bengaluru, Karnataka 560075
+                <h3 className="font-bold text-gray-900 mb-2">{organizationName}</h3>
+                <p className="text-sm text-gray-600 whitespace-pre-line">
+                  {organizationAddress || 'Organization address not available'}
                 </p>
               </div>
 
@@ -409,7 +561,7 @@ export default function AddInvoiceModal({
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Phone
                 </label>
-                <p className="text-sm text-gray-600">{user?.organizationPhone || 'N/A'}</p>
+                <p className="text-sm text-gray-600">{organizationPhone}</p>
               </div>
 
               <div>
@@ -419,19 +571,40 @@ export default function AddInvoiceModal({
                 <div className="relative">
                   <input
                     type="text"
-                    value={formData.memberName || formData.memberPhone}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setFormData(prev => ({
-                        ...prev,
-                        memberName: value,
-                        memberPhone: value
-                      }))
-                    }}
-                    placeholder="Name/Mobile Number"
+                    value={memberSearch}
+                    onChange={(e) => handleMemberInputChange(e.target.value)}
+                    onFocus={handleMemberInputFocus}
+                    onBlur={handleMemberInputBlur}
+                    placeholder="Search by name or mobile"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
                   />
                   <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                  {(isMemberSearching || memberSearchResults.length > 0 || memberSearchError) && (
+                    <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                      {isMemberSearching && (
+                        <p className="px-4 py-3 text-sm text-gray-500">Searching...</p>
+                      )}
+                      {!isMemberSearching && memberSearchResults.map(member => (
+                        <button
+                          key={member._id}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            handleMemberSelectFromSearch(member)
+                          }}
+                          className="w-full px-4 py-2 text-left hover:bg-orange-50 focus:bg-orange-50 transition-colors"
+                        >
+                          <span className="block text-sm font-medium text-gray-900">
+                            {`${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unnamed Member'}
+                          </span>
+                          <span className="block text-xs text-gray-500">{member.phone || 'No phone available'}</span>
+                        </button>
+                      ))}
+                      {!isMemberSearching && memberSearchResults.length === 0 && memberSearchError && (
+                        <p className="px-4 py-3 text-sm text-gray-500">{memberSearchError}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {membersData?.members && (
                   <select

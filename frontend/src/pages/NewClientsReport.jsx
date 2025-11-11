@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download, Calendar, ChevronDown } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
@@ -26,14 +26,14 @@ export default function NewClientsReport() {
     gender: 'all'
   })
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [hasSearched, setHasSearched] = useState(true)
 
   const { data: plansData } = useQuery({
     queryKey: ['plans-list'],
     queryFn: () => api.get('/plans').then(res => res.data).catch(() => ({ plans: [] }))
   })
 
-  const { data: reportData, isLoading, refetch } = useQuery({
+  const { data: reportData, isLoading } = useQuery({
     queryKey: ['new-clients-report', filters, page],
     queryFn: () => getNewClientsReport({
       fromDate: filters.fromDate,
@@ -57,16 +57,9 @@ export default function NewClientsReport() {
   }
 
   const handleSearch = () => {
-    setHasSearched(true)
     setPage(1)
-    refetch()
+    setHasSearched(true)
   }
-
-  useEffect(() => {
-    if (!hasSearched) {
-      setHasSearched(true)
-    }
-  }, [hasSearched])
 
   const handleExportExcel = async () => {
     try {

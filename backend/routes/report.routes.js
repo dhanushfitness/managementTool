@@ -30,6 +30,8 @@ import {
   exportEnquiryConversionReport,
   getServiceTypeReport,
   exportServiceTypeReport,
+  getServiceSalesReport,
+  exportServiceSalesReport,
   getRevenueRealizationReport,
   exportRevenueRealizationReport,
   getRevenueRealizationBaseValueReport,
@@ -155,6 +157,8 @@ router.get('/backdated-bills', authorize('owner', 'manager', 'staff'), getBackda
 router.get('/backdated-bills/export', authorize('owner', 'manager', 'staff'), exportBackdatedBillsReport);
 router.get('/discount', authorize('owner', 'manager', 'staff'), getDiscountReport);
 router.get('/discount/export', authorize('owner', 'manager', 'staff'), exportDiscountReport);
+router.get('/service-sales', authorize('owner', 'manager', 'staff'), getServiceSalesReport);
+router.get('/service-sales/export', authorize('owner', 'manager', 'staff'), exportServiceSalesReport);
 router.get('/effective-sales-accounting', authorize('owner', 'manager', 'accountant'), getEffectiveSalesAccountingReport);
 router.get('/effective-sales-accounting/export', authorize('owner', 'manager', 'accountant'), exportEffectiveSalesAccountingReport);
 router.get('/refund', authorize('owner', 'manager', 'staff'), getRefundReport);

@@ -157,6 +157,7 @@ export default function StaffDetails() {
       }
     }
     if (!formData.password) delete updateData.password
+    delete updateData.attendanceId
     updateMutation.mutate(updateData)
   }
 
@@ -604,13 +605,9 @@ export default function StaffDetails() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Attendance ID</label>
-                  <input
-                    type="text"
-                    value={formData.attendanceId}
-                    onChange={(e) => handleChange('attendanceId', e.target.value)}
-                    disabled={!isEditing}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
-                  />
+                  <p className="px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-gray-900">
+                    {formData.attendanceId || 'N/A'}
+                  </p>
                 </div>
 
                 <div>

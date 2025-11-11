@@ -15,9 +15,15 @@ const generateMemberId = async (organizationId) => {
   return `MEM${String(count + 1).padStart(6, '0')}`;
 };
 
+const generateMemberAttendanceId = async (organizationId) => {
+  const count = await Member.countDocuments({ organizationId });
+  return `MAT${String(count + 1).padStart(6, '0')}`;
+};
+
 export const createMember = async (req, res) => {
   try {
     const memberId = await generateMemberId(req.organizationId);
+    const attendanceId = await generateMemberAttendanceId(req.organizationId);
     
     // Process member data
     const memberData = {
@@ -25,6 +31,7 @@ export const createMember = async (req, res) => {
       organizationId: req.organizationId,
       branchId: req.body.branchId || req.user.branchId,
       memberId,
+      attendanceId,
       createdBy: req.user._id
     };
 

@@ -31,7 +31,6 @@ export default function AddMemberModal({ isOpen, onClose }) {
     emergencyContactCountryCode: '+91',
     emergencyContactNumber: '',
     emergencyContactRelationship: '',
-    attendanceId: '',
     clubId: '',
     gstNo: '',
     communicationPreferences: {
@@ -100,7 +99,6 @@ export default function AddMemberModal({ isOpen, onClose }) {
         emergencyContactCountryCode: '+91',
         emergencyContactNumber: '',
         emergencyContactRelationship: '',
-        attendanceId: '',
         clubId: '',
         gstNo: '',
         communicationPreferences: {
@@ -158,7 +156,6 @@ export default function AddMemberModal({ isOpen, onClose }) {
         phone: formData.emergencyContactNumber,
         relationship: formData.emergencyContactRelationship
       },
-      attendanceId: formData.attendanceId,
       clubId: formData.clubId,
       gstNo: formData.gstNo,
       communicationPreferences: formData.communicationPreferences,
@@ -731,19 +728,7 @@ export default function AddMemberModal({ isOpen, onClose }) {
                   <span className="w-1 h-6 bg-orange-500 rounded-full mr-3"></span>
                   IDs
                 </h3>
-                <div className="grid grid-cols-3 gap-5">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Attendance ID
-                    </label>
-                    <input
-                      type="text"
-                      name="attendanceId"
-                      value={formData.attendanceId}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Club ID

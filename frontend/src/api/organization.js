@@ -25,3 +25,8 @@ export const deleteBranch = async (branchId) => {
   return response.data;
 };
 
+export const getOrganizationDetails = async () => {
+  const response = await axios.get('/organizations');
+  return response.data;
+};
+

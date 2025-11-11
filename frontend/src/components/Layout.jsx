@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import AddEnquiryModal from './AddEnquiryModal'
@@ -41,6 +42,36 @@ import {
   Archive
 } from 'lucide-react'
 import { setupSections } from '../data/setupSections'
+import { getOrganizationDetails } from '../api/organization'
+
+const resolveAssetUrl = (path) => {
+  if (!path) return null
+  if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:')) return path
+
+  const absoluteEnvBase = [
+    import.meta.env.VITE_BACKEND_URL,
+    import.meta.env.VITE_API_ORIGIN,
+    import.meta.env.VITE_API_BASE_URL
+  ].find((value) => typeof value === 'string' && /^https?:\/\//i.test(value))
+
+  const getDefaultBase = () => {
+    if (typeof window === 'undefined') return ''
+    const { origin } = window.location
+    if (origin.includes('localhost:5173')) {
+      return 'http://localhost:5000'
+    }
+    return origin
+  }
+
+  const base = absoluteEnvBase || getDefaultBase()
+
+  try {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    return new URL(normalizedPath, base || undefined).href
+  } catch {
+    return path.startsWith('/') ? path : `/${path}`
+  }
+}
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, hasSubmenu: false },
@@ -75,6 +106,7 @@ export default function Layout() {
   const [searchQuery, setSearchQuery] = useState('')
   const [reportsSearchQuery, setReportsSearchQuery] = useState('')
   const [setupSearchQuery, setSetupSearchQuery] = useState('')
+  const [isLogoBroken, setIsLogoBroken] = useState(false)
   const menuRef = useRef(null)
   const checkInMenuRef = useRef(null)
   const sendMenuRef = useRef(null)
@@ -82,6 +114,20 @@ export default function Layout() {
   const clientMenuRef = useRef(null)
   const reportsMenuRef = useRef(null)
   const setupMenuRef = useRef(null)
+
+  const { data: organizationResponse } = useQuery({
+    queryKey: ['organization-details'],
+    queryFn: getOrganizationDetails,
+    enabled: Boolean(user?.organizationId)
+  })
+
+  const organization = organizationResponse?.organization
+  const organizationLogoUrl = resolveAssetUrl(organization?.logo)
+  const organizationDisplayName = organization?.name || user?.organizationName || 'Indiranagar'
+
+  useEffect(() => {
+    setIsLogoBroken(false)
+  }, [organizationLogoUrl])
 
   // Reports categories data
   const reportsCategories = [
@@ -413,15 +459,30 @@ export default function Layout() {
           </button>
 
           <div className={`p-6 ${isSidebarCollapsed ? 'px-4' : ''}`}>
-            <div className="bg-red-600 text-white p-3 rounded mb-2">
-              {isSidebarCollapsed ? (
-                <h1 className="text-lg font-bold text-center">A</h1>
+            <div
+              className={`rounded mb-2 flex items-center justify-center ${isSidebarCollapsed ? 'h-12' : 'h-16'} ${
+                organizationLogoUrl && !isLogoBroken ? 'bg-white border border-gray-200' : 'bg-red-600 text-white'
+              }`}
+            >
+              {organizationLogoUrl && !isLogoBroken ? (
+                <img
+                  src={organizationLogoUrl}
+                  alt={`${organizationDisplayName} logo`}
+                  className={`${isSidebarCollapsed ? 'h-10 w-10' : 'h-12'} object-contain`}
+                  onError={() => setIsLogoBroken(true)}
+                />
               ) : (
-                <h1 className="text-xl font-bold">AIRFIT</h1>
+                <span
+                  className={`font-bold ${isSidebarCollapsed ? 'text-lg text-center' : 'text-xl'}`}
+                >
+                  {isSidebarCollapsed
+                    ? (organizationDisplayName?.[0] || 'A').toUpperCase()
+                    : organizationDisplayName}
+                </span>
               )}
             </div>
             {!isSidebarCollapsed && (
-              <p className="text-sm text-gray-600">{user?.organizationName || 'Indiranagar'}</p>
+              <p className="text-sm text-gray-600 truncate">{organizationDisplayName}</p>
             )}
           </div>
           <nav className={`${isSidebarCollapsed ? 'px-2' : 'px-4'} space-y-1 relative`}>
@@ -778,7 +839,7 @@ export default function Layout() {
               <div className="bg-red-600 text-white px-4 py-2 rounded-lg shadow-md">
                 <span className="font-bold text-lg">AIRFIT</span>
               </div>
-              <span className="text-sm font-medium text-gray-300">{user?.organizationName || 'Indiranagar'}</span>
+              <span className="text-sm font-medium text-gray-300">{organizationDisplayName}</span>
               <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
                 <input
                   type="text"

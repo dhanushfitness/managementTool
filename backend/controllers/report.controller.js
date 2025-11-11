@@ -550,7 +550,6 @@ export const getBiometricDevices = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Biometric Report to Excel
 export const exportBiometricReport = async (req, res) => {
   try {
@@ -1153,7 +1152,6 @@ export const getLeadSourceReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Lead Source Report
 export const exportLeadSourceReport = async (req, res) => {
   try {
@@ -1816,8 +1814,6 @@ export const getSMSReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
 // Business MIS Report
 export const getBusinessMISReport = async (req, res) => {
   try {
@@ -2604,7 +2600,6 @@ export const exportRevenueReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Service Sales All Bookings Report
 export const getServiceSalesReport = async (req, res) => {
   try {
@@ -2669,7 +2664,7 @@ export const getServiceSalesReport = async (req, res) => {
     const baseQuery = {
       organizationId: req.organizationId,
       ...dateQuery,
-      status: { $in: ['paid', 'partial', 'sent'] } // Include sent invoices as they represent bookings
+      status: { $in: ['paid', 'partial', 'sent', 'draft'] } // Include draft (pro-forma), sent and paid invoices
     };
 
     // Filter by sale type (New Bookings vs Rebookings)
@@ -2865,19 +2860,19 @@ export const exportServiceSalesReport = async (req, res) => {
       };
     }
 
-    const baseQuery = {
+    const exportBaseQuery = {
       organizationId: req.organizationId,
       ...dateQuery,
-      status: { $in: ['paid', 'partial', 'sent'] }
+      status: { $in: ['paid', 'partial', 'sent', 'draft'] }
     };
 
     if (saleType === 'new-bookings') {
-      baseQuery.type = { $in: ['membership', 'other'] };
+      exportBaseQuery.type = { $in: ['membership', 'other'] };
     } else if (saleType === 'rebookings') {
-      baseQuery.type = { $in: ['renewal', 'upgrade', 'downgrade'] };
+      exportBaseQuery.type = { $in: ['renewal', 'upgrade', 'downgrade'] };
     }
 
-    const invoices = await Invoice.find(baseQuery)
+    const invoices = await Invoice.find(exportBaseQuery)
       .populate('memberId', 'firstName lastName gender')
       .populate('planId', 'name')
       .populate('items.serviceId', 'name')
@@ -3401,7 +3396,6 @@ export const exportServiceTypeReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Enquiry Conversion Report
 export const getEnquiryConversionReport = async (req, res) => {
   try {
@@ -4031,7 +4025,6 @@ export const getRevenueRealizationReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Revenue Realization Report
 export const exportRevenueRealizationReport = async (req, res) => {
   try {
@@ -4801,7 +4794,6 @@ export const exportRefundReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Effective Sales Accounting Report
 export const getEffectiveSalesAccountingReport = async (req, res) => {
   try {
@@ -5542,7 +5534,6 @@ export const exportCashFlowStatementReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Payment Mode Report
 export const getPaymentModeReport = async (req, res) => {
   try {
@@ -6212,7 +6203,6 @@ export const exportBackdatedBillsReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Discount Report
 export const getDiscountReport = async (req, res) => {
   try {
@@ -6904,7 +6894,6 @@ export const getRenewalVsAttritionList = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Renewal vs Attrition Report
 export const exportRenewalVsAttritionReport = async (req, res) => {
   try {
@@ -7591,7 +7580,6 @@ export const getMultiClubMemberCheckinsReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export MultiClub Member Check-ins Report
 export const exportMultiClubMemberCheckinsReport = async (req, res) => {
   try {
@@ -7707,7 +7695,6 @@ export const exportMultiClubMemberCheckinsReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Member Attendance Register Report
 export const getMemberAttendanceRegisterReport = async (req, res) => {
   try {
@@ -8016,8 +8003,8 @@ export const getNewClientsReport = async (req, res) => {
     // Build base query
     const baseQuery = {
       organizationId: req.organizationId,
-      type: 'membership',
-      invoiceType: 'service'
+      status: { $in: ['paid', 'partial', 'sent', 'draft'] },
+      type: { $in: ['membership', 'other', 'pro-forma', 'renewal', 'upgrade', 'downgrade'] }
     };
 
     // Date filter
@@ -8054,45 +8041,97 @@ export const getNewClientsReport = async (req, res) => {
     for (const invoice of invoices) {
       if (!invoice.memberId) continue;
 
-      for (const item of invoice.items) {
-        const serviceName = item.serviceId?.name || item.description || '';
-        if (serviceName.toLowerCase().includes('pt') || 
-            serviceName.toLowerCase().includes('personal training')) {
-          continue;
-        }
+      if (invoice.items && invoice.items.length > 0) {
+        for (const item of invoice.items) {
+          if (!item) continue;
+          const serviceName = item.serviceId?.name || item.description || 'Unknown Service';
 
-        // Gender filter
+          if (gender && gender !== 'all' && invoice.memberId.gender !== gender) {
+            continue;
+          }
+
+          const payments = await Payment.find({
+            invoiceId: invoice._id,
+            status: 'completed'
+          }).lean();
+          const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0) || (item.total || invoice.total || 0);
+
+          const formatDate = (date) => {
+            if (!date) return '-';
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}-${month}-${year}`;
+          };
+
+          records.push({
+            _id: `${invoice._id}-${item._id || Math.random()}`,
+            memberId: invoice.memberId.memberId || '-',
+            memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
+            mobile: invoice.memberId.phone || '-',
+            email: invoice.memberId.email || '-',
+            serviceName,
+            serviceVariationName: item.description || serviceName,
+            billNo: invoice.invoiceNumber || '-',
+            purchaseDate: formatDate(invoice.createdAt),
+            joinDate: invoice.createdAt,
+            startDate: formatDate(item.startDate),
+            endDate: formatDate(item.expiryDate),
+            totalCheckIns: invoice.memberId.attendanceStats?.totalCheckIns || 0,
+            leadSource: invoice.memberId.leadSource || '-',
+            salesRepName: invoice.createdBy
+              ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim()
+              : '-',
+            baseFee: item.amount || invoice.subtotal || 0,
+            tax: item.taxAmount || invoice.tax?.amount || 0,
+            netAmount: item.total || invoice.total || 0,
+            paidAmount
+          });
+        }
+      } else {
         if (gender && gender !== 'all' && invoice.memberId.gender !== gender) {
           continue;
         }
 
-        // Get paid amount
         const payments = await Payment.find({
           invoiceId: invoice._id,
           status: 'completed'
         }).lean();
-        const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0) || (invoice.total || 0);
+
+        const formatDate = (date) => {
+          if (!date) return '-';
+          const d = new Date(date);
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          return `${day}-${month}-${year}`;
+        };
+
+        const serviceName = invoice.planId?.name || 'Unknown Service';
 
         records.push({
-          _id: `${invoice._id}-${item._id || Math.random()}`,
+          _id: `${invoice._id}-main`,
           memberId: invoice.memberId.memberId || '-',
           memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
           mobile: invoice.memberId.phone || '-',
           email: invoice.memberId.email || '-',
           serviceName,
-          serviceVariationName: item.description || serviceName,
+          serviceVariationName: serviceName,
           billNo: invoice.invoiceNumber || '-',
-          purchaseDate: invoice.createdAt,
-          startDate: item.startDate,
-          endDate: item.expiryDate,
+          purchaseDate: formatDate(invoice.createdAt),
+          joinDate: invoice.createdAt,
+          startDate: formatDate(invoice.currentPlan?.startDate || invoice.createdAt),
+          endDate: formatDate(invoice.currentPlan?.endDate),
           totalCheckIns: invoice.memberId.attendanceStats?.totalCheckIns || 0,
           leadSource: invoice.memberId.leadSource || '-',
           salesRepName: invoice.createdBy
             ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim()
             : '-',
-          baseFee: item.amount || 0,
-          tax: item.taxAmount || 0,
-          netAmount: item.total || 0,
+          baseFee: invoice.subtotal || 0,
+          tax: invoice.tax?.amount || 0,
+          netAmount: invoice.total || 0,
           paidAmount
         });
       }
@@ -8131,8 +8170,8 @@ export const exportNewClientsReport = async (req, res) => {
 
     const baseQuery = {
       organizationId: req.organizationId,
-      type: 'membership',
-      invoiceType: 'service'
+      status: { $in: ['paid', 'partial', 'sent', 'draft'] },
+      type: { $in: ['membership', 'other', 'pro-forma'] }
     };
 
     if (fromDate || toDate) {
@@ -8162,12 +8201,54 @@ export const exportNewClientsReport = async (req, res) => {
     const records = [];
     for (const invoice of invoices) {
       if (!invoice.memberId) continue;
-      for (const item of invoice.items) {
-        const serviceName = item.serviceId?.name || item.description || '';
-        if (serviceName.toLowerCase().includes('pt') || 
-            serviceName.toLowerCase().includes('personal training')) {
-          continue;
+      if (invoice.items && invoice.items.length > 0) {
+        for (const item of invoice.items) {
+          if (!item) continue;
+          const serviceName = item.serviceId?.name || item.description || 'Unknown Service';
+          if (gender && gender !== 'all' && invoice.memberId.gender !== gender) {
+            continue;
+          }
+
+          const payments = await Payment.find({
+            invoiceId: invoice._id,
+            status: 'completed'
+          }).lean();
+          const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0) || (item.total || invoice.total || 0);
+
+          const formatDate = (date) => {
+            if (!date) return '-';
+            const d = new Date(date);
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}-${month}-${year}`;
+          };
+
+          records.push({
+            memberId: invoice.memberId.memberId || '-',
+            memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
+            mobile: invoice.memberId.phone || '-',
+            email: invoice.memberId.email || '-',
+            serviceName,
+            serviceVariationName: item.description || serviceName,
+            billNo: invoice.invoiceNumber || '-',
+            purchaseDate: formatDate(invoice.createdAt),
+            joinDate: invoice.createdAt,
+            startDate: formatDate(item.startDate),
+            endDate: formatDate(item.expiryDate),
+            totalCheckIns: invoice.memberId.attendanceStats?.totalCheckIns || 0,
+            leadSource: invoice.memberId.leadSource || '-',
+            salesRepName: invoice.createdBy
+              ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim()
+              : '-',
+            baseFee: item.amount || invoice.subtotal || 0,
+            tax: item.taxAmount || invoice.tax?.amount || 0,
+            netAmount: item.total || invoice.total || 0,
+            paidAmount,
+            gender: invoice.memberId.gender || '-'
+          });
         }
+      } else {
         if (gender && gender !== 'all' && invoice.memberId.gender !== gender) {
           continue;
         }
@@ -8176,7 +8257,7 @@ export const exportNewClientsReport = async (req, res) => {
           invoiceId: invoice._id,
           status: 'completed'
         }).lean();
-        const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0) || (invoice.total || 0);
 
         const formatDate = (date) => {
           if (!date) return '-';
@@ -8187,55 +8268,66 @@ export const exportNewClientsReport = async (req, res) => {
           return `${day}-${month}-${year}`;
         };
 
+        const serviceName = invoice.planId?.name || 'Unknown Service';
+
         records.push({
           memberId: invoice.memberId.memberId || '-',
           memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
           mobile: invoice.memberId.phone || '-',
+          email: invoice.memberId.email || '-',
           serviceName,
-          serviceVariationName: item.description || serviceName,
+          serviceVariationName: serviceName,
           billNo: invoice.invoiceNumber || '-',
           purchaseDate: formatDate(invoice.createdAt),
-          startDate: formatDate(item.startDate),
-          endDate: formatDate(item.expiryDate),
+          joinDate: invoice.createdAt,
+          startDate: formatDate(invoice.currentPlan?.startDate || invoice.createdAt),
+          endDate: formatDate(invoice.currentPlan?.endDate),
           totalCheckIns: invoice.memberId.attendanceStats?.totalCheckIns || 0,
           leadSource: invoice.memberId.leadSource || '-',
           salesRepName: invoice.createdBy
             ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim()
             : '-',
-          baseFee: item.amount || 0,
-          tax: item.taxAmount || 0,
-          netAmount: item.total || 0,
-          paidAmount
+          baseFee: invoice.subtotal || 0,
+          tax: invoice.tax?.amount || 0,
+          netAmount: invoice.total || 0,
+          paidAmount,
+          gender: invoice.memberId.gender || '-'
         });
       }
     }
 
-    const headers = [
-      'S.No', 'Member ID', 'Member Name', 'Mobile', 'Service Name', 'Service Variation Name',
-      'Bill No', 'Purchase Date', 'Start Date', 'End Date', 'Total Check-Ins',
-      'Lead Source', 'Sales Rep Name', 'Base Fee', 'Tax', 'Net Amount', 'Paid Amount'
-    ];
-
+    const headers = ['S.No', 'Member ID', 'Member Name', 'Mobile', 'Email', 'Service Name', 'Service Variation Name', 'Bill No', 'Purchase Date', 'Join Date', 'Start Date', 'End Date', 'Lead Source', 'Sales Rep Name', 'Base Fee', 'Tax', 'Net Amount', 'Paid Amount', 'Gender'];
     let csvContent = headers.join(',') + '\n';
     records.forEach((record, index) => {
+      const formatDate = (date) => {
+        if (!date) return '-';
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
       const row = [
         index + 1,
         record.memberId,
         `"${record.memberName}"`,
         record.mobile,
+        record.email,
         `"${record.serviceName}"`,
         `"${record.serviceVariationName}"`,
         record.billNo,
         record.purchaseDate,
+        record.joinDate ? formatDate(record.joinDate) : '-',
         record.startDate,
         record.endDate,
-        record.totalCheckIns,
         record.leadSource,
         `"${record.salesRepName}"`,
         record.baseFee,
         record.tax,
         record.netAmount,
-        record.paidAmount
+        record.paidAmount,
+        record.gender
       ];
       csvContent += row.join(',') + '\n';
     });
@@ -8333,7 +8425,6 @@ export const getRenewalsReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Renewals Report
 export const exportRenewalsReport = async (req, res) => {
   try {
@@ -8429,7 +8520,6 @@ export const exportRenewalsReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Membership Report
 export const getMembershipReport = async (req, res) => {
   try {
@@ -8530,7 +8620,6 @@ export const getMembershipReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Membership Report
 export const exportMembershipReport = async (req, res) => {
   try {
@@ -8601,6 +8690,7 @@ export const exportMembershipReport = async (req, res) => {
           memberId: invoice.memberId.memberId || '-',
           memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
           mobile: invoice.memberId.phone || '-',
+          email: invoice.memberId.email || '-',
           serviceName: item.serviceId?.name || item.description || '-',
           billNo: invoice.invoiceNumber || '-',
           startDate: formatDate(item.startDate),
@@ -8617,7 +8707,7 @@ export const exportMembershipReport = async (req, res) => {
     }
 
     const headers = [
-      'S.No', 'Member ID', 'Member Name', 'Mobile', 'Service Name', 'Bill No',
+      'S.No', 'Member ID', 'Member Name', 'Mobile', 'Email', 'Service Name', 'Bill No',
       'Start Date', 'End Date', 'Last Check-In Date', 'Lead Source', 'Sales Rep Name', 'Bill Amount', 'Pay Mode'
     ];
 
@@ -8628,6 +8718,7 @@ export const exportMembershipReport = async (req, res) => {
         record.memberId,
         `"${record.memberName}"`,
         record.mobile,
+        record.email,
         `"${record.serviceName}"`,
         record.billNo,
         record.startDate,
@@ -9127,7 +9218,6 @@ export const getSuspensionsReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Suspensions Report
 export const exportSuspensionsReport = async (req, res) => {
   try {
@@ -9330,7 +9420,6 @@ export const getAttendanceHeatMapReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Attendance Heat Map Report
 export const exportAttendanceHeatMapReport = async (req, res) => {
   try {
@@ -9862,7 +9951,6 @@ export const getClientAttendanceReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Client Attendance Report
 export const exportClientAttendanceReport = async (req, res) => {
   try {
@@ -10079,7 +10167,6 @@ export const getMembershipRetentionReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Export Membership Retention Report
 export const exportMembershipRetentionReport = async (req, res) => {
   try {
@@ -10646,7 +10733,6 @@ export const exportProfileChangeReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // One Time Purchaser Report
 export const getOneTimePurchaserReport = async (req, res) => {
   try {
@@ -10812,7 +10898,6 @@ export const exportOneTimePurchaserReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Average Lifetime Value Report
 export const getAverageLifetimeValueReport = async (req, res) => {
   try {
@@ -11425,7 +11510,6 @@ export const exportIrregularMembersReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Active Members Report
 export const getActiveMembersReport = async (req, res) => {
   try {
@@ -11607,7 +11691,6 @@ export const exportActiveMembersReport = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 // Inactive Members Report
 export const getInactiveMembersReport = async (req, res) => {
   try {

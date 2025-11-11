@@ -28,7 +28,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
     jobDesignation: '',
     adminRights: '',
     dateOfJoining: '',
-    attendanceId: '',
     panCard: '',
     gstNumber: '',
     accountNumber: '',
@@ -68,7 +67,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
         jobDesignation: '',
         adminRights: '',
         dateOfJoining: '',
-        attendanceId: '',
         panCard: '',
         gstNumber: '',
         accountNumber: '',
@@ -111,7 +109,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
       jobDesignation: formData.jobDesignation || undefined,
       adminRights: formData.adminRights || undefined,
       dateOfJoining: formData.dateOfJoining || undefined,
-      attendanceId: formData.attendanceId || undefined,
       panCard: formData.panCard || undefined,
       gstNumber: formData.gstNumber || undefined,
       bankAccount: formData.accountNumber || formData.ifsc ? {
@@ -586,19 +583,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
                   value={formData.dateOfJoining}
                   onChange={handleChange}
                   className="px-4 py-3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Attendance ID
-                </label>
-                <input
-                  type="text"
-                  name="attendanceId"
-                  value={formData.attendanceId}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
                 />
               </div>
 

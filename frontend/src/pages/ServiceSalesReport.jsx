@@ -48,7 +48,7 @@ const genderOptions = [
 export default function ServiceSalesReport() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [hasSearched, setHasSearched] = useState(true)
 
   const { data: plansData } = useQuery({
     queryKey: ['plans-list'],
@@ -57,7 +57,7 @@ export default function ServiceSalesReport() {
 
   const plans = plansData?.plans || []
 
-  const { data: reportData, isLoading, refetch } = useQuery({
+  const { data: reportData, isLoading } = useQuery({
     queryKey: ['service-sales-report', filters, page],
     queryFn: () => getServiceSalesReport({
       ...filters,
@@ -77,16 +77,15 @@ export default function ServiceSalesReport() {
   }
 
   const handleSearch = (event) => {
-    if (event) event.preventDefault()
-    setHasSearched(true)
+     if (event) event.preventDefault()
     setPage(1)
-    refetch()
+    setHasSearched(true)
   }
 
   const handleReset = () => {
     setFilters(DEFAULT_FILTERS)
-    setHasSearched(false)
     setPage(1)
+    setHasSearched(true)
   }
 
   const handleExportExcel = async () => {

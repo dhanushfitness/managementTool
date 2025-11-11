@@ -13,6 +13,19 @@ const planSchema = new mongoose.Schema({
     trim: true
   },
   description: String,
+  serviceName: {
+    type: String,
+    trim: true
+  },
+  serviceType: {
+    type: String,
+    trim: true,
+    default: 'Membership'
+  },
+  variationId: {
+    type: String,
+    trim: true
+  },
   type: {
     type: String,
     enum: ['duration', 'sessions', 'unlimited'],
@@ -42,6 +55,10 @@ const planSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100
+  },
+  allowOnlineSale: {
+    type: Boolean,
+    default: false
   },
   features: [{
     name: String,

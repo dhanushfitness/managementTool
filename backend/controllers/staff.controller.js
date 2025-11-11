@@ -7,13 +7,21 @@ import Appointment from '../models/Appointment.js';
 import MemberCallLog from '../models/MemberCallLog.js';
 import FollowUp from '../models/FollowUp.js';
 
+const generateStaffAttendanceId = async (organizationId) => {
+  const count = await User.countDocuments({
+    organizationId,
+    role: { $ne: 'owner' }
+  });
+  return `STF${String(count + 1).padStart(6, '0')}`;
+};
+
 export const createStaff = async (req, res) => {
   try {
     const {
       email, password, phone, firstName, lastName, role, branchId, permissions,
       countryCode, gender, dateOfBirth, anniversary, vaccinated, loginAccess,
       resume, employeeType, category, payoutType, grade, salary, jobDesignation,
-      adminRights, dateOfJoining, attendanceId, panCard, gstNumber,
+      adminRights, dateOfJoining, panCard, gstNumber,
       bankAccount, hrmsId, profilePicture
     } = req.body;
 
@@ -33,16 +41,23 @@ export const createStaff = async (req, res) => {
 
     // If login access is disabled, password is not required
     const loginAccessEnabled = loginAccess !== undefined ? loginAccess : true;
+    let finalPassword = password;
     if (!loginAccessEnabled && !password) {
       // Generate a random password for users without login access
-      password = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+      finalPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
     }
+
+    if (!finalPassword) {
+      return res.status(400).json({ success: false, message: 'Password is required for staff with login access' });
+    }
+
+    const generatedAttendanceId = await generateStaffAttendanceId(req.organizationId);
 
     const staffData = {
       organizationId: req.organizationId,
       branchId: branchId || req.user.branchId,
       email,
-      password: loginAccessEnabled ? password : password, // Use generated password if no login access
+      password: finalPassword,
       phone: countryCode ? `${countryCode}${phone}` : phone,
       firstName,
       lastName,
@@ -63,7 +78,7 @@ export const createStaff = async (req, res) => {
       jobDesignation,
       adminRights: adminRights || 'none',
       dateOfJoining: dateOfJoining || undefined,
-      attendanceId,
+      attendanceId: generatedAttendanceId,
       panCard,
       gstNumber,
       bankAccount: bankAccount || undefined,
