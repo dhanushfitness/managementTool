@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import { 
@@ -26,11 +26,22 @@ import LoadingTable from '../components/LoadingTable'
 import AddEnquiryModal from '../components/AddEnquiryModal'
 import CallLogModal from '../components/CallLogModal'
 import AppointmentModal from '../components/AppointmentModal'
+import DateInput from '../components/DateInput'
+import { useDateFilterStore } from '../store/dateFilterStore'
 
 export default function Enquiries() {
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
-  const [dateFilter, setDateFilter] = useState('last30days')
+  const {
+    dateFilter,
+    fromDate,
+    toDate,
+    setDateFilterValue,
+    setFromDateValue,
+    setToDateValue,
+    applyFilterParams
+  } = useDateFilterStore()
   const [page, setPage] = useState(1)
   const [limit] = useState(20)
   const [showFilters, setShowFilters] = useState(false)
@@ -40,7 +51,6 @@ export default function Enquiries() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(null)
   const [showFitnessLogModal, setShowFitnessLogModal] = useState(null)
   const [showEditModal, setShowEditModal] = useState(null)
-  
   // Filter states
   const [filters, setFilters] = useState({
     enquiryStage: '',
@@ -51,11 +61,36 @@ export default function Enquiries() {
     staffId: ''
   })
 
+  const [initialQueryApplied, setInitialQueryApplied] = useState(false)
+
+  useEffect(() => {
+    if (initialQueryApplied) return
+    const params = new URLSearchParams(location.search)
+    const incomingFilter = params.get('dateFilter')
+    const incomingFrom = params.get('fromDate')
+    const incomingTo = params.get('toDate')
+    if (incomingFilter) {
+      applyFilterParams({
+        dateFilter: incomingFilter,
+        fromDate: incomingFrom || '',
+        toDate: incomingTo || ''
+      })
+    }
+    setInitialQueryApplied(true)
+  }, [location.search, initialQueryApplied, applyFilterParams])
+
+  const buildDateParams = () => {
+    if (dateFilter === 'custom' && fromDate && toDate) {
+      return { dateFilter, fromDate, toDate }
+    }
+    return { dateFilter }
+  }
+
   // Build query params
   const queryParams = {
     page,
     limit,
-    dateFilter,
+    ...buildDateParams(),
     ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
   }
 
@@ -67,8 +102,8 @@ export default function Enquiries() {
 
   // Fetch stats
   const { data: stats } = useQuery({
-    queryKey: ['enquiry-stats', dateFilter],
-    queryFn: () => api.get('/enquiries/stats', { params: { dateFilter } }).then(res => res.data)
+    queryKey: ['enquiry-stats', dateFilter, fromDate, toDate],
+    queryFn: () => api.get('/enquiries/stats', { params: buildDateParams() }).then(res => res.data)
   })
 
   // Fetch staff for filters
@@ -233,11 +268,11 @@ export default function Enquiries() {
 
       {/* Top Controls */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             value={dateFilter}
             onChange={(e) => {
-              setDateFilter(e.target.value)
+              setDateFilterValue(e.target.value)
               setPage(1)
             }}
             className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
@@ -247,12 +282,53 @@ export default function Enquiries() {
             <option value="last30days">Last 30 Days</option>
             <option value="custom">Custom Date Range</option>
           </select>
-          <button
-            onClick={() => refetch()}
-            className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-          >
-            Go
-          </button>
+
+          {dateFilter === 'custom' && (
+            <>
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-700 font-medium">From</label>
+                <DateInput
+                  value={fromDate}
+                  onChange={(e) => setFromDateValue(e.target.value)}
+                  hideIcon
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-700 font-medium">To</label>
+                <DateInput
+                  value={toDate}
+                  onChange={(e) => setToDateValue(e.target.value)}
+                  hideIcon
+                />
+              </div>
+              <button
+                onClick={() => {
+                  if (!fromDate || !toDate) {
+                    toast.error('Select both from and to dates')
+                    return
+                  }
+                  if (new Date(fromDate) > new Date(toDate)) {
+                    toast.error('From date cannot be after To date')
+                    return
+                  }
+                  setPage(1)
+                  refetch()
+                }}
+                className="px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+              >
+                Apply
+              </button>
+            </>
+          )}
+
+          {dateFilter !== 'custom' && (
+            <button
+              onClick={() => refetch()}
+              className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+            >
+              Go
+            </button>
+          )}
         </div>
         <div className="flex items-center space-x-2">
           <button 

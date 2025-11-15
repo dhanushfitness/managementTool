@@ -15,6 +15,70 @@ import StaffTarget from '../models/StaffTarget.js';
 import Expense from '../models/Expense.js';
 import AuditLog from '../models/AuditLog.js';
 
+const startOfDay = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const endOfDay = (date) => {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
+const resolveDateRange = (fromDate, toDate, dateFilter) => {
+  if (fromDate || toDate) {
+    const range = {};
+    if (fromDate) {
+      range.start = startOfDay(fromDate);
+    }
+    if (toDate) {
+      range.end = endOfDay(toDate);
+    }
+    return range.start || range.end ? range : null;
+  }
+
+  if (!dateFilter || dateFilter === 'all') {
+    return null;
+  }
+
+  const today = startOfDay(new Date());
+
+  switch (dateFilter) {
+    case 'today': {
+      return { start: today, end: endOfDay(today) };
+    }
+    case 'yesterday': {
+      const yesterday = startOfDay(new Date(today));
+      yesterday.setDate(yesterday.getDate() - 1);
+      return { start: yesterday, end: endOfDay(yesterday) };
+    }
+    case 'last7days': {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 6);
+      return { start, end: endOfDay(today) };
+    }
+    case 'last30days': {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 29);
+      return { start, end: endOfDay(today) };
+    }
+    case 'thisMonth': {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      const end = endOfDay(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+      return { start, end };
+    }
+    case 'previousMonth': {
+      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const end = endOfDay(new Date(today.getFullYear(), today.getMonth(), 0));
+      return { start, end };
+    }
+    default:
+      return null;
+  }
+};
+
 export const getFinancialReport = async (req, res) => {
   try {
     const { startDate, endDate, branchId } = req.query;
@@ -7994,168 +8058,91 @@ export const getNewClientsReport = async (req, res) => {
       fromDate,
       toDate,
       serviceId,
-      serviceVariationId,
       gender,
       page = 1,
       limit = 20
     } = req.query;
 
-    // Build base query
-    const baseQuery = {
-      organizationId: req.organizationId,
-      status: { $in: ['paid', 'partial', 'sent', 'draft'] },
-      type: { $in: ['membership', 'other', 'pro-forma', 'renewal', 'upgrade', 'downgrade'] }
+    const match = {
+      organizationId: req.organizationId
     };
 
-    // Date filter
     if (fromDate || toDate) {
-      baseQuery.createdAt = {};
+      match.createdAt = {};
       if (fromDate) {
         const start = new Date(fromDate);
         start.setHours(0, 0, 0, 0);
-        baseQuery.createdAt.$gte = start;
+        match.createdAt.$gte = start;
       }
       if (toDate) {
         const end = new Date(toDate);
         end.setHours(23, 59, 59, 999);
-        baseQuery.createdAt.$lte = end;
+        match.createdAt.$lte = end;
+      }
+      if (!Object.keys(match.createdAt).length) {
+        delete match.createdAt;
       }
     }
 
-    // Service filter
-    if (serviceId && serviceId !== 'all') {
-      baseQuery['items.serviceId'] = serviceId;
+    if (gender && gender !== 'all') {
+      match.gender = gender;
     }
 
-    // Get invoices
-    const invoices = await Invoice.find(baseQuery)
-      .populate('memberId', 'memberId firstName lastName phone email gender leadSource')
-      .populate('items.serviceId', 'name')
-      .populate('createdBy', 'firstName lastName')
-      .populate('branchId', 'name')
+    const serviceFilter = serviceId && serviceId !== 'all' ? serviceId : null;
+
+    const members = await Member.find(match)
+      .populate('salesRep', 'firstName lastName')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Filter non-PT and process records
-    const records = [];
-    for (const invoice of invoices) {
-      if (!invoice.memberId) continue;
-
-      if (invoice.items && invoice.items.length > 0) {
-        for (const item of invoice.items) {
-          if (!item) continue;
-          const serviceName = item.serviceId?.name || item.description || 'Unknown Service';
-
-          if (gender && gender !== 'all' && invoice.memberId.gender !== gender) {
-            continue;
-          }
-
-          const payments = await Payment.find({
-            invoiceId: invoice._id,
-            status: 'completed'
-          }).lean();
-          const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0) || (item.total || invoice.total || 0);
-
-          const formatDate = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}-${month}-${year}`;
-          };
-
-          records.push({
-            _id: `${invoice._id}-${item._id || Math.random()}`,
-            memberId: invoice.memberId.memberId || '-',
-            memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
-            mobile: invoice.memberId.phone || '-',
-            email: invoice.memberId.email || '-',
-            serviceName,
-            serviceVariationName: item.description || serviceName,
-            billNo: invoice.invoiceNumber || '-',
-            purchaseDate: formatDate(invoice.createdAt),
-            joinDate: invoice.createdAt,
-            startDate: formatDate(item.startDate),
-            endDate: formatDate(item.expiryDate),
-            totalCheckIns: invoice.memberId.attendanceStats?.totalCheckIns || 0,
-            leadSource: invoice.memberId.leadSource || '-',
-            salesRepName: invoice.createdBy
-              ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim()
-              : '-',
-            baseFee: item.amount || invoice.subtotal || 0,
-            tax: item.taxAmount || invoice.tax?.amount || 0,
-            netAmount: item.total || invoice.total || 0,
-            paidAmount
-          });
-        }
-      } else {
-        if (gender && gender !== 'all' && invoice.memberId.gender !== gender) {
-          continue;
-        }
-
-        const payments = await Payment.find({
-          invoiceId: invoice._id,
-          status: 'completed'
-        }).lean();
-        const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0) || (invoice.total || 0);
-
-        const formatDate = (date) => {
-          if (!date) return '-';
-          const d = new Date(date);
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = d.getFullYear();
-          return `${day}-${month}-${year}`;
-        };
-
-        const serviceName = invoice.planId?.name || 'Unknown Service';
-
-        records.push({
-          _id: `${invoice._id}-main`,
-          memberId: invoice.memberId.memberId || '-',
-          memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
-          mobile: invoice.memberId.phone || '-',
-          email: invoice.memberId.email || '-',
-          serviceName,
-          serviceVariationName: serviceName,
-          billNo: invoice.invoiceNumber || '-',
-          purchaseDate: formatDate(invoice.createdAt),
-          joinDate: invoice.createdAt,
-          startDate: formatDate(invoice.currentPlan?.startDate || invoice.createdAt),
-          endDate: formatDate(invoice.currentPlan?.endDate),
-          totalCheckIns: invoice.memberId.attendanceStats?.totalCheckIns || 0,
-          leadSource: invoice.memberId.leadSource || '-',
-          salesRepName: invoice.createdBy
-            ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim()
-            : '-',
-          baseFee: invoice.subtotal || 0,
-          tax: invoice.tax?.amount || 0,
-          netAmount: invoice.total || 0,
-          paidAmount
-        });
+    const filteredMembers = members.filter(member => {
+      if (serviceFilter) {
+        if (!member.currentPlan?.planId) return false;
+        return member.currentPlan.planId.toString() === serviceFilter;
       }
-    }
+      return true;
+    });
 
-    // Apply pagination
     const startIndex = (parseInt(page) - 1) * parseInt(limit);
-    const endIndex = startIndex + parseInt(limit);
-    const paginatedRecords = records.slice(startIndex, endIndex);
+    const paginatedRecords = filteredMembers.slice(startIndex, startIndex + parseInt(limit));
+
+    const formatDate = (date) => {
+      if (!date) return '-';
+      const d = new Date(date);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
+    const records = paginatedRecords.map(member => ({
+      _id: member._id,
+      memberId: member.memberId || '-',
+      memberName: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
+      mobile: member.phone || '-',
+      email: member.email || '-',
+      serviceName: member.currentPlan?.planName || '-',
+      joinDate: member.currentPlan?.startDate || member.createdAt,
+      startDate: formatDate(member.currentPlan?.startDate || member.createdAt),
+      endDate: formatDate(member.currentPlan?.endDate),
+      leadSource: member.leadSource || member.source || '-',
+      salesRepName: member.salesRep
+        ? `${member.salesRep.firstName || ''} ${member.salesRep.lastName || ''}`.trim()
+        : '-'
+    }));
 
     res.json({
       success: true,
-      data: {
-        records: paginatedRecords,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: records.length,
-          pages: Math.ceil(records.length / parseInt(limit))
-        },
-        summary: {
-          nonPTClients: records.length,
-          ptClients: 0
-        }
+      records,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: filteredMembers.length,
+        pages: Math.ceil(filteredMembers.length / parseInt(limit))
+      },
+      summary: {
+        nonPTClients: filteredMembers.length,
+        ptClients: 0
       }
     });
   } catch (error) {

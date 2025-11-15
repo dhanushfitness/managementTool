@@ -490,12 +490,29 @@ export default function Clients() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <button
-                            className="w-6 h-6 bg-gray-800 text-white rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors"
-                            title="Member information"
-                          >
-                            <Info className="w-3 h-3" />
-                          </button>
+                          <div className="relative group inline-flex">
+                            <button
+                              className="w-6 h-6 bg-gray-800 text-white rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors"
+                              title="Member information"
+                            >
+                              <Info className="w-3 h-3" />
+                            </button>
+                            <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 translate-y-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-30">
+                              <div className="bg-white text-gray-800 text-xs rounded-lg shadow-2xl px-4 py-3 w-72 space-y-1 border border-gray-200">
+                                <div className="flex justify-between font-semibold text-sm">
+                                  <span>Status</span>
+                                  <span className={`text-${member.membershipStatus === 'active' ? 'green' : 'gray'}-600`}>
+                                    {member.membershipStatus ? member.membershipStatus.replace(/^\w/, c => c.toUpperCase()) : 'Unknown'}
+                                  </span>
+                                </div>
+                                <p className="flex justify-between"><span className="text-gray-500">Last Contacted</span> <span>{member.lastContactedDate ? new Date(member.lastContactedDate).toLocaleDateString() : 'Never'}</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Last Invoiced</span> <span>{member.lastInvoiceDate ? new Date(member.lastInvoiceDate).toLocaleDateString() : 'Never'}</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Total Bills</span> <span>{member.totalBills ?? 0}</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Last Check-in</span> <span>{member.lastCheckinDate ? new Date(member.lastCheckinDate).toLocaleDateString() : 'Never'}</span></p>
+                                <p className="flex justify-between"><span className="text-gray-500">Total Check-ins</span> <span>{member.totalCheckins ?? 0}</span></p>
+                              </div>
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 px-4">
                           <button className="text-orange-600 hover:text-orange-700 font-medium">

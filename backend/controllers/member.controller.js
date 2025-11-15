@@ -286,7 +286,23 @@ export const getMember = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
-    res.json({ success: true, member });
+    const now = new Date();
+    let currentPlanStatus = null;
+    if (member.currentPlan?.startDate && member.currentPlan?.endDate) {
+      const start = new Date(member.currentPlan.startDate);
+      const end = new Date(member.currentPlan.endDate);
+      currentPlanStatus = {
+        ...member.currentPlan.toObject?.() ?? member.currentPlan,
+        isActive: start <= now && end >= now,
+        hasSessionsRemaining: Boolean(member.currentPlan.sessions?.remaining > 0)
+      };
+    }
+
+    res.json({
+      success: true,
+      member,
+      currentPlanStatus
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

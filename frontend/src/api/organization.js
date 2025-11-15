@@ -30,3 +30,10 @@ export const getOrganizationDetails = async () => {
   return response.data;
 };
 
+export const uploadOrganizationLogo = async (formData) => {
+  const response = await axios.put('/organizations/logo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+};
+

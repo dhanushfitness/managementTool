@@ -25,7 +25,7 @@ export default function PendingCollectionsReport() {
   })
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [hasSearched, setHasSearched] = useState(true)
 
   // Fetch branches
   const { data: branchesData } = useQuery({
@@ -132,10 +132,11 @@ export default function PendingCollectionsReport() {
   }
 
   useEffect(() => {
-    if (location.state?.auto && !hasSearched) {
-      setHasSearched(true)
+    if (location.state?.auto) {
+      handleSearch()
     }
-  }, [location.state, hasSearched])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state])
 
   if (isLoading && hasSearched) {
     return <LoadingPage />
@@ -304,11 +305,7 @@ export default function PendingCollectionsReport() {
 
       {/* Data Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {!hasSearched ? (
-          <div className="p-12 text-center text-gray-500">
-            <p className="text-lg">Enter search criteria and click "Go" to view pending collections</p>
-          </div>
-        ) : invoices.length === 0 ? (
+        {invoices.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <p className="text-lg">No pending collections found for the selected filters</p>
           </div>
@@ -368,7 +365,6 @@ export default function PendingCollectionsReport() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Contact Number</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">GST No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pro Forma Invoice No.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Yoactiv Ref No.</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Sequence</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Cancelled Paid Invoice</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Description Service</th>
@@ -421,9 +417,6 @@ export default function PendingCollectionsReport() {
                           ) : (
                             '-'
                           )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          -
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           Branch Sequence

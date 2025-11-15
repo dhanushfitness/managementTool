@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { HelpCircle } from 'lucide-react';
-import { createBranch, updateBranch, getBranch } from '../api/organization';
+import { createBranch, updateBranch, getBranch, getBranches } from '../api/organization';
 import LoadingPage from '../components/LoadingPage';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -36,8 +36,8 @@ const timezones = [
 export default function BranchManagement() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const branchId = searchParams.get('id');
-  const isEdit = !!branchId;
+const branchId = searchParams.get('id');
+const isEdit = !!branchId;
 
   // Step 1: Business/Interest Group Profile
   const [profileData, setProfileData] = useState({
@@ -82,7 +82,7 @@ export default function BranchManagement() {
   const [currentStep, setCurrentStep] = useState(1);
 
   // Fetch branch data if editing
-  const { data: branchResponse, isLoading } = useQuery({
+const { data: branchResponse, isLoading } = useQuery({
     queryKey: ['branch', branchId],
     queryFn: () => getBranch(branchId),
     enabled: isEdit && !!branchId,
@@ -119,6 +119,34 @@ export default function BranchManagement() {
       }
     }
   });
+
+  const { data: branchesResponse, isFetching: isFetchingBranches } = useQuery({
+    queryKey: ['branches-summary'],
+    queryFn: getBranches,
+    enabled: !isEdit
+  });
+
+  const existingBranchId = branchesResponse?.branches?.[0]?._id;
+
+useEffect(() => {
+  if (!isEdit && existingBranchId) {
+    navigate(`/branches?id=${existingBranchId}`, { replace: true });
+  }
+}, [isEdit, existingBranchId, navigate]);
+
+  const handleViewProfile = () => {
+    if (!existingBranchId) {
+      toast.error('No saved profile found yet. Please create one first.');
+      return;
+    }
+
+    if (branchId === existingBranchId) {
+      toast.success('You are already viewing this profile.');
+      return;
+    }
+
+    navigate(`/branches?id=${existingBranchId}`);
+  };
 
   const createMutation = useMutation({
     mutationFn: createBranch,
@@ -242,8 +270,16 @@ export default function BranchManagement() {
           <span className="text-orange-600 font-medium">Let's create the business or Interest group profile</span>
         </nav>
         <div className="flex justify-end space-x-3 mt-2">
-          <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-            View Profile
+          <button
+            onClick={handleViewProfile}
+            disabled={isFetchingBranches || (!isEdit && !existingBranchId)}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              isFetchingBranches || (!isEdit && !existingBranchId)
+                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                : 'bg-orange-500 text-white hover:bg-orange-600'
+            }`}
+          >
+            {isFetchingBranches ? 'Loading...' : 'View Profile'}
           </button>
           <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
             CRM Logo
@@ -259,11 +295,13 @@ export default function BranchManagement() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Country <span className="text-red-500">*</span>
+                {isEdit && <span className="ml-2 text-xs text-gray-500">(locked for existing branches)</span>}
               </label>
               <select
                 name="country"
                 value={profileData.country}
                 onChange={handleProfileChange}
+                disabled={isEdit}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 required
               >

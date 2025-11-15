@@ -384,3 +384,35 @@ export const connectWhatsApp = async (req, res) => {
   }
 };
 
+export const uploadOrganizationLogo = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Logo file is required' });
+    }
+
+    const organization = await Organization.findById(req.organizationId);
+    if (!organization) {
+      return res.status(404).json({ success: false, message: 'Organization not found' });
+    }
+
+    const relativePath = `/uploads/organizations/${req.file.filename}`;
+    organization.logo = relativePath;
+    await organization.save();
+
+    await AuditLog.create({
+      organizationId: organization._id,
+      userId: req.user._id,
+      action: 'organization.logo.updated',
+      entityType: 'Organization',
+      entityId: organization._id,
+      metadata: {
+        logo: relativePath
+      }
+    });
+
+    res.json({ success: true, logo: relativePath, organization });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
+import { useDateFilterStore } from '../store/dateFilterStore';
 import toast from 'react-hot-toast';
 import { Search, Plus, UserCircle, LogOut, Building2, Settings, UserCog, MapPin } from 'lucide-react';
 import LoadingPage from '../components/LoadingPage';
@@ -16,14 +17,19 @@ import {
 export default function CentralPanel() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const { dateFilter, setDateFilterValue } = useDateFilterStore();
   const [activeTab, setActiveTab] = useState('revenue');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [filters, setFilters] = useState({
-    dateFilter: 'today',
+    dateFilter,
     cityFilter: 'all',
     locationFilter: 'all'
   });
+  useEffect(() => {
+    setFilters((prev) => ({ ...prev, dateFilter }));
+  }, [dateFilter]);
+
 
   const profileMenuRef = useRef(null);
   const addMenuRef = useRef(null);
@@ -80,6 +86,11 @@ export default function CentralPanel() {
   }, [showProfileMenu, showAddMenu]);
 
   const handleFilterChange = (key, value) => {
+    if (key === 'dateFilter') {
+      setDateFilterValue(value);
+      setFilters(prev => ({ ...prev, dateFilter: value }));
+      return;
+    }
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 

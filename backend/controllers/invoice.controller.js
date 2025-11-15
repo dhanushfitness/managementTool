@@ -21,6 +21,11 @@ const generateInvoiceNumber = async (organizationId) => {
   return `${prefix}-${String(number).padStart(6, '0')}`;
 };
 
+const generateReceiptNumber = async (organizationId) => {
+  const count = await Payment.countDocuments({ organizationId });
+  return `RCP${String(count + 1).padStart(6, '0')}`;
+};
+
 export const createInvoice = async (req, res) => {
   try {
     const {
@@ -30,6 +35,28 @@ export const createInvoice = async (req, res) => {
 
     const invoiceNumber = await generateInvoiceNumber(req.organizationId);
     const organization = await Organization.findById(req.organizationId);
+
+    // Prevent duplicate overlap for active members
+    if (memberId) {
+      const member = await Member.findOne({
+        _id: memberId,
+        organizationId: req.organizationId
+      }).lean();
+
+      if (!member) {
+        return res.status(404).json({ success: false, message: 'Member not found' });
+      }
+
+      const hasActivePlan = member.membershipStatus === 'active' && member.currentPlan?.endDate && new Date(member.currentPlan.endDate) > new Date();
+      const planSessionRemaining = member.currentPlan?.sessions?.remaining > 0;
+
+      if (hasActivePlan || planSessionRemaining) {
+        return res.status(400).json({
+          success: false,
+          message: `Member already has an active plan (${member.currentPlan?.planName || 'membership'}) ending on ${member.currentPlan?.endDate ? new Date(member.currentPlan.endDate).toLocaleDateString() : 'unknown date'}. Please wait for expiry or end the plan before creating a new invoice.`
+        });
+      }
+    }
 
     // Calculate totals
     let subtotal = 0;
@@ -115,6 +142,34 @@ export const createInvoice = async (req, res) => {
       createdBy: req.user._id
     });
 
+    // Create payment records for any upfront payments captured during invoice creation
+    if (paymentModes && paymentModes.length > 0) {
+      for (const pm of paymentModes) {
+        const method = pm?.method;
+        const amount = parseFloat(pm?.amount) || 0;
+
+        if (!method || amount <= 0) {
+          continue;
+        }
+
+        const receiptNumber = await generateReceiptNumber(req.organizationId);
+
+        await Payment.create({
+          organizationId: req.organizationId,
+          branchId: invoice.branchId,
+          invoiceId: invoice._id,
+          memberId: invoice.memberId,
+          amount,
+          currency: invoice.currency,
+          paymentMethod: method,
+          receiptNumber,
+          status: method === 'razorpay' ? 'pending' : 'completed',
+          paidAt: method !== 'razorpay' ? new Date() : undefined,
+          createdBy: req.user._id
+        });
+      }
+    }
+
     await AuditLog.create({
       organizationId: req.organizationId,
       userId: req.user._id,
@@ -122,6 +177,44 @@ export const createInvoice = async (req, res) => {
       entityType: 'Invoice',
       entityId: invoice._id
     });
+
+    // Update member status/current plan
+    try {
+      const targetItem = invoiceItems.find(item => item?.startDate || item?.expiryDate) || invoiceItems[0];
+      if (targetItem) {
+        const startDate = targetItem.startDate ? new Date(targetItem.startDate) : new Date();
+        const endDate = targetItem.expiryDate ? new Date(targetItem.expiryDate) : undefined;
+
+        const sessions = targetItem.numberOfSessions ? {
+          total: targetItem.numberOfSessions,
+          used: 0,
+          remaining: targetItem.numberOfSessions
+        } : undefined;
+
+        await Member.findOneAndUpdate(
+          { _id: memberId, organizationId: req.organizationId },
+          {
+            $set: {
+              membershipStatus: 'active',
+              currentPlan: {
+                planId: planId || targetItem.serviceId || undefined,
+                planName: targetItem.description || invoice.planName || 'Membership Plan',
+                startDate,
+                endDate,
+                sessions
+              }
+            }
+          }
+        );
+      } else {
+        await Member.findOneAndUpdate(
+          { _id: memberId, organizationId: req.organizationId },
+          { $set: { membershipStatus: 'active' } }
+        );
+      }
+    } catch (memberUpdateError) {
+      console.error('Failed to update member status after invoice creation', memberUpdateError);
+    }
 
     res.status(201).json({ success: true, invoice });
   } catch (error) {

@@ -1,13 +1,74 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, Image as ImageIcon, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { getOrganizationDetails, uploadOrganizationLogo } from '../api/organization'
+import LoadingPage from '../components/LoadingPage'
+
+const resolveAssetUrl = (path) => {
+  if (!path) return null
+  if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:')) return path
+
+  const absoluteEnvBase = [
+    import.meta.env.VITE_BACKEND_URL,
+    import.meta.env.VITE_API_ORIGIN,
+    import.meta.env.VITE_API_BASE_URL
+  ].find((value) => typeof value === 'string' && /^https?:\/\//i.test(value))
+
+  const getDefaultBase = () => {
+    if (typeof window === 'undefined') return ''
+    const { origin } = window.location
+    if (origin.includes('localhost:5173')) {
+      return 'http://localhost:5000'
+    }
+    return origin
+  }
+
+  const base = absoluteEnvBase || getDefaultBase()
+
+  try {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    return new URL(normalizedPath, base || undefined).href
+  } catch {
+    return path.startsWith('/') ? path : `/${path}`
+  }
+}
 
 export default function SetupBrandLogo() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [logoPreview, setLogoPreview] = useState(null)
   const [fileName, setFileName] = useState('')
-  const [isUploading, setIsUploading] = useState(false)
+  const [logoFile, setLogoFile] = useState(null)
+
+  const { data: organizationResponse, isLoading } = useQuery({
+    queryKey: ['organization-details'],
+    queryFn: getOrganizationDetails
+  })
+
+  const uploadMutation = useMutation({
+    mutationFn: (formData) => uploadOrganizationLogo(formData),
+    onSuccess: (data) => {
+      toast.success('Brand logo updated successfully')
+      setLogoPreview(resolveAssetUrl(data.logo))
+      setFileName('')
+      setLogoFile(null)
+      queryClient.invalidateQueries({ queryKey: ['organization-details'] })
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to upload logo')
+    }
+  })
+
+  const isUploading = uploadMutation.isPending
+
+  useEffect(() => {
+    const savedLogo = organizationResponse?.organization?.logo
+    if (savedLogo) {
+      setLogoPreview(resolveAssetUrl(savedLogo))
+    }
+  }, [organizationResponse])
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0]
@@ -19,6 +80,8 @@ export default function SetupBrandLogo() {
     }
 
     setFileName(file.name)
+    setLogoFile(file)
+
     const reader = new FileReader()
     reader.onload = () => {
       setLogoPreview(reader.result)
@@ -28,15 +91,25 @@ export default function SetupBrandLogo() {
 
   const handleUpload = async (event) => {
     event.preventDefault()
-    if (!logoPreview) {
+    if (!logoFile) {
       toast.error('Select a logo image before uploading.')
       return
     }
 
-    setIsUploading(true)
-    await new Promise(resolve => setTimeout(resolve, 600))
-    setIsUploading(false)
-    toast.success('Brand logo updated successfully')
+    const formData = new FormData()
+    formData.append('logo', logoFile)
+    uploadMutation.mutate(formData)
+  }
+
+  const handleReset = () => {
+    const savedLogo = organizationResponse?.organization?.logo
+    setLogoFile(null)
+    setFileName('')
+    setLogoPreview(savedLogo ? resolveAssetUrl(savedLogo) : null)
+  }
+
+  if (isLoading) {
+    return <LoadingPage message="Fetching organization branding..." />
   }
 
   return (
@@ -135,10 +208,7 @@ export default function SetupBrandLogo() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setLogoPreview(null)
-                  setFileName('')
-                }}
+                onClick={handleReset}
                 className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
               >
                 Reset

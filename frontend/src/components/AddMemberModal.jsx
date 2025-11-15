@@ -8,6 +8,9 @@ import { useNavigate } from 'react-router-dom'
 export default function AddMemberModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('personal')
   const [showCamera, setShowCamera] = useState(false)
+  const [cameraLoading, setCameraLoading] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const [capturedImage, setCapturedImage] = useState(null)
   const [facingMode, setFacingMode] = useState('user') // 'user' for front camera, 'environment' for back
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -218,27 +221,7 @@ export default function AddMemberModal({ isOpen, onClose }) {
     }
   }
 
-  // Start camera stream
-  const startCamera = async (mode = facingMode) => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: mode },
-        audio: false
-      })
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        streamRef.current = stream
-        setShowCamera(true)
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error)
-      toast.error('Unable to access camera. Please check permissions.')
-    }
-  }
-
-  // Stop camera stream
-  const stopCamera = () => {
+  const cleanupCameraStream = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
@@ -246,46 +229,84 @@ export default function AddMemberModal({ isOpen, onClose }) {
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
+  }
+
+  // Start camera stream
+  const openCameraModal = async (mode = facingMode) => {
+    setShowCamera(true)
+    setCapturedImage(null)
+    setCameraError('')
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera access is not supported on this browser/device.')
+      return
+    }
+
+    try {
+      setCameraLoading(true)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode },
+        audio: false
+      })
+
+      cleanupCameraStream()
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error)
+      setCameraError('Unable to access camera. Please check permissions and try again.')
+    } finally {
+      setCameraLoading(false)
+    }
+  }
+
+  // Stop camera stream
+  const stopCamera = () => {
+    cleanupCameraStream()
     setShowCamera(false)
+    setCapturedImage(null)
+    setCameraError('')
+    setCameraLoading(false)
   }
 
   // Capture photo from camera
   const capturePhoto = () => {
-    if (videoRef.current) {
+    if (videoRef.current && !cameraLoading && !cameraError) {
       const canvas = document.createElement('canvas')
       canvas.width = videoRef.current.videoWidth
       canvas.height = videoRef.current.videoHeight
       const ctx = canvas.getContext('2d')
       ctx.drawImage(videoRef.current, 0, 0)
       
-      const imageData = canvas.toDataURL('image/jpeg', 0.8)
-      setFormData(prev => ({
-        ...prev,
-        profilePicture: imageData
-      }))
-      
-      stopCamera()
-      toast.success('Photo captured successfully!')
+      const imageData = canvas.toDataURL('image/jpeg', 0.85)
+      setCapturedImage(imageData)
+      toast.success('Photo captured! Review and confirm below.')
     }
+  }
+
+  const confirmCapturedPhoto = () => {
+    if (!capturedImage) return
+    setFormData(prev => ({
+      ...prev,
+      profilePicture: capturedImage
+    }))
+    stopCamera()
+    toast.success('Photo saved to member profile.')
   }
 
   // Switch camera (front/back)
   const switchCamera = async () => {
-    stopCamera()
     const newMode = facingMode === 'user' ? 'environment' : 'user'
     setFacingMode(newMode)
-    // Small delay to ensure stream is stopped before starting new one
-    setTimeout(() => {
-      startCamera(newMode)
-    }, 100)
+    await openCameraModal(newMode)
   }
 
   // Cleanup camera on unmount
   useEffect(() => {
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
-      }
+      cleanupCameraStream()
     }
   }, [])
 
@@ -390,7 +411,7 @@ export default function AddMemberModal({ isOpen, onClose }) {
                         <User className="w-20 h-20 text-gray-400" />
                       )}
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2">
                       <label className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold text-center cursor-pointer hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg">
                         <Upload className="w-4 h-4 inline mr-2" />
                         Upload Image
@@ -403,12 +424,21 @@ export default function AddMemberModal({ isOpen, onClose }) {
                       </label>
                       <button
                         type="button"
-                        onClick={startCamera}
-                        className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
+                        onClick={() => openCameraModal()}
+                        className="flex-1 min-w-[150px] bg-white border-2 border-orange-500 text-orange-600 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-orange-50 transition-all shadow-sm hover:shadow-md"
                       >
                         <Camera className="w-4 h-4 inline mr-2" />
-                        Capture
+                        Capture Photo
                       </button>
+                      {formData.profilePicture && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, profilePicture: null }))}
+                          className="flex-1 min-w-[140px] bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-all"
+                        >
+                          Remove Photo
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1096,10 +1126,13 @@ export default function AddMemberModal({ isOpen, onClose }) {
       {/* Camera Capture Modal */}
       {showCamera && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-2xl max-w-lg w-full mx-4 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 overflow-hidden border border-gray-200">
             {/* Title Bar */}
-            <div className="bg-gray-200 px-4 py-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Web Camera</h3>
+            <div className="bg-gray-100 px-4 py-3 flex items-center justify-between border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Capture Member Photo</h3>
+                <p className="text-xs text-gray-500">Grant camera permissions to click a quick photo from this device.</p>
+              </div>
               <button
                 onClick={stopCamera}
                 className="text-gray-600 hover:text-gray-900 transition-colors"
@@ -1110,34 +1143,99 @@ export default function AddMemberModal({ isOpen, onClose }) {
             
             {/* Camera Preview Area */}
             <div className="bg-white p-4">
-              <div className="relative bg-gray-100 rounded-lg overflow-hidden mb-4" style={{ aspectRatio: '4/3', minHeight: '300px' }}>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                {/* Switch Camera Button - Floating in top right of preview */}
-                <button
-                  type="button"
-                  onClick={switchCamera}
-                  className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-700 p-2 rounded-full shadow-md transition-all"
-                  title="Switch Camera"
-                >
-                  <Camera className="w-5 h-5" />
-                </button>
-              </div>
+              <div className="grid gap-4 md:grid-cols-[1.5fr_1fr] items-start">
+                <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: '320px' }}>
+                  {capturedImage ? (
+                    <img
+                      src={capturedImage}
+                      alt="Captured preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : cameraError ? (
+                    <div className="flex items-center justify-center h-full text-center px-6">
+                      <p className="text-sm text-gray-200">{cameraError}</p>
+                    </div>
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  {cameraLoading && !capturedImage && !cameraError && (
+                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                      <p className="text-white text-sm">Requesting camera access…</p>
+                    </div>
+                  )}
+                  {!capturedImage && !cameraError && (
+                    <button
+                      type="button"
+                      onClick={switchCamera}
+                      className="absolute top-3 right-3 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-700 p-2 rounded-full shadow-md transition-all"
+                      title="Switch Camera"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
 
-              {/* Capture Image Button */}
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  className="px-8 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-all shadow-md hover:shadow-lg"
-                >
-                  Capture Image
-                </button>
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-600 bg-gray-50">
+                    <p className="font-semibold text-gray-900 mb-1">Tips</p>
+                    <ul className="list-disc ml-5 space-y-1">
+                      <li>Ensure good lighting for sharper images.</li>
+                      <li>Frame the member’s shoulders and head.</li>
+                      <li>Use the switch button for front/back cameras.</li>
+                    </ul>
+                  </div>
+
+                  {!capturedImage && !cameraError ? (
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      disabled={cameraLoading}
+                      className="w-full px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+                    >
+                      Capture Photo
+                    </button>
+                  ) : capturedImage ? (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setCapturedImage(null)}
+                        className="w-full px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100 transition-all"
+                      >
+                        Retake
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmCapturedPhoto}
+                        className="w-full px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-all shadow-md hover:shadow-lg"
+                      >
+                        Use This Photo
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => openCameraModal(facingMode)}
+                        className="w-full px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-all shadow-md hover:shadow-lg"
+                      >
+                        Retry Camera
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="w-full px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100 transition-all"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

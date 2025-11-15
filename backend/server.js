@@ -12,6 +12,8 @@ import authRoutes from './routes/auth.routes.js';
 import organizationRoutes from './routes/organization.routes.js';
 import memberRoutes from './routes/member.routes.js';
 import planRoutes from './routes/plan.routes.js';
+import serviceRoutes from './routes/service.routes.js';
+import setupChecklistRoutes from './routes/setupChecklist.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import attendanceRoutes from './routes/attendance.routes.js';
@@ -75,6 +77,8 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/members', memberRoutes);
 app.use('/api/clients', memberRoutes); // Alias for clients
 app.use('/api/plans', planRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/setup-checklist', setupChecklistRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/attendance', attendanceRoutes);

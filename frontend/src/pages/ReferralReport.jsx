@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getReferralReport, getMemberReferralReport } from '../api/reports'
+import { useDateFilterStore } from '../store/dateFilterStore'
 
 export default function ReferralReport() {
-  const [dateFilter, setDateFilter] = useState('today')
+  const { dateFilter, setDateFilterValue } = useDateFilterStore()
   const [activeTab, setActiveTab] = useState('referral-report') // 'referral-report' or 'member-referral'
 
   // Fetch referral report data
@@ -204,9 +205,9 @@ export default function ReferralReport() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 w-full max-w-full overflow-hidden">
         <div className="flex items-center gap-4">
           <div className="relative">
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilterValue(e.target.value)}
               className="px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 appearance-none cursor-pointer min-w-[150px]"
             >
               <option value="today">Today</option>

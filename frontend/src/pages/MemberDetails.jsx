@@ -117,6 +117,25 @@ export default function MemberDetails() {
 
   const member = data?.member
 
+  const buildFitnessFormState = (memberData) => ({
+    age: memberData?.fitnessProfile?.age !== undefined ? memberData.fitnessProfile.age.toString() : '',
+    height: memberData?.fitnessProfile?.height !== undefined ? memberData.fitnessProfile.height.toString() : '',
+    bodyWeight: memberData?.fitnessProfile?.bodyWeight !== undefined ? memberData.fitnessProfile.bodyWeight.toString() : '',
+    bmi: memberData?.fitnessProfile?.bmi !== undefined ? memberData.fitnessProfile.bmi.toString() : '',
+    fatPercentage: memberData?.fitnessProfile?.fatPercentage !== undefined ? memberData.fitnessProfile.fatPercentage.toString() : '',
+    visualFatPercentage: memberData?.fitnessProfile?.visualFatPercentage !== undefined ? memberData.fitnessProfile.visualFatPercentage.toString() : '',
+    bodyAge: memberData?.fitnessProfile?.bodyAge !== undefined ? memberData.fitnessProfile.bodyAge.toString() : '',
+    musclePercentage: memberData?.fitnessProfile?.musclePercentage !== undefined ? memberData.fitnessProfile.musclePercentage.toString() : '',
+    cardiovascularTestReport: memberData?.fitnessProfile?.cardiovascularTestReport || '',
+    muscleStrengthReport: memberData?.fitnessProfile?.muscleStrengthReport || '',
+    muscleEndurance: memberData?.fitnessProfile?.muscleEndurance !== undefined ? memberData.fitnessProfile.muscleEndurance.toString() : '',
+    coreStrength: memberData?.fitnessProfile?.coreStrength !== undefined ? memberData.fitnessProfile.coreStrength.toString() : '',
+    flexibility: memberData?.fitnessProfile?.flexibility !== undefined ? memberData.fitnessProfile.flexibility.toString() : '',
+    measuredAt: memberData?.fitnessProfile?.measuredAt
+      ? new Date(memberData.fitnessProfile.measuredAt).toISOString().split('T')[0]
+      : ''
+  })
+
   const [formData, setFormData] = useState({
     firstName: member?.firstName || '',
     lastName: member?.lastName || '',
@@ -152,7 +171,65 @@ export default function MemberDetails() {
     source: member?.source || 'walk-in'
   })
 
+  const [fitnessForm, setFitnessForm] = useState(buildFitnessFormState(member))
+
   // Update form data when member data loads
+  const handleChange = (field, value) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.')
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    }
+  }
+
+  const handleFitnessChange = (field, value) => {
+    setFitnessForm(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const calculateAgeFromDOB = (dobString) => {
+    if (!dobString) return undefined
+    const dob = new Date(dobString)
+    if (Number.isNaN(dob.getTime())) return undefined
+    const today = new Date()
+    let age = today.getFullYear() - dob.getFullYear()
+    const monthDiff = today.getMonth() - dob.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age -= 1
+    }
+    return age >= 0 ? age : undefined
+  }
+
+  useEffect(() => {
+    const autoAge = calculateAgeFromDOB(formData.dateOfBirth)
+    if (autoAge !== undefined) {
+      setFitnessForm(prev => {
+        const ageString = autoAge.toString()
+        if (prev.age === ageString) return prev
+        return { ...prev, age: ageString }
+      })
+    }
+  }, [formData.dateOfBirth])
+
+  useEffect(() => {
+    const height = parseFloat(fitnessForm.height)
+    const weight = parseFloat(fitnessForm.bodyWeight)
+    if (height > 0 && weight > 0) {
+      const bmiValue = weight / Math.pow(height / 100, 2)
+      const formatted = bmiValue ? bmiValue.toFixed(1) : ''
+      setFitnessForm(prev => (prev.bmi === formatted ? prev : { ...prev, bmi: formatted }))
+    }
+  }, [fitnessForm.height, fitnessForm.bodyWeight])
+
   useEffect(() => {
     if (member) {
       setFormData({
@@ -189,6 +266,7 @@ export default function MemberDetails() {
         customerType: member.customerType || 'individual',
         source: member.source || 'walk-in'
       })
+      setFitnessForm(buildFitnessFormState(member))
     }
   }, [member])
 
@@ -196,22 +274,18 @@ export default function MemberDetails() {
 
   if (!member) return <div className="text-center py-12">Member not found</div>
 
-  const handleChange = (field, value) => {
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.')
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }))
-    } else {
-      setFormData(prev => ({ ...prev, [field]: value }))
-    }
+  const parseFitnessNumber = (value) => {
+    if (value === '' || value === null || value === undefined) return undefined
+    const parsed = parseFloat(value)
+    return Number.isNaN(parsed) ? undefined : parsed
   }
 
   const handleSubmit = () => {
+    const measuredAtValue = fitnessForm.measuredAt
+      ? new Date(fitnessForm.measuredAt)
+      : member?.fitnessProfile?.measuredAt || undefined
+    const fullName = `${formData.firstName || ''} ${formData.lastName || ''}`.trim() || undefined
+
     const updateData = {
       firstName: formData.firstName,
       lastName: formData.lastName,
@@ -233,6 +307,24 @@ export default function MemberDetails() {
       clubId: formData.clubId,
       gstNo: formData.gstNo,
       communicationPreferences: formData.communicationPreferences,
+      fitnessProfile: {
+        age: parseFitnessNumber(fitnessForm.age),
+        height: parseFitnessNumber(fitnessForm.height),
+        bodyWeight: parseFitnessNumber(fitnessForm.bodyWeight),
+        bmi: parseFitnessNumber(fitnessForm.bmi),
+        fatPercentage: parseFitnessNumber(fitnessForm.fatPercentage),
+        visualFatPercentage: parseFitnessNumber(fitnessForm.visualFatPercentage),
+        bodyAge: parseFitnessNumber(fitnessForm.bodyAge),
+        musclePercentage: parseFitnessNumber(fitnessForm.musclePercentage),
+        cardiovascularTestReport: fitnessForm.cardiovascularTestReport || undefined,
+        muscleStrengthReport: fitnessForm.muscleStrengthReport || undefined,
+        muscleEndurance: parseFitnessNumber(fitnessForm.muscleEndurance),
+        coreStrength: parseFitnessNumber(fitnessForm.coreStrength),
+        flexibility: parseFitnessNumber(fitnessForm.flexibility),
+        gender: formData.gender || member?.gender || undefined,
+        name: fullName,
+        measuredAt: measuredAtValue
+      },
       customerType: formData.customerType,
       source: formData.source
     }
@@ -250,6 +342,11 @@ export default function MemberDetails() {
     }
     return age
   }
+
+  const hasAutoAge = Boolean(formData.dateOfBirth)
+  const heightNumeric = parseFloat(fitnessForm?.height)
+  const weightNumeric = parseFloat(fitnessForm?.bodyWeight)
+  const hasAutoBmi = heightNumeric > 0 && weightNumeric > 0
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -809,8 +906,124 @@ export default function MemberDetails() {
             )}
 
             {activeSubTab === 'fitness' && (
-              <div className="text-center py-12 text-gray-500">
-                Fitness Profile section coming soon
+              <div className="space-y-6">
+                {!Object.values(fitnessForm || {}).some(value => value && value !== '') && !isEditing && (
+                  <div className="bg-orange-50 border border-orange-100 text-orange-700 px-4 py-3 rounded-lg text-sm">
+                    No fitness metrics recorded yet. Click edit to start capturing this member&apos;s fitness profile.
+                  </div>
+                )}
+
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100 space-y-6">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Fitness Profile</h3>
+                      <p className="text-sm text-gray-500">
+                        Last measured on{' '}
+                        {fitnessForm.measuredAt
+                          ? new Date(fitnessForm.measuredAt).toLocaleDateString()
+                          : member?.fitnessProfile?.measuredAt
+                            ? new Date(member.fitnessProfile.measuredAt).toLocaleDateString()
+                            : 'not recorded'}
+                      </p>
+                    </div>
+                    <div className="w-full md:w-64">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Measurement Date</label>
+                      <input
+                        type="date"
+                        value={fitnessForm.measuredAt}
+                        onChange={(e) => handleFitnessChange('measuredAt', e.target.value)}
+                        disabled={!isEditing}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                          !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Member Name</label>
+                      <input
+                        type="text"
+                        value={`${formData.firstName} ${formData.lastName}`.trim()}
+                        disabled
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
+                      <input
+                        type="text"
+                        value={formData.gender || member?.gender || ''}
+                        disabled
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {[
+                      { label: 'Age (yrs)', field: 'age', step: '1', auto: hasAutoAge, helper: hasAutoAge ? 'Calculated from Date of Birth' : null },
+                      { label: 'Height (cm)', field: 'height', step: '0.1' },
+                      { label: 'Body Weight (kg)', field: 'bodyWeight', step: '0.1' },
+                      { label: 'BMI', field: 'bmi', step: '0.1', auto: hasAutoBmi, helper: hasAutoBmi ? 'Automatically calculated from height & weight' : null },
+                      { label: 'Fat Percentage (%)', field: 'fatPercentage', step: '0.1' },
+                      { label: 'Visceral Fat (%)', field: 'visualFatPercentage', step: '0.1' },
+                      { label: 'Body Age', field: 'bodyAge', step: '0.1' },
+                      { label: 'Muscle Percentage (%)', field: 'musclePercentage', step: '0.1' },
+                      { label: 'Muscle Endurance', field: 'muscleEndurance', step: '0.1' },
+                      { label: 'Core Strength', field: 'coreStrength', step: '0.1' },
+                      { label: 'Flexibility', field: 'flexibility', step: '0.1' }
+                    ].map(({ label, field, step, auto, helper }) => {
+                      const fieldDisabled = !isEditing || auto
+                      return (
+                        <div key={field}>
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
+                          <input
+                            type="number"
+                            step={step}
+                            value={fitnessForm[field] ?? ''}
+                            onChange={(e) => handleFitnessChange(field, e.target.value)}
+                            disabled={fieldDisabled}
+                            className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                              fieldDisabled ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                            }`}
+                          />
+                          {helper && (
+                            <p className="text-xs text-gray-500 mt-1">{helper}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Cardiovascular Test Report</label>
+                      <textarea
+                        rows={4}
+                        value={fitnessForm.cardiovascularTestReport}
+                        onChange={(e) => handleFitnessChange('cardiovascularTestReport', e.target.value)}
+                        disabled={!isEditing}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none ${
+                          !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Muscle Strength Report</label>
+                      <textarea
+                        rows={4}
+                        value={fitnessForm.muscleStrengthReport}
+                        onChange={(e) => handleFitnessChange('muscleStrengthReport', e.target.value)}
+                        disabled={!isEditing}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none ${
+                          !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -858,6 +1071,7 @@ export default function MemberDetails() {
                           source: member.source || 'walk-in'
                         })
                       }
+                      setFitnessForm(buildFitnessFormState(member))
                     }}
                     className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                   >

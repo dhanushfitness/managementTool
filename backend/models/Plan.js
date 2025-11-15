@@ -7,6 +7,11 @@ const planSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  serviceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Service',
+    index: true
+  },
   name: {
     type: String,
     required: true,
@@ -122,6 +127,7 @@ const planSchema = new mongoose.Schema({
 
 // Indexes
 planSchema.index({ organizationId: 1, isActive: 1 });
+planSchema.index({ organizationId: 1, serviceId: 1, displayOrder: 1 });
 
 const Plan = mongoose.model('Plan', planSchema);
 

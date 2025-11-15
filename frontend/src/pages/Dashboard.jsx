@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardStats, getUpcomingRenewals, getPendingPayments } from '../api/dashboard';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
+import { useDateFilterStore } from '../store/dateFilterStore';
 import { DollarSign, Users, TrendingUp, UserPlus, RefreshCw, Plus, ChevronRight, ChevronLeft, Calendar, ArrowRight, AlertCircle } from 'lucide-react';
 import LoadingPage from '../components/LoadingPage';
 import DateInput from '../components/DateInput';
@@ -12,10 +13,15 @@ import Breadcrumbs from '../components/Breadcrumbs';
 export default function Dashboard() {
   const navigate = useNavigate();
   const { token } = useAuthStore();
-  const [dateFilter, setDateFilter] = useState('today');
-  const [showCustomDateRange, setShowCustomDateRange] = useState(false);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const {
+    dateFilter,
+    fromDate,
+    toDate,
+    setDateFilterValue,
+    setFromDateValue,
+    setToDateValue
+  } = useDateFilterStore();
+  const [showCustomDateRange, setShowCustomDateRange] = useState(dateFilter === 'custom');
   
   // State for summary date navigation
   const [summaryDate, setSummaryDate] = useState(() => {
@@ -42,6 +48,21 @@ export default function Dashboard() {
   };
 
   const queryParams = getQueryParams();
+
+  const buildDateSearch = () => {
+    const params = new URLSearchParams();
+    params.set('dateFilter', dateFilter);
+    if (dateFilter === 'custom' && fromDate && toDate) {
+      params.set('fromDate', fromDate);
+      params.set('toDate', toDate);
+    }
+    const queryString = params.toString();
+    return queryString ? `?${queryString}` : '';
+  };
+
+  const navigateWithDateFilter = (path) => {
+    navigate(`${path}${buildDateSearch()}`);
+  };
 
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
@@ -161,14 +182,16 @@ export default function Dashboard() {
     setSummaryDate(today.toISOString().split('T')[0]);
   };
 
+  useEffect(() => {
+    setShowCustomDateRange(dateFilter === 'custom');
+  }, [dateFilter]);
+
   const handleDateFilterChange = (value) => {
-    setDateFilter(value);
+    setDateFilterValue(value);
     if (value === 'custom') {
       setShowCustomDateRange(true);
     } else {
       setShowCustomDateRange(false);
-      setFromDate('');
-      setToDate('');
     }
   };
 
@@ -232,7 +255,7 @@ export default function Dashboard() {
                   <label className="text-sm text-gray-700 font-medium">From:</label>
                   <DateInput
                     value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
+                    onChange={(e) => setFromDateValue(e.target.value)}
                     hideIcon
                   />
                 </div>
@@ -241,7 +264,7 @@ export default function Dashboard() {
                   <label className="text-sm text-gray-700 font-medium">To:</label>
                   <DateInput
                     value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
+                    onChange={(e) => setToDateValue(e.target.value)}
                     hideIcon
                   />
                 </div>
@@ -276,7 +299,7 @@ export default function Dashboard() {
             iconColor="text-orange-600"
             textColor="text-gray-900"
             borderColor="border-orange-200"
-            onViewMore={() => navigate('/reports/sales/service-sales')}
+            onViewMore={() => navigateWithDateFilter('/reports/sales/service-sales')}
           />
           <StatCard
             title="PAYMENTS COLLECTED"
@@ -286,7 +309,7 @@ export default function Dashboard() {
             iconColor="text-yellow-600"
             textColor="text-gray-900"
             borderColor="border-yellow-200"
-            onViewMore={() => navigate('/reports/finance/service-payments-collected')}
+            onViewMore={() => navigateWithDateFilter('/reports/finance/service-payments-collected')}
           />
           <StatCard
             title="PAYMENTS PENDING"
@@ -296,7 +319,7 @@ export default function Dashboard() {
             iconColor="text-purple-600"
             textColor="text-gray-900"
             borderColor="border-purple-200"
-            onViewMore={() => navigate('/reports/finance/pending-collections')}
+            onViewMore={() => navigateWithDateFilter('/reports/finance/pending-collections')}
           />
         </div>
 
@@ -310,7 +333,7 @@ export default function Dashboard() {
             iconColor="text-blue-600"
             textColor="text-blue-600"
             borderColor="border-blue-200"
-            onViewMore={() => navigate('/reports/client-management/new-clients')}
+            onViewMore={() => navigateWithDateFilter('/reports/client-management/new-clients')}
           />
           <StatCard
             title="RENEWALS"
@@ -320,7 +343,7 @@ export default function Dashboard() {
             iconColor="text-green-600"
             textColor="text-green-600"
             borderColor="border-green-200"
-            onViewMore={() => navigate('/reports/client-management/renewals')}
+            onViewMore={() => navigateWithDateFilter('/reports/client-management/renewals')}
           />
           <StatCard
             title="CHECK-INS"
@@ -330,14 +353,18 @@ export default function Dashboard() {
             iconColor="text-red-600"
             textColor="text-red-600"
             borderColor="border-red-200"
-            onViewMore={() => navigate('/reports/client-management/member-checkins')}
+            onViewMore={() => navigateWithDateFilter('/reports/client-management/member-checkins')}
           />
         </div>
 
         {/* Enquiries Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">
-            Enquiries - {enquiryStats?.stats?.total || 0}
+        <button
+          onClick={() => navigateWithDateFilter('/enquiries')}
+          className="w-full text-left bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+        >
+          <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center justify-between">
+            <span>Enquiries - {enquiryStats?.stats?.total || 0}</span>
+            <span className="text-xs font-semibold text-orange-600">View details</span>
           </h2>
           <div className="grid grid-cols-3 gap-6">
             <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
@@ -353,7 +380,7 @@ export default function Dashboard() {
               <p className="text-3xl font-bold text-gray-600">{enquiryStats?.stats?.archived || 0}</p>
             </div>
           </div>
-        </div>
+        </button>
 
         {/* Total Clients Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

@@ -2,8 +2,9 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Organization from '../models/Organization.js';
 import Branch from '../models/Branch.js';
-import Plan from '../models/Plan.js';
 import { validationResult } from 'express-validator';
+import { ensureDefaultGymService } from '../services/serviceSetup.js';
+import { ensureSetupChecklist, syncSetupChecklistStatuses } from '../services/setupChecklist.js';
 
 const generateToken = (userId) => {
   const secret = process.env.JWT_SECRET;
@@ -15,281 +16,6 @@ const generateToken = (userId) => {
   });
 };
 
-const DEFAULT_SERVICE_VARIATIONS = [
-  {
-    serviceName: 'Gym Membership',
-    serviceType: 'Membership',
-    variations: [
-      {
-        variationId: 'GM-001',
-        name: '1 Month Membership',
-        description: '6 Days per week. Valid for 1 month(s).',
-        type: 'duration',
-        duration: { value: 1, unit: 'months' },
-        price: 6000,
-        allowOnlineSale: false,
-        isPopular: true
-      },
-      {
-        variationId: 'GM-002',
-        name: '2 Month Membership',
-        description: '6 Days per week. Valid for 2 month(s).',
-        type: 'duration',
-        duration: { value: 2, unit: 'months' },
-        price: 7000,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'GM-003',
-        name: '3 Month Membership',
-        description: '6 Days per week. Valid for 3 month(s).',
-        type: 'duration',
-        duration: { value: 3, unit: 'months' },
-        price: 8849,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'GM-004',
-        name: '4 Months Membership',
-        description: '6 Days per week. Valid for 4 month(s).',
-        type: 'duration',
-        duration: { value: 4, unit: 'months' },
-        price: 8000,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'GM-005',
-        name: '6 Month Membership',
-        description: '6 Days per week. Valid for 6 month(s).',
-        type: 'duration',
-        duration: { value: 6, unit: 'months' },
-        price: 12389,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'GM-006',
-        name: '9 Month Membership',
-        description: '6 Days per week. Valid for 9 month(s).',
-        type: 'duration',
-        duration: { value: 9, unit: 'months' },
-        price: 12345,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'GM-007',
-        name: '1 Year Membership',
-        description: '6 Days per week. Valid for 12 month(s).',
-        type: 'duration',
-        duration: { value: 12, unit: 'months' },
-        price: 25000,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'GM-008',
-        name: '2 Year Membership',
-        description: '6 Days per week. Valid for 24 month(s).',
-        type: 'duration',
-        duration: { value: 24, unit: 'months' },
-        price: 50000,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'GM-009',
-        name: 'VIP Lifetime Membership',
-        description: '6 Days per week. Valid for 100 month(s).',
-        type: 'duration',
-        duration: { value: 100, unit: 'months' },
-        price: 150000,
-        allowOnlineSale: false,
-        autoRenew: false
-      }
-    ]
-  },
-  {
-    serviceName: 'Silver Package',
-    serviceType: 'Package',
-    variations: [
-      {
-        variationId: 'SP-001',
-        name: 'Silver Package - Standard',
-        description: 'Guided workouts with trainer check-ins. Valid for 3 month(s).',
-        type: 'duration',
-        duration: { value: 3, unit: 'months' },
-        price: 18000,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'SP-002',
-        name: 'Silver Package - Premium',
-        description: 'Includes nutrition templates and group classes. Valid for 6 month(s).',
-        type: 'duration',
-        duration: { value: 6, unit: 'months' },
-        price: 32000,
-        allowOnlineSale: false
-      }
-    ]
-  },
-  {
-    serviceName: 'Gold Package',
-    serviceType: 'Package',
-    variations: [
-      {
-        variationId: 'GP-001',
-        name: 'Gold Package - Standard',
-        description: 'Premium coaching with fortnightly assessments. Valid for 6 month(s).',
-        type: 'duration',
-        duration: { value: 6, unit: 'months' },
-        price: 45000,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'GP-002',
-        name: 'Gold Package - Premium',
-        description: 'Includes personal coaching slots. Valid for 12 month(s).',
-        type: 'duration',
-        duration: { value: 12, unit: 'months' },
-        price: 82000,
-        allowOnlineSale: false,
-        isPopular: true
-      }
-    ]
-  },
-  {
-    serviceName: 'Diamond Package',
-    serviceType: 'Package',
-    variations: [
-      {
-        variationId: 'DP-001',
-        name: 'Diamond Package - Standard',
-        description: 'All-access premium membership. Valid for 12 month(s).',
-        type: 'duration',
-        duration: { value: 12, unit: 'months' },
-        price: 120000,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'DP-002',
-        name: 'Diamond Package - Elite',
-        description: 'Dedicated coach and concierge support. Valid for 18 month(s).',
-        type: 'duration',
-        duration: { value: 18, unit: 'months' },
-        price: 165000,
-        allowOnlineSale: false
-      }
-    ]
-  },
-  {
-    serviceName: 'Platinum Package',
-    serviceType: 'Package',
-    variations: [
-      {
-        variationId: 'PP-001',
-        name: 'Platinum Package - Elite',
-        description: 'VIP access with wellness consultations. Valid for 12 month(s).',
-        type: 'duration',
-        duration: { value: 12, unit: 'months' },
-        price: 180000,
-        allowOnlineSale: false
-      },
-      {
-        variationId: 'PP-002',
-        name: 'Platinum Package - Signature',
-        description: 'Includes spa, recovery and nutrition labs. Valid for 24 month(s).',
-        type: 'duration',
-        duration: { value: 24, unit: 'months' },
-        price: 250000,
-        allowOnlineSale: false
-      }
-    ]
-  },
-  {
-    serviceName: 'Transformation Package',
-    serviceType: 'Program',
-    variations: [
-      {
-        variationId: 'TP-001',
-        name: 'Transformation Package - 12 Week',
-        description: 'High-touch transformation sprint. Valid for 12 week(s).',
-        type: 'duration',
-        duration: { value: 12, unit: 'weeks' },
-        price: 40000,
-        allowOnlineSale: true
-      },
-      {
-        variationId: 'TP-002',
-        name: 'Transformation Package - 24 Week',
-        description: 'Advanced transformation roadmap. Valid for 24 week(s).',
-        type: 'duration',
-        duration: { value: 24, unit: 'weeks' },
-        price: 70000,
-        allowOnlineSale: true
-      }
-    ]
-  }
-];
-
-const buildDefaultPlans = (organizationId, userId) => {
-  const plans = [];
-  let displayOrder = 1;
-
-  DEFAULT_SERVICE_VARIATIONS.forEach((service) => {
-    service.variations.forEach((variation) => {
-      const plan = {
-        organizationId,
-        createdBy: userId,
-        name: variation.name,
-        description: variation.description,
-        type: variation.type || 'duration',
-        price: variation.price ?? 0,
-        setupFee: variation.setupFee ?? 0,
-        taxRate: variation.taxRate ?? 0,
-        serviceName: service.serviceName,
-        serviceType: service.serviceType || 'Membership',
-        variationId: variation.variationId,
-        allowOnlineSale: variation.allowOnlineSale ?? false,
-        isActive: variation.isActive ?? true,
-        isPopular: variation.isPopular ?? false,
-        displayOrder: variation.displayOrder ?? displayOrder,
-        autoRenew: variation.autoRenew ?? true
-      };
-
-      if (variation.duration) {
-        plan.duration = variation.duration;
-      }
-
-      if (variation.sessions) {
-        plan.sessions = variation.sessions;
-      }
-
-      if (variation.features) {
-        plan.features = variation.features;
-      }
-
-      if (variation.addOns) {
-        plan.addOns = variation.addOns;
-      }
-
-      plans.push(plan);
-      displayOrder += 1;
-    });
-  });
-
-  return plans;
-};
-
-const createDefaultPlansForOrganization = async (organizationId, userId) => {
-  const existingPlans = await Plan.countDocuments({ organizationId });
-  if (existingPlans > 0) {
-    return;
-  }
-
-  const plans = buildDefaultPlans(organizationId, userId);
-  if (plans.length === 0) {
-    return;
-  }
-
-  await Plan.insertMany(plans);
-};
 
 export const register = async (req, res) => {
   try {
@@ -430,9 +156,13 @@ export const register = async (req, res) => {
     await organization.save();
 
     try {
-      await createDefaultPlansForOrganization(organization._id, user._id);
+      await Promise.all([
+        ensureDefaultGymService(organization._id, user._id),
+        ensureSetupChecklist(organization._id)
+      ]);
+      await syncSetupChecklistStatuses(organization._id);
     } catch (planError) {
-      console.error(`Failed to create default plans for organization ${organization._id}`, planError);
+      console.error(`Failed to create default onboarding assets for organization ${organization._id}`, planError);
     }
 
     const token = generateToken(user._id);
@@ -489,6 +219,19 @@ export const login = async (req, res) => {
       });
     }
 
+    // Ensure base services exist for the organization
+    const organizationId = user.organizationId?._id || user.organizationId;
+
+    try {
+      await Promise.all([
+        ensureDefaultGymService(organizationId, user._id),
+        ensureSetupChecklist(organizationId)
+      ]);
+      await syncSetupChecklistStatuses(organizationId);
+    } catch (planError) {
+      console.error(`Failed to ensure onboarding assets for organization ${organizationId}`, planError);
+    }
+
     // Update last login
     user.lastLogin = new Date();
     await user.save();
@@ -504,7 +247,7 @@ export const login = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        organizationId: user.organizationId._id || user.organizationId,
+        organizationId,
         organizationName: user.organizationId.name || 'Unknown Organization'
       }
     });

@@ -1,11 +1,11 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Download } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getLeadSourceReport, exportLeadSourceReport } from '../api/reports'
+import { useDateFilterStore } from '../store/dateFilterStore'
 
 export default function LeadSourceReport() {
-  const [dateFilter, setDateFilter] = useState('today')
+  const { dateFilter, setDateFilterValue } = useDateFilterStore()
 
   // Fetch lead source report data
   const { data: reportData, isLoading, refetch } = useQuery({
@@ -112,7 +112,7 @@ export default function LeadSourceReport() {
             <div className="relative">
               <select
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                onChange={(e) => setDateFilterValue(e.target.value)}
                 className="px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 appearance-none cursor-pointer min-w-[150px]"
               >
                 <option value="today">Today</option>

@@ -50,6 +50,7 @@ export default function NewClientsReport() {
   const records = reportData?.data?.records || []
   const pagination = reportData?.data?.pagination || { page: 1, pages: 1, total: 0 }
   const plans = plansData?.plans || []
+  const totalNewClients = pagination.total || records.length
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -111,8 +112,21 @@ export default function NewClientsReport() {
         </nav>
       </div>
 
-      <div className="text-center">
+      <div className="text-center space-y-3">
         <h1 className="text-3xl font-bold text-gray-900">New Clients</h1>
+        <div className="inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-6 py-3 shadow-sm">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-gray-500">Total clients in range</p>
+            <p className="text-3xl font-semibold text-orange-600">{totalNewClients}</p>
+          </div>
+          <div className="h-10 w-px bg-gray-200" />
+          <div className="text-left">
+            <p className="text-xs text-gray-500">Filters applied</p>
+            <p className="text-sm font-medium text-gray-800">
+              {filters.serviceId !== 'all' ? 'Specific service' : 'All services'} · {filters.gender !== 'all' ? filters.gender : 'All genders'}
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">

@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import DateInput from './DateInput'
 import { getOrganizationDetails } from '../api/organization'
-import { searchMembers as searchMembersApi } from '../api/members'
+import { searchMembers as searchMembersApi, getMember as getMemberApi } from '../api/members'
 
 export default function AddInvoiceModal({
   isOpen,
@@ -51,6 +51,8 @@ export default function AddInvoiceModal({
   const [memberSearchResults, setMemberSearchResults] = useState([])
   const [isMemberSearching, setIsMemberSearching] = useState(false)
   const [memberSearchError, setMemberSearchError] = useState('')
+  const [planWarning, setPlanWarning] = useState('')
+  const [planInfo, setPlanInfo] = useState(null)
   const memberSearchBlurTimeout = useRef(null)
 
   const queryClient = useQueryClient()
@@ -103,6 +105,8 @@ export default function AddInvoiceModal({
         memberName: '',
         memberPhone: ''
       }))
+      setPlanWarning('')
+      setPlanInfo(null)
     }
     setMemberSearch(value)
     setMemberSearchError('')
@@ -131,25 +135,14 @@ export default function AddInvoiceModal({
      }
    }
 
-  const handleMemberSelectFromSearch = (member) => {
-     if (!member) return
-     if (memberSearchBlurTimeout.current) {
-       clearTimeout(memberSearchBlurTimeout.current)
-       memberSearchBlurTimeout.current = null
-     }
-     setFormData(prev => ({
-       ...prev,
-       memberId: member._id,
-       memberName: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
-       memberPhone: member.phone || ''
-     }))
-     const displayText = [`${member.firstName || ''} ${member.lastName || ''}`.trim(), member.phone]
-       .filter(Boolean)
-       .join(' - ')
-     setMemberSearch(displayText)
-     setMemberSearchResults([])
-     setMemberSearchError('')
-   }
+  const handleMemberSelectFromSearch = async (member) => {
+    if (!member) return
+    if (memberSearchBlurTimeout.current) {
+      clearTimeout(memberSearchBlurTimeout.current)
+      memberSearchBlurTimeout.current = null
+    }
+    await attemptMemberSelection(member)
+  }
 
   const handleMemberInputFocus = () => {
     if (memberSearchBlurTimeout.current) {
@@ -216,6 +209,65 @@ export default function AddInvoiceModal({
     setMemberSearchResults([])
     setMemberSearchError('')
     setIsMemberSearching(false)
+    setPlanWarning('')
+    setPlanInfo(null)
+  }
+
+  const fetchMemberPlanStatus = async (memberId) => {
+    setPlanWarning('')
+    try {
+      const response = await getMemberApi(memberId)
+      const status = response?.data?.currentPlanStatus || null
+      setPlanInfo(status)
+      if (status && (status.isActive || status.hasSessionsRemaining)) {
+        const endDate = status.endDate ? new Date(status.endDate).toLocaleDateString() : 'unknown end date'
+        setPlanWarning(`Member already has an active plan (${status.planName || 'Membership'}) valid until ${endDate}. Please wait for expiry before creating a new invoice.`)
+        const error = new Error('ACTIVE_PLAN')
+        throw error
+      }
+      return status
+    } catch (error) {
+      if (error.message !== 'ACTIVE_PLAN') {
+        setPlanInfo(null)
+      }
+      throw error
+    }
+  }
+
+  const attemptMemberSelection = async (member) => {
+    if (!member) return
+    try {
+      await fetchMemberPlanStatus(member._id)
+    } catch (error) {
+      if (error.message === 'ACTIVE_PLAN') {
+        setFormData(prev => ({
+          ...prev,
+          memberId: '',
+          memberName: '',
+          memberPhone: ''
+        }))
+        setMemberSearch('')
+        setMemberSearchResults([])
+        return
+      }
+      toast.error('Unable to fetch member status. Please try again.')
+      return
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      memberId: member._id,
+      memberName: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
+      memberPhone: member.phone || ''
+    }))
+
+    const displayText = [`${member.firstName || ''} ${member.lastName || ''}`.trim(), member.phone]
+      .filter(Boolean)
+      .join(' - ')
+    setMemberSearch(displayText)
+    setMemberSearchResults([])
+    setMemberSearchError('')
+    setPlanWarning('')
   }
 
   const handleSubmit = (e) => {
@@ -362,23 +414,11 @@ export default function AddInvoiceModal({
     }
   }
 
-  const handleMemberSelect = (memberId) => {
-     const member = membersData?.members?.find(m => m._id === memberId)
-     if (member) {
-       setFormData(prev => ({
-         ...prev,
-         memberId: member._id,
-         memberName: `${member.firstName} ${member.lastName}`,
-         memberPhone: member.phone
-       }))
-      const displayText = [`${member.firstName || ''} ${member.lastName || ''}`.trim(), member.phone]
-        .filter(Boolean)
-        .join(' - ')
-      setMemberSearch(displayText)
-      setMemberSearchResults([])
-      setMemberSearchError('')
-     }
-   }
+  const handleMemberSelect = async (memberId) => {
+    const member = membersData?.members?.find(m => m._id === memberId)
+    if (!member) return
+    await attemptMemberSelection(member)
+  }
 
   const handleServiceSelect = (index, serviceId) => {
      const service = plansData?.plans?.find(p => p._id === serviceId)
@@ -521,7 +561,7 @@ export default function AddInvoiceModal({
               <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-orange-600">Service</span>
             </label>
             <label className="flex items-center cursor-pointer group">
-              <input
+              {/* <input
                 type="radio"
                 name="invoiceType"
                 value="package"
@@ -529,10 +569,10 @@ export default function AddInvoiceModal({
                 onChange={(e) => setInvoiceType(e.target.value)}
                 className="w-4 h-4 text-orange-500 border-gray-300 focus:ring-orange-500"
               />
-              <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-orange-600">Package</span>
+              <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-orange-600">Package</span> */}
             </label>
             <label className="flex items-center cursor-pointer group">
-              <input
+              {/* <input
                 type="radio"
                 name="invoiceType"
                 value="deal"
@@ -540,7 +580,7 @@ export default function AddInvoiceModal({
                 onChange={(e) => setInvoiceType(e.target.value)}
                 className="w-4 h-4 text-orange-500 border-gray-300 focus:ring-orange-500"
               />
-              <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-orange-600">Deal</span>
+              <span className="ml-2 text-sm font-medium text-gray-700 group-hover:text-orange-600">Deal</span> */}
             </label>
           </div>
         </div>
@@ -613,12 +653,31 @@ export default function AddInvoiceModal({
                     className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                   >
                     <option value="">Select Member</option>
-                    {membersData.members.map(member => (
-                      <option key={member._id} value={member._id}>
-                        {member.firstName} {member.lastName} - {member.phone}
-                      </option>
-                    ))}
+                    {membersData.members.map(member => {
+                      const fullName = `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unnamed Member'
+                      const email = member.email || 'No email'
+                      const phone = member.phone || 'No phone'
+                      return (
+                        <option key={member._id} value={member._id}>
+                          {`${fullName} - ${email} - ${phone}`}
+                        </option>
+                      )
+                    })}
                   </select>
+                )}
+                {planInfo && (
+                  <div className="mt-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 px-3 py-2 rounded">
+                    <p><span className="font-semibold text-gray-900">Current Plan:</span> {planInfo.planName || 'N/A'}</p>
+                    <p className="mt-1">Validity: {planInfo.startDate ? new Date(planInfo.startDate).toLocaleDateString() : 'N/A'} — {planInfo.endDate ? new Date(planInfo.endDate).toLocaleDateString() : 'N/A'}</p>
+                    <p className={`mt-1 font-semibold ${planInfo.isActive ? 'text-green-600' : 'text-gray-500'}`}>
+                      Status: {planInfo.isActive ? 'Active' : 'Inactive / Expired'}
+                    </p>
+                  </div>
+                )}
+                {planWarning && (
+                  <p className="mt-2 text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
+                    {planWarning}
+                  </p>
                 )}
               </div>
             </div>

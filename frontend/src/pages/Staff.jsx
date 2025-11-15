@@ -94,6 +94,13 @@ export default function Staff() {
   }
 
   const staff = data?.staff || []
+  const getAvatarUrl = (member) => {
+    if (member.profilePicture) return member.profilePicture
+    if (member.firstName?.[0]) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(`${member.firstName} ${member.lastName || ''}`)}&background=F97316&color=fff`
+    }
+    return null
+  }
   const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
 
   const getAdminRightsLabel = (adminRights) => {
@@ -254,6 +261,7 @@ export default function Staff() {
                     />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">S.No</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Photo</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Staff ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Staff Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Mail</th>
@@ -284,6 +292,19 @@ export default function Staff() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {(page - 1) * 20 + index + 1}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-orange-50 text-orange-600 font-semibold shadow-sm border border-orange-100">
+                          {getAvatarUrl(member) ? (
+                            <img
+                              src={getAvatarUrl(member)}
+                              alt={`${member.firstName} ${member.lastName}`}
+                              className="h-11 w-11 rounded-full object-cover"
+                            />
+                          ) : (
+                            (member.firstName?.[0] || '?') + (member.lastName?.[0] || '')
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {member._id.toString().slice(-5)}
