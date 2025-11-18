@@ -155,6 +155,12 @@ const memberSchema = new mongoose.Schema({
     },
     createdAt: Date
   }],
+  totalFreezeDaysUsed: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 30
+  },
   extensionHistory: [{
     fromDate: Date,
     extensionDays: Number,

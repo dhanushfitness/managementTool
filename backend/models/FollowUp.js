@@ -20,7 +20,7 @@ const followUpSchema = new mongoose.Schema({
   },
   callType: {
     type: String,
-    enum: ['renewal-call', 'assessment-call', 'follow-up-call', 'enquiry-call', 'other'],
+    enum: ['renewal-call', 'assessment-call', 'follow-up-call', 'enquiry-call', 'welcome-call', 'upgrade-call', 'other'],
     default: 'follow-up-call'
   },
   callStatus: {

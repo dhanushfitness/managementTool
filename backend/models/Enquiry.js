@@ -92,6 +92,11 @@ const enquirySchema = new mongoose.Schema({
       ref: 'User'
     }
   }],
+  expectedClosureDate: Date,
+  expectedAmount: {
+    type: Number,
+    default: 0
+  },
   convertedToMember: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Member'

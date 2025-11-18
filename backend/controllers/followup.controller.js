@@ -247,10 +247,25 @@ export const getTaskboard = async (req, res) => {
       const enquiryQuery = {
         organizationId: req.organizationId,
         isArchived: false,
-        date: {
-          $gte: dateRange.start,
-          $lte: dateRange.end
-        }
+        $or: [
+          {
+            followUpDate: {
+              $gte: dateRange.start,
+              $lte: dateRange.end
+            }
+          },
+          {
+            $and: [
+              { $or: [{ followUpDate: null }, { followUpDate: { $exists: false } }] },
+              {
+                date: {
+                  $gte: dateRange.start,
+                  $lte: dateRange.end
+                }
+              }
+            ]
+          }
+        ]
       };
 
       if (staffId && staffId !== 'all') {
@@ -280,7 +295,7 @@ export const getTaskboard = async (req, res) => {
       });
 
       const enquiryFollowUps = filteredEnquiries.map((enquiry) => {
-        const effectiveDate = parseDateValue(enquiry.date);
+        const effectiveDate = parseDateValue(enquiry.followUpDate || enquiry.date);
         const timeStr = effectiveDate
           ? effectiveDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
           : 'N/A';
@@ -367,10 +382,25 @@ export const getTaskboardStats = async (req, res) => {
       const enquiryQuery = {
         organizationId: req.organizationId,
         isArchived: false,
-        date: {
-          $gte: dateRange.start,
-          $lte: dateRange.end
-        }
+        $or: [
+          {
+            followUpDate: {
+              $gte: dateRange.start,
+              $lte: dateRange.end
+            }
+          },
+          {
+            $and: [
+              { $or: [{ followUpDate: null }, { followUpDate: { $exists: false } }] },
+              {
+                date: {
+                  $gte: dateRange.start,
+                  $lte: dateRange.end
+                }
+              }
+            ]
+          }
+        ]
       };
 
       if (staffId && staffId !== 'all') {

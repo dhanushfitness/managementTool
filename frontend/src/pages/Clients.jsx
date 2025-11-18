@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
+import { createPortal } from 'react-dom'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import { 
@@ -25,6 +26,91 @@ import LoadingTable from '../components/LoadingTable'
 import LoadingPage from '../components/LoadingPage'
 import ClientFilterModal from '../components/ClientFilterModal'
 import Breadcrumbs from '../components/Breadcrumbs'
+
+// Info Popup Component using Portal
+function InfoPopup({ member }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const buttonRef = useRef(null)
+
+  useEffect(() => {
+    if (!isOpen || !buttonRef.current) return
+
+    const updatePosition = () => {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setPosition({
+        top: rect.top - 8, // Position above the button
+        left: rect.left + rect.width / 2 - 144 // Center the 288px (w-72) popup
+      })
+    }
+
+    updatePosition()
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [isOpen])
+
+  return (
+    <>
+      <div className="relative inline-flex">
+        <button
+          ref={buttonRef}
+          onMouseEnter={() => setIsOpen(true)}
+          onMouseLeave={() => setIsOpen(false)}
+          className="w-6 h-6 bg-gray-800 text-white rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors"
+          title="Member information"
+        >
+          <Info className="w-3 h-3" />
+        </button>
+      </div>
+
+      {isOpen &&
+        createPortal(
+          <div
+            onMouseEnter={() => setIsOpen(true)}
+            onMouseLeave={() => setIsOpen(false)}
+            style={{
+              position: 'fixed',
+              top: `${position.top}px`,
+              left: `${position.left}px`,
+              transform: 'translateY(-100%)',
+              zIndex: 9999,
+              pointerEvents: 'auto'
+            }}
+            className="bg-white text-gray-800 text-xs rounded-lg shadow-2xl px-4 py-3 w-72 space-y-1 border border-gray-200"
+          >
+            <div className="flex justify-between font-semibold text-sm mb-2">
+              <span>Status</span>
+              <span className={`${member.membershipStatus === 'active' ? 'text-green-600' : 'text-gray-600'}`}>
+                {member.membershipStatus ? member.membershipStatus.replace(/^\w/, c => c.toUpperCase()) : 'Unknown'}
+              </span>
+            </div>
+            {member.currentPlan?.planName && (
+              <p className="flex justify-between"><span className="text-gray-500">Current Plan</span> <span className="font-medium">{member.currentPlan.planName}</span></p>
+            )}
+            {member.currentPlan?.endDate && (
+              <p className="flex justify-between"><span className="text-gray-500">Plan Expiry</span> <span>{new Date(member.currentPlan.endDate).toLocaleDateString('en-GB')}</span></p>
+            )}
+            {member.attendanceStats?.lastCheckIn && (
+              <p className="flex justify-between"><span className="text-gray-500">Last Check-in</span> <span>{new Date(member.attendanceStats.lastCheckIn).toLocaleDateString('en-GB')}</span></p>
+            )}
+            <p className="flex justify-between"><span className="text-gray-500">Total Check-ins</span> <span>{member.attendanceStats?.totalCheckIns ?? 0}</span></p>
+            {member.phone && (
+              <p className="flex justify-between"><span className="text-gray-500">Phone</span> <span>{member.phone}</span></p>
+            )}
+            {member.email && (
+              <p className="flex justify-between"><span className="text-gray-500">Email</span> <span className="truncate ml-2">{member.email}</span></p>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  )
+}
 
 export default function Clients() {
   const location = useLocation()
@@ -386,7 +472,7 @@ export default function Clients() {
             <LoadingPage message="Loading members..." fullScreen={false} />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" style={{ overflowY: 'visible' }}>
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -404,7 +490,6 @@ export default function Clients() {
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Attendance ID/Checkin</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Call Log</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Info</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Appointment</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Training</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Archive</th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Delete</th>
@@ -413,7 +498,7 @@ export default function Clients() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {members.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                       No members found
                     </td>
                   </tr>
@@ -422,8 +507,41 @@ export default function Clients() {
                     const hasCallLog = member.callLogs && member.callLogs.length > 0
                     const hasMeeting = false // TODO: Implement meeting tracking
                     
+                    // Check if member is expired with no active membership plan
+                    const isExpiredNoActivePlan = () => {
+                      // Check if membership status is expired
+                      if (member.membershipStatus === 'expired') {
+                        return true
+                      }
+                      
+                      // Check if currentPlan exists and endDate is in the past
+                      if (member.currentPlan?.endDate) {
+                        const endDate = new Date(member.currentPlan.endDate)
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+                        endDate.setHours(0, 0, 0, 0)
+                        
+                        // If endDate is in the past and membership is not active
+                        if (endDate < today && member.membershipStatus !== 'active') {
+                          return true
+                        }
+                      }
+                      
+                      // If no currentPlan exists and membership is not active
+                      if (!member.currentPlan && member.membershipStatus !== 'active') {
+                        return true
+                      }
+                      
+                      return false
+                    }
+                    
+                    const isExpired = isExpiredNoActivePlan()
+                    
                     return (
-                      <tr key={member._id} className="hover:bg-gray-50 transition-colors">
+                      <tr 
+                        key={member._id} 
+                        className={`transition-colors ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
+                      >
                         <td className="py-3 px-4">
                           <input
                             type="checkbox"
@@ -490,34 +608,7 @@ export default function Clients() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="relative group inline-flex">
-                            <button
-                              className="w-6 h-6 bg-gray-800 text-white rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors"
-                              title="Member information"
-                            >
-                              <Info className="w-3 h-3" />
-                            </button>
-                            <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 translate-y-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-30">
-                              <div className="bg-white text-gray-800 text-xs rounded-lg shadow-2xl px-4 py-3 w-72 space-y-1 border border-gray-200">
-                                <div className="flex justify-between font-semibold text-sm">
-                                  <span>Status</span>
-                                  <span className={`text-${member.membershipStatus === 'active' ? 'green' : 'gray'}-600`}>
-                                    {member.membershipStatus ? member.membershipStatus.replace(/^\w/, c => c.toUpperCase()) : 'Unknown'}
-                                  </span>
-                                </div>
-                                <p className="flex justify-between"><span className="text-gray-500">Last Contacted</span> <span>{member.lastContactedDate ? new Date(member.lastContactedDate).toLocaleDateString() : 'Never'}</span></p>
-                                <p className="flex justify-between"><span className="text-gray-500">Last Invoiced</span> <span>{member.lastInvoiceDate ? new Date(member.lastInvoiceDate).toLocaleDateString() : 'Never'}</span></p>
-                                <p className="flex justify-between"><span className="text-gray-500">Total Bills</span> <span>{member.totalBills ?? 0}</span></p>
-                                <p className="flex justify-between"><span className="text-gray-500">Last Check-in</span> <span>{member.lastCheckinDate ? new Date(member.lastCheckinDate).toLocaleDateString() : 'Never'}</span></p>
-                                <p className="flex justify-between"><span className="text-gray-500">Total Check-ins</span> <span>{member.totalCheckins ?? 0}</span></p>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <button className="text-orange-600 hover:text-orange-700 font-medium">
-                            View
-                          </button>
+                          <InfoPopup member={member} />
                         </td>
                         <td className="py-3 px-4">
                           <button className="text-orange-600 hover:text-orange-700 font-medium">

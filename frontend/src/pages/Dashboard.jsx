@@ -519,11 +519,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Expenses */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <h3 className="font-bold text-gray-900 mb-3 text-lg">Expenses</h3>
-          <p className="text-gray-500 text-sm text-center py-6">No result found</p>
-        </div>
       </div>
     </div>
   );

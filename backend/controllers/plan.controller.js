@@ -44,9 +44,10 @@ export const createPlan = async (req, res) => {
 
 export const getPlans = async (req, res) => {
   try {
-    const { isActive } = req.query;
+    const { isActive, serviceId } = req.query;
     const query = { organizationId: req.organizationId };
     if (isActive !== undefined) query.isActive = isActive === 'true';
+    if (serviceId) query.serviceId = serviceId;
 
     const plans = await Plan.find(query)
       .populate('serviceId', 'name category accentColor icon')

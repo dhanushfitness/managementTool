@@ -8743,135 +8743,160 @@ export const getFreezeAndDateChangeReport = async (req, res) => {
     const end = toDate ? new Date(toDate) : new Date();
     end.setHours(23, 59, 59, 999);
 
-    // Get members with freeze history in date range
-    const members = await Member.find({
-      organizationId: req.organizationId,
-      freezeHistory: {
-        $elemMatch: {
-          createdAt: { $gte: start, $lte: end }
-        }
-      }
-    })
-      .populate('freezeHistory.requestedBy', 'firstName lastName')
-      .populate('freezeHistory.approvedBy', 'firstName lastName')
-      .lean();
+    console.log('Report query params:', { fromDate, toDate, search, page, limit });
+    console.log('Date range:', { start: start.toISOString(), end: end.toISOString() });
 
-    // Get invoices with date changes (items with startDate/expiryDate modified)
-    // We'll check invoices created in the date range and compare with original dates
-    const invoices = await Invoice.find({
+    // Get audit logs for freeze and date change actions
+    const auditLogs = await AuditLog.find({
       organizationId: req.organizationId,
-      createdAt: { $gte: start, $lte: end },
-      $or: [
-        { type: 'freeze' },
-        { 'items.startDate': { $exists: true } },
-        { 'items.expiryDate': { $exists: true } }
-      ]
+      action: { $in: ['invoice.item.frozen', 'invoice.item.date_changed'] },
+      createdAt: { $gte: start, $lte: end }
     })
-      .populate('memberId', 'memberId firstName lastName phone')
-      .populate('items.serviceId', 'name')
-      .populate('createdBy', 'firstName lastName')
+      .populate('userId', 'firstName lastName')
       .sort({ createdAt: -1 })
       .lean();
 
+    console.log(`Found ${auditLogs.length} audit logs for freeze and date change in date range ${start.toISOString()} to ${end.toISOString()}`);
+    if (auditLogs.length > 0) {
+      console.log('Sample audit log:', {
+        _id: auditLogs[0]._id,
+        action: auditLogs[0].action,
+        createdAt: auditLogs[0].createdAt,
+        entityId: auditLogs[0].entityId,
+        metadata: auditLogs[0].metadata
+      });
+    }
+
     const records = [];
 
-    // Process freeze history
-    for (const member of members) {
-      for (const freeze of member.freezeHistory || []) {
-        if (freeze.createdAt && freeze.createdAt >= start && freeze.createdAt <= end) {
-          const formatDate = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}-${month}-${year}`;
-          };
+    // Helper functions
+    const formatDate = (date) => {
+      if (!date) return '-';
+      const d = date instanceof Date ? date : new Date(date);
+      if (isNaN(d.getTime())) return '-';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
 
-          const formatDateTime = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            const hours = String(d.getHours()).padStart(2, '0');
-            const minutes = String(d.getMinutes()).padStart(2, '0');
-            const seconds = String(d.getSeconds()).padStart(2, '0');
-            return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
-          };
+    const formatDateTime = (date) => {
+      if (!date) return '-';
+      const d = date instanceof Date ? date : new Date(date);
+      if (isNaN(d.getTime())) return '-';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const seconds = String(d.getSeconds()).padStart(2, '0');
+      return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+    };
 
-          const freezeDuration = freeze.startDate && freeze.endDate
-            ? `${formatDate(freeze.startDate)} - ${formatDate(freeze.endDate)}`
-            : '-';
+    // Process audit logs
+    for (const log of auditLogs) {
+      try {
+        // Get invoice details
+        const invoice = await Invoice.findById(log.entityId)
+          .populate('memberId', 'firstName lastName phone')
+          .populate({
+            path: 'items.serviceId',
+            populate: {
+              path: 'serviceId',
+              select: 'name'
+            }
+          })
+          .lean();
 
-          records.push({
-            _id: `${member._id}-freeze-${freeze._id || Math.random()}`,
-            memberName: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
-            mobile: member.phone || '-',
-            serviceVariation: member.currentPlan?.planName || '-',
-            freezedDuration: freezeDuration,
-            changeDateDuration: '-',
-            staffName: freeze.requestedBy
-              ? `${freeze.requestedBy.firstName || ''} ${freeze.requestedBy.lastName || ''}`.trim()
-              : freeze.approvedBy
-              ? `${freeze.approvedBy.firstName || ''} ${freeze.approvedBy.lastName || ''}`.trim()
-              : 'Auto',
-            reason: freeze.reason || '-',
-            dateTime: formatDateTime(freeze.createdAt)
-          });
+        if (!invoice) {
+          console.log(`Invoice not found for audit log ${log._id}, entityId: ${log.entityId}`);
+          continue;
         }
+
+        if (!invoice.memberId) {
+          console.log(`Invoice ${log.entityId} has no memberId`);
+          continue;
+        }
+
+        const details = log.metadata || {};
+        const itemIndex = details.itemIndex || 0;
+        const item = invoice.items?.[itemIndex];
+
+        if (!item) {
+          console.log(`Item not found at index ${itemIndex} for invoice ${log.entityId}`);
+          continue;
+        }
+
+        if (log.action === 'invoice.item.frozen') {
+        // Freeze record
+        const freezeDays = details.freezeDays || 0;
+        const startDate = details.startDate ? new Date(details.startDate) : null;
+        const endDate = details.endDate ? new Date(details.endDate) : null;
+        
+        let freezedDuration = '-';
+        if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+          freezedDuration = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+        } else if (freezeDays > 0) {
+          // Calculate from freeze days if dates not available
+          const originalExpiry = details.originalExpiryDate ? new Date(details.originalExpiryDate) : null;
+          if (originalExpiry && !isNaN(originalExpiry.getTime())) {
+            const freezeStart = new Date(originalExpiry);
+            const freezeEnd = new Date(originalExpiry);
+            freezeEnd.setDate(freezeEnd.getDate() + freezeDays);
+            freezedDuration = `${formatDate(freezeStart)} - ${formatDate(freezeEnd)}`;
+          }
+        }
+
+        records.push({
+          _id: log._id.toString(),
+          memberId: invoice.memberId._id.toString(),
+          memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
+          mobile: invoice.memberId.phone || '-',
+          serviceVariation: item.serviceId?.serviceId?.name || item.serviceId?.name || item.description || '-',
+          freezedDuration,
+          changeDateDuration: '-',
+          staffName: log.userId
+            ? `${log.userId.firstName || ''} ${log.userId.lastName || ''}`.trim()
+            : 'Auto',
+          reason: details.reason || '-',
+          dateTime: formatDateTime(log.createdAt)
+        });
+      } else if (log.action === 'invoice.item.date_changed') {
+        // Date change record
+        const newStartDate = details.newStartDate ? new Date(details.newStartDate) : null;
+        const newExpiryDate = details.newExpiryDate ? new Date(details.newExpiryDate) : null;
+        
+        let changeDateDuration = '-';
+        if (newStartDate && newExpiryDate && !isNaN(newStartDate.getTime()) && !isNaN(newExpiryDate.getTime())) {
+          changeDateDuration = `${formatDate(newStartDate)} - ${formatDate(newExpiryDate)}`;
+        } else if (newStartDate && !isNaN(newStartDate.getTime())) {
+          changeDateDuration = formatDate(newStartDate);
+        } else if (newExpiryDate && !isNaN(newExpiryDate.getTime())) {
+          changeDateDuration = formatDate(newExpiryDate);
+        }
+
+        records.push({
+          _id: log._id.toString(),
+          memberId: invoice.memberId._id.toString(),
+          memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
+          mobile: invoice.memberId.phone || '-',
+          serviceVariation: item.serviceId?.serviceId?.name || item.serviceId?.name || item.description || '-',
+          freezedDuration: '-',
+          changeDateDuration,
+          staffName: log.userId
+            ? `${log.userId.firstName || ''} ${log.userId.lastName || ''}`.trim()
+            : 'Auto',
+          reason: '-',
+          dateTime: formatDateTime(log.createdAt)
+        });
+      }
+    } catch (error) {
+        console.error(`Error processing audit log ${log._id}:`, error);
+        continue;
       }
     }
 
-    // Process date changes from invoices
-    for (const invoice of invoices) {
-      if (!invoice.memberId) continue;
-
-      for (const item of invoice.items || []) {
-        if (item.startDate || item.expiryDate) {
-          const formatDate = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}-${month}-${year}`;
-          };
-
-          const formatDateTime = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            const hours = String(d.getHours()).padStart(2, '0');
-            const minutes = String(d.getMinutes()).padStart(2, '0');
-            const seconds = String(d.getSeconds()).padStart(2, '0');
-            return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
-          };
-
-          const changeDateDuration = item.startDate && item.expiryDate
-            ? `${formatDate(item.startDate)} - ${formatDate(item.expiryDate)}`
-            : '-';
-
-          records.push({
-            _id: `${invoice._id}-date-${item._id || Math.random()}`,
-            memberName: invoice.memberId
-              ? `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim()
-              : '-',
-            mobile: invoice.memberId?.phone || '-',
-            serviceVariation: item.serviceId?.name || item.description || '-',
-            freezedDuration: '-',
-            changeDateDuration,
-            staffName: invoice.createdBy
-              ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim()
-              : 'Auto',
-            reason: invoice.internalNotes || invoice.notes || '-',
-            dateTime: formatDateTime(invoice.createdAt)
-          });
-        }
-      }
-    }
+    console.log(`Processed ${records.length} records from audit logs`);
 
     // Apply search filter
     let filteredRecords = records;
@@ -8918,131 +8943,125 @@ export const exportFreezeAndDateChangeReport = async (req, res) => {
   try {
     const { fromDate, toDate, search } = req.query;
 
-    // Reuse getFreezeAndDateChangeReport logic
     const start = fromDate ? new Date(fromDate) : new Date(new Date().setMonth(new Date().getMonth() - 1));
     start.setHours(0, 0, 0, 0);
     const end = toDate ? new Date(toDate) : new Date();
     end.setHours(23, 59, 59, 999);
 
-    const members = await Member.find({
+    // Get audit logs for freeze and date change actions
+    const auditLogs = await AuditLog.find({
       organizationId: req.organizationId,
-      freezeHistory: {
-        $elemMatch: {
-          createdAt: { $gte: start, $lte: end }
-        }
-      }
+      action: { $in: ['invoice.item.frozen', 'invoice.item.date_changed'] },
+      createdAt: { $gte: start, $lte: end }
     })
-      .populate('freezeHistory.requestedBy', 'firstName lastName')
-      .populate('freezeHistory.approvedBy', 'firstName lastName')
-      .lean();
-
-    const invoices = await Invoice.find({
-      organizationId: req.organizationId,
-      createdAt: { $gte: start, $lte: end },
-      $or: [
-        { type: 'freeze' },
-        { 'items.startDate': { $exists: true } },
-        { 'items.expiryDate': { $exists: true } }
-      ]
-    })
-      .populate('memberId', 'memberId firstName lastName phone')
-      .populate('items.serviceId', 'name')
-      .populate('createdBy', 'firstName lastName')
+      .populate('userId', 'firstName lastName')
       .sort({ createdAt: -1 })
       .lean();
 
     const records = [];
 
-    for (const member of members) {
-      for (const freeze of member.freezeHistory || []) {
-        if (freeze.createdAt && freeze.createdAt >= start && freeze.createdAt <= end) {
-          const formatDate = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}-${month}-${year}`;
-          };
+    // Helper functions
+    const formatDate = (date) => {
+      if (!date) return '-';
+      const d = date instanceof Date ? date : new Date(date);
+      if (isNaN(d.getTime())) return '-';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
 
-          const formatDateTime = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            const hours = String(d.getHours()).padStart(2, '0');
-            const minutes = String(d.getMinutes()).padStart(2, '0');
-            const seconds = String(d.getSeconds()).padStart(2, '0');
-            return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
-          };
+    const formatDateTime = (date) => {
+      if (!date) return '-';
+      const d = date instanceof Date ? date : new Date(date);
+      if (isNaN(d.getTime())) return '-';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const seconds = String(d.getSeconds()).padStart(2, '0');
+      return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+    };
 
-          const freezeDuration = freeze.startDate && freeze.endDate
-            ? `${formatDate(freeze.startDate)} - ${formatDate(freeze.endDate)}`
-            : '-';
+    // Process audit logs
+    for (const log of auditLogs) {
+      const invoice = await Invoice.findById(log.entityId)
+        .populate('memberId', 'firstName lastName phone')
+        .populate({
+          path: 'items.serviceId',
+          populate: {
+            path: 'serviceId',
+            select: 'name'
+          }
+        })
+        .lean();
 
-          records.push({
-            memberName: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
-            mobile: member.phone || '-',
-            serviceVariation: member.currentPlan?.planName || '-',
-            freezedDuration: freezeDuration,
-            changeDateDuration: '-',
-            staffName: freeze.requestedBy
-              ? `${freeze.requestedBy.firstName || ''} ${freeze.requestedBy.lastName || ''}`.trim()
-              : freeze.approvedBy
-              ? `${freeze.approvedBy.firstName || ''} ${freeze.approvedBy.lastName || ''}`.trim()
-              : 'Auto',
-            reason: freeze.reason || '-',
-            dateTime: formatDateTime(freeze.createdAt)
-          });
+      if (!invoice || !invoice.memberId) continue;
+
+      const details = log.metadata || {};
+      const itemIndex = details.itemIndex || 0;
+      const item = invoice.items?.[itemIndex];
+
+      if (!item) continue;
+
+      if (log.action === 'invoice.item.frozen') {
+        const freezeDays = details.freezeDays || 0;
+        const startDate = details.startDate ? new Date(details.startDate) : null;
+        const endDate = details.endDate ? new Date(details.endDate) : null;
+        
+        let freezedDuration = '-';
+        if (startDate && endDate && !isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+          freezedDuration = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+        } else if (freezeDays > 0) {
+          const originalExpiry = details.originalExpiryDate ? new Date(details.originalExpiryDate) : null;
+          if (originalExpiry && !isNaN(originalExpiry.getTime())) {
+            const freezeStart = new Date(originalExpiry);
+            const freezeEnd = new Date(originalExpiry);
+            freezeEnd.setDate(freezeEnd.getDate() + freezeDays);
+            freezedDuration = `${formatDate(freezeStart)} - ${formatDate(freezeEnd)}`;
+          }
         }
-      }
-    }
 
-    for (const invoice of invoices) {
-      if (!invoice.memberId) continue;
-      for (const item of invoice.items || []) {
-        if (item.startDate || item.expiryDate) {
-          const formatDate = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            return `${day}-${month}-${year}`;
-          };
-
-          const formatDateTime = (date) => {
-            if (!date) return '-';
-            const d = new Date(date);
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = String(d.getMonth() + 1).padStart(2, '0');
-            const year = d.getFullYear();
-            const hours = String(d.getHours()).padStart(2, '0');
-            const minutes = String(d.getMinutes()).padStart(2, '0');
-            const seconds = String(d.getSeconds()).padStart(2, '0');
-            return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
-          };
-
-          const changeDateDuration = item.startDate && item.expiryDate
-            ? `${formatDate(item.startDate)} - ${formatDate(item.expiryDate)}`
-            : '-';
-
-          records.push({
-            memberName: invoice.memberId
-              ? `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim()
-              : '-',
-            mobile: invoice.memberId?.phone || '-',
-            serviceVariation: item.serviceId?.name || item.description || '-',
-            freezedDuration: '-',
-            changeDateDuration,
-            staffName: invoice.createdBy
-              ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim()
-              : 'Auto',
-            reason: invoice.internalNotes || invoice.notes || '-',
-            dateTime: formatDateTime(invoice.createdAt)
-          });
+        records.push({
+          memberId: invoice.memberId._id.toString(),
+          memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
+          mobile: invoice.memberId.phone || '-',
+          serviceVariation: item.serviceId?.serviceId?.name || item.serviceId?.name || item.description || '-',
+          freezedDuration,
+          changeDateDuration: '-',
+          staffName: log.userId
+            ? `${log.userId.firstName || ''} ${log.userId.lastName || ''}`.trim()
+            : 'Auto',
+          reason: details.reason || '-',
+          dateTime: formatDateTime(log.createdAt)
+        });
+      } else if (log.action === 'invoice.item.date_changed') {
+        const newStartDate = details.newStartDate ? new Date(details.newStartDate) : null;
+        const newExpiryDate = details.newExpiryDate ? new Date(details.newExpiryDate) : null;
+        
+        let changeDateDuration = '-';
+        if (newStartDate && newExpiryDate && !isNaN(newStartDate.getTime()) && !isNaN(newExpiryDate.getTime())) {
+          changeDateDuration = `${formatDate(newStartDate)} - ${formatDate(newExpiryDate)}`;
+        } else if (newStartDate && !isNaN(newStartDate.getTime())) {
+          changeDateDuration = formatDate(newStartDate);
+        } else if (newExpiryDate && !isNaN(newExpiryDate.getTime())) {
+          changeDateDuration = formatDate(newExpiryDate);
         }
+
+        records.push({
+          memberId: invoice.memberId._id.toString(),
+          memberName: `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim(),
+          mobile: invoice.memberId.phone || '-',
+          serviceVariation: item.serviceId?.serviceId?.name || item.serviceId?.name || item.description || '-',
+          freezedDuration: '-',
+          changeDateDuration,
+          staffName: log.userId
+            ? `${log.userId.firstName || ''} ${log.userId.lastName || ''}`.trim()
+            : 'Auto',
+          reason: '-',
+          dateTime: formatDateTime(log.createdAt)
+        });
       }
     }
 

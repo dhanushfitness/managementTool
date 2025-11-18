@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Download, Calendar } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Download } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getFreezeAndDateChangeReport, exportFreezeAndDateChangeReport } from '../api/reports'
 import toast from 'react-hot-toast'
@@ -8,6 +9,8 @@ import DateInput from '../components/DateInput'
 import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function FreezeAndDateChangeReport() {
+  const navigate = useNavigate()
+  
   const getDefaultFromDate = () => {
     const date = new Date()
     date.setMonth(date.getMonth() - 1)
@@ -24,7 +27,7 @@ export default function FreezeAndDateChangeReport() {
     search: ''
   })
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [hasSearched, setHasSearched] = useState(true) // Auto-load on mount
 
   const { data: reportData, isLoading, refetch } = useQuery({
     queryKey: ['freeze-and-date-change-report', filters, page],
@@ -118,7 +121,7 @@ export default function FreezeAndDateChangeReport() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Member Name/Mobile</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Member Name/Mobil</label>
             <input
               type="text"
               value={filters.search}
@@ -127,15 +130,21 @@ export default function FreezeAndDateChangeReport() {
               className="w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select</label>
+            <select className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white">
+              <option value="">All</option>
+            </select>
+          </div>
           <button
             onClick={handleSearch}
-            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
           >
             Go
           </button>
           <button
             onClick={handleExportExcel}
-            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
+            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2 font-medium"
           >
             <Download className="w-4 h-4" />
             Export Excel
@@ -146,40 +155,37 @@ export default function FreezeAndDateChangeReport() {
       {/* Data Table */}
       {hasSearched && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          {/* Pagination Controls */}
-          <div className="flex justify-between items-center mb-4">
-            <div className="text-sm text-gray-600">
-              Showing {((pagination.page - 1) * 20) + 1} to {Math.min(pagination.page * 20, pagination.total)} of {pagination.total} results
-            </div>
+          {/* Pagination Controls - Top */}
+          <div className="flex justify-center items-center mb-4">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage(1)}
                 disabled={pagination.page === 1}
-                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-600"
               >
                 {'<<'}
               </button>
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={pagination.page === 1}
-                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-600"
               >
                 {'<'}
               </button>
-              <span className="px-4 py-1 text-sm font-medium">
+              <span className="px-4 py-1 text-sm font-medium text-gray-700">
                 Page {pagination.page} Of {pagination.pages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
                 disabled={pagination.page === pagination.pages}
-                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-600"
               >
                 {'>'}
               </button>
               <button
                 onClick={() => setPage(pagination.pages)}
                 disabled={pagination.page === pagination.pages}
-                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-600"
               >
                 {'>>'}
               </button>
@@ -213,7 +219,16 @@ export default function FreezeAndDateChangeReport() {
                     <tr key={record._id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="border border-gray-300 px-4 py-2">{((pagination.page - 1) * 20) + index + 1}</td>
                       <td className="border border-gray-300 px-4 py-2">
-                        <span className="text-red-600">{record.memberName}</span>
+                        {record.memberId ? (
+                          <button
+                            onClick={() => navigate(`/clients/${record.memberId}`)}
+                            className="text-red-600 hover:text-red-700 hover:underline cursor-pointer"
+                          >
+                            {record.memberName}
+                          </button>
+                        ) : (
+                          <span className="text-red-600">{record.memberName}</span>
+                        )}
                       </td>
                       <td className="border border-gray-300 px-4 py-2">{record.mobile}</td>
                       <td className="border border-gray-300 px-4 py-2">{record.serviceVariation}</td>
@@ -227,6 +242,43 @@ export default function FreezeAndDateChangeReport() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls - Bottom */}
+          <div className="flex justify-center items-center mt-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(1)}
+                disabled={pagination.page === 1}
+                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-600"
+              >
+                {'<<'}
+              </button>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={pagination.page === 1}
+                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-600"
+              >
+                {'<'}
+              </button>
+              <span className="px-4 py-1 text-sm font-medium text-gray-700">
+                Page {pagination.page} Of {pagination.pages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
+                disabled={pagination.page === pagination.pages}
+                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-600"
+              >
+                {'>'}
+              </button>
+              <button
+                onClick={() => setPage(pagination.pages)}
+                disabled={pagination.page === pagination.pages}
+                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-600"
+              >
+                {'>>'}
+              </button>
+            </div>
           </div>
         </div>
       )}

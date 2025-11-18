@@ -102,6 +102,9 @@ import NotFound from './pages/NotFound'
 import BranchManagement from './pages/BranchManagement'
 import Taskboard from './pages/Taskboard'
 import Leaderboard from './pages/Leaderboard'
+import UpdateEnquiryCall from './pages/UpdateEnquiryCall'
+import InvoiceDetails from './pages/InvoiceDetails'
+import InvoicePrint from './pages/InvoicePrint'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
@@ -134,6 +137,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="invoices/:invoiceId/print" element={<InvoicePrint />} />
         <Route
           path="/"
           element={
@@ -144,6 +148,8 @@ function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="enquiries" element={<Enquiries />} />
+          <Route path="enquiries/:enquiryId/update-call" element={<UpdateEnquiryCall />} />
+          <Route path="invoices/:invoiceId" element={<InvoiceDetails />} />
           <Route path="marketing" element={<Marketing />} />
           <Route path="clients" element={<Clients />} />
           <Route path="clients/:id" element={<MemberDetails />} />

@@ -24,7 +24,6 @@ import {
 import LoadingPage from '../components/LoadingPage'
 import LoadingTable from '../components/LoadingTable'
 import AddEnquiryModal from '../components/AddEnquiryModal'
-import CallLogModal from '../components/CallLogModal'
 import AppointmentModal from '../components/AppointmentModal'
 import DateInput from '../components/DateInput'
 import { useDateFilterStore } from '../store/dateFilterStore'
@@ -47,7 +46,6 @@ export default function Enquiries() {
   const [showFilters, setShowFilters] = useState(false)
   const [selectedEnquiries, setSelectedEnquiries] = useState([])
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showCallLogModal, setShowCallLogModal] = useState(null)
   const [showAppointmentModal, setShowAppointmentModal] = useState(null)
   const [showFitnessLogModal, setShowFitnessLogModal] = useState(null)
   const [showEditModal, setShowEditModal] = useState(null)
@@ -169,19 +167,6 @@ export default function Enquiries() {
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Failed to change staff')
-    }
-  })
-
-  const addCallLogMutation = useMutation({
-    mutationFn: ({ enquiryId, ...data }) => 
-      api.post(`/enquiries/${enquiryId}/call-log`, data),
-    onSuccess: () => {
-      toast.success('Call log added successfully')
-      setShowCallLogModal(null)
-      queryClient.invalidateQueries(['enquiries'])
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to add call log')
     }
   })
 
@@ -638,7 +623,7 @@ export default function Enquiries() {
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-1.5">
                             <button
-                              onClick={() => setShowCallLogModal(enquiry._id)}
+                              onClick={() => navigate(`/enquiries/${enquiry._id}/update-call`, { state: { from: location.pathname + location.search } })}
                               className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                               title="Add call log"
                             >
@@ -749,15 +734,6 @@ export default function Enquiries() {
         <AddEnquiryModal
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
-        />
-      )}
-
-      {/* Call Log Modal */}
-      {showCallLogModal && (
-        <CallLogModal
-          isOpen={!!showCallLogModal}
-          onClose={() => setShowCallLogModal(null)}
-          enquiryId={showCallLogModal}
         />
       )}
 

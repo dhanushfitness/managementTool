@@ -9,6 +9,13 @@ import Organization from '../models/Organization.js';
 import AuditLog from '../models/AuditLog.js';
 import { sendWelcomeMessage } from '../utils/whatsapp.js';
 
+// Normalize phone number for comparison (remove spaces, dashes, and other special characters)
+const normalizePhone = (phone) => {
+  if (!phone) return '';
+  // Remove all non-digit characters except +
+  return phone.replace(/[^\d+]/g, '');
+};
+
 // Generate unique member ID
 const generateMemberId = async (organizationId) => {
   const count = await Member.countDocuments({ organizationId });
@@ -22,6 +29,31 @@ const generateMemberAttendanceId = async (organizationId) => {
 
 export const createMember = async (req, res) => {
   try {
+    // Check for duplicate phone number
+    if (req.body.phone) {
+      const normalizedPhone = normalizePhone(req.body.phone);
+      
+      if (normalizedPhone) {
+        // Check all members in the organization for duplicate phone
+        const allMembers = await Member.find({
+          organizationId: req.organizationId,
+          isActive: true
+        }).select('phone');
+
+        const duplicateMember = allMembers.find(m => {
+          const existingNormalized = normalizePhone(m.phone);
+          return existingNormalized === normalizedPhone && existingNormalized !== '';
+        });
+
+        if (duplicateMember) {
+          return res.status(400).json({
+            success: false,
+            message: 'A member with this contact number already exists. Please use a different contact number.'
+          });
+        }
+      }
+    }
+
     const memberId = await generateMemberId(req.organizationId);
     const attendanceId = await generateMemberAttendanceId(req.organizationId);
     
@@ -317,6 +349,28 @@ export const updateMember = async (req, res) => {
 
     if (!member) {
       return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    // Check for duplicate phone number if phone is being updated
+    if (req.body.phone) {
+      const normalizedPhone = normalizePhone(req.body.phone);
+      const allMembers = await Member.find({
+        organizationId: req.organizationId,
+        isActive: true,
+        _id: { $ne: req.params.memberId } // Exclude current member
+      }).select('phone');
+
+      const duplicateMember = allMembers.find(m => {
+        const existingNormalized = normalizePhone(m.phone);
+        return existingNormalized === normalizedPhone && existingNormalized !== '';
+      });
+
+      if (duplicateMember) {
+        return res.status(400).json({
+          success: false,
+          message: 'A member with this contact number already exists. Please use a different contact number.'
+        });
+      }
     }
 
     // Handle nested objects like termsAndConditions
@@ -639,6 +693,14 @@ export const getMemberInvoices = async (req, res) => {
     })
       .populate('planId', 'name type duration sessions price')
       .populate('memberId', 'firstName lastName memberId')
+      .populate({
+        path: 'items.serviceId',
+        select: 'name serviceId',
+        populate: {
+          path: 'serviceId',
+          select: 'name'
+        }
+      })
       .sort({ createdAt: -1 });
 
     res.json({ success: true, invoices });

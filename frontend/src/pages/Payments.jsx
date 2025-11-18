@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Download, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Search, Printer } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getReceipts, exportReceipts } from '../api/payments'
 import LoadingPage from '../components/LoadingPage'
@@ -108,7 +108,8 @@ export default function Payments() {
           finalAmount: invoiceTotal,
           paidAmount,
           pendingAmount: pendingAmount > 0 ? pendingAmount : Math.max(invoiceTotal - paidAmount, 0),
-          paymentMethod: PAYMENT_METHOD_LABELS[receipt.paymentMethod] || 'Other'
+          paymentMethod: PAYMENT_METHOD_LABELS[receipt.paymentMethod] || 'Other',
+          invoiceId: receipt.invoice?._id || null
         }
 
         return row
@@ -461,12 +462,13 @@ export default function Payments() {
                 <th className="px-4 py-3 text-right">Paid</th>
                 <th className="px-4 py-3 text-right">Pending</th>
                 <th className="px-4 py-3">Pay Mode</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={19} className="py-12 text-center text-gray-500">
+                  <td colSpan={20} className="py-12 text-center text-gray-500">
                     No receipts found for the selected filters.
                   </td>
                 </tr>
@@ -498,6 +500,19 @@ export default function Payments() {
                       {formatCurrency(row.pendingAmount)}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{row.paymentMethod}</td>
+                    <td className="px-4 py-3">
+                      {row.invoiceId && (
+                        <button
+                          onClick={() => {
+                            window.open(`/invoices/${row.invoiceId}/print`, '_blank')
+                          }}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="Print Invoice"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

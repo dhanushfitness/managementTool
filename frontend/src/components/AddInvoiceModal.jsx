@@ -25,6 +25,7 @@ export default function AddInvoiceModal({
     memberPhone: '',
     sacCode: '',
     items: [{
+      selectedServiceId: '',
       serviceId: '',
       description: '',
       duration: '',
@@ -57,12 +58,47 @@ export default function AddInvoiceModal({
 
   const queryClient = useQueryClient()
 
-  // Fetch plans/services
-  const { data: plansData } = useQuery({
-    queryKey: ['plans-list'],
-    queryFn: () => api.get('/plans').then(res => res.data),
+  // Fetch services
+  const { data: servicesData } = useQuery({
+    queryKey: ['services-list'],
+    queryFn: () => api.get('/services').then(res => res.data),
     enabled: isOpen
   })
+
+  // Component to fetch variations for a specific service
+  const ServiceVariationsDropdown = ({ serviceId, index, value, onChange }) => {
+    const { data: variationsData, isLoading } = useQuery({
+      queryKey: ['service-variations', serviceId],
+      queryFn: () => api.get('/plans', { params: { serviceId, isActive: 'true' } }).then(res => res.data),
+      enabled: !!serviceId
+    })
+
+    if (!serviceId) return null
+
+    const variations = variationsData?.plans || []
+
+    return (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={isLoading}
+        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-sm"
+      >
+        <option value="">Select Variation</option>
+        {isLoading && <option disabled>Loading variations...</option>}
+        {!isLoading && variations.map(variation => (
+          <option key={variation._id} value={variation._id}>
+            {variation.name} {variation.duration?.value && variation.duration?.unit 
+              ? `(${variation.duration.value} ${variation.duration.unit})` 
+              : ''} - ₹{variation.price}
+          </option>
+        ))}
+        {!isLoading && variations.length === 0 && (
+          <option disabled>No variations available</option>
+        )}
+      </select>
+    )
+  }
 
   // Fetch staff for sales rep
   const { data: staffData } = useQuery({
@@ -182,20 +218,21 @@ export default function AddInvoiceModal({
       memberName: '',
       memberPhone: '',
       sacCode: '',
-      items: [{
-        serviceId: '',
-        description: '',
-        duration: '',
-        quantity: 1,
-        unitPrice: 0,
-        discount: { type: 'percentage', value: 0 },
-        taxRate: 0,
-        taxType: 'No tax',
-        startDate: '',
-        expiryDate: '',
-        numberOfSessions: '',
-        sacCode: ''
-      }],
+    items: [{
+      selectedServiceId: '',
+      serviceId: '',
+      description: '',
+      duration: '',
+      quantity: 1,
+      unitPrice: 0,
+      discount: { type: 'percentage', value: 0 },
+      taxRate: 0,
+      taxType: 'No tax',
+      startDate: '',
+      expiryDate: '',
+      numberOfSessions: '',
+      sacCode: ''
+    }],
       discountReason: '',
       customerNotes: '',
       internalNotes: '',
@@ -273,20 +310,42 @@ export default function AddInvoiceModal({
   const handleSubmit = (e) => {
     e.preventDefault()
     
+    // Validate member selection
     if (!formData.memberId) {
       toast.error('Please select a member')
       return
     }
 
-    if (formData.items.length === 0 || formData.items.some(item => !item.description || !item.unitPrice)) {
-      toast.error('Please add at least one service with description and price')
+    // Validate items - must have at least one item with serviceId and unitPrice
+    const validItems = formData.items.filter(item => item.serviceId && item.unitPrice > 0)
+    if (validItems.length === 0) {
+      toast.error('Please add at least one service with a selected variation and price')
       return
     }
 
-    // Calculate totals
+    // Check for items with missing serviceId
+    const itemsWithoutService = formData.items.filter(item => !item.serviceId && (item.unitPrice > 0 || item.description))
+    if (itemsWithoutService.length > 0) {
+      toast.error('Please select a service variation for all items')
+      return
+    }
+
+    // Validate payment modes - if amount is entered, method must be selected
+    const invalidPaymentModes = formData.paymentModes.filter(pm => {
+      const amount = parseFloat(pm.amount) || 0
+      return amount > 0 && !pm.method
+    })
+    if (invalidPaymentModes.length > 0) {
+      toast.error('Please select a payment method for all payment entries with amount')
+      return
+    }
+
+    // Calculate totals - only process items with serviceId
     let subtotal = 0
     let totalTaxAmount = 0
-    const processedItems = formData.items.map(item => {
+    const processedItems = formData.items
+      .filter(item => item.serviceId && item.unitPrice > 0)
+      .map(item => {
       const amount = (item.unitPrice || 0) * (item.quantity || 1)
       let discountAmount = 0
       if (item.discount && item.discount.value > 0) {
@@ -311,6 +370,13 @@ export default function AddInvoiceModal({
     })
 
     const total = subtotal + totalTaxAmount
+    
+    // Validate total amount
+    if (total <= 0) {
+      toast.error('Invoice total must be greater than 0. Please add valid items with prices.')
+      return
+    }
+
     const totalPaid = formData.paymentModes.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0)
     const pending = Math.max(0, total - totalPaid)
 
@@ -373,6 +439,7 @@ export default function AddInvoiceModal({
     setFormData(prev => ({
       ...prev,
       items: [...prev.items, {
+        selectedServiceId: '',
         serviceId: '',
         description: '',
         duration: '',
@@ -420,34 +487,81 @@ export default function AddInvoiceModal({
     await attemptMemberSelection(member)
   }
 
-  const handleServiceSelect = (index, serviceId) => {
-     const service = plansData?.plans?.find(p => p._id === serviceId)
-     if (service) {
-       handleItemChange(index, 'serviceId', serviceId)
-       handleItemChange(index, 'description', service.name)
-       handleItemChange(index, 'unitPrice', service.price)
-       handleItemChange(index, 'taxRate', service.taxRate || 0)
+  // Fetch variations for a specific service
+  const fetchVariationsForService = async (serviceId) => {
+    if (!serviceId) return []
+    try {
+      const response = await api.get('/plans', { params: { serviceId, isActive: 'true' } })
+      return response.data?.plans || []
+    } catch (error) {
+      console.error('Failed to fetch variations', error)
+      return []
+    }
+  }
+
+  const handleServiceSelect = async (index, selectedServiceId) => {
+    if (!selectedServiceId) {
+      handleItemChange(index, 'selectedServiceId', '')
+      handleItemChange(index, 'serviceId', '')
+      handleItemChange(index, 'description', '')
+      handleItemChange(index, 'unitPrice', 0)
+      handleItemChange(index, 'taxRate', 0)
+      return
+    }
+
+    handleItemChange(index, 'selectedServiceId', selectedServiceId)
+    handleItemChange(index, 'serviceId', '')
+    handleItemChange(index, 'description', '')
+    handleItemChange(index, 'unitPrice', 0)
+    handleItemChange(index, 'taxRate', 0)
+
+    // Fetch variations for this service
+    const variations = await fetchVariationsForService(selectedServiceId)
+    // Store variations in a way we can access them later
+    // We'll use a query for each selected service
+  }
+
+  const handleVariationSelect = async (index, variationId) => {
+    // Get the selected service ID for this item
+    const selectedServiceId = formData.items[index]?.selectedServiceId
+    if (!selectedServiceId || !variationId) {
+      handleItemChange(index, 'serviceId', '')
+      handleItemChange(index, 'description', '')
+      handleItemChange(index, 'unitPrice', 0)
+      handleItemChange(index, 'taxRate', 0)
+      return
+    }
+
+    // Fetch variations and find the selected one
+    const variations = await fetchVariationsForService(selectedServiceId)
+    const variation = variations.find(v => v._id === variationId)
+    
+    if (variation) {
+      handleItemChange(index, 'serviceId', variationId)
+      handleItemChange(index, 'description', variation.name)
+      handleItemChange(index, 'unitPrice', variation.price)
+      handleItemChange(index, 'taxRate', variation.taxRate || 0)
 
       const baseDate = formData.items[index]?.startDate
         ? new Date(formData.items[index].startDate)
         : new Date(formData.invoiceDate || new Date())
 
-      if (service.duration?.value && service.duration?.unit) {
+      if (variation.duration?.value && variation.duration?.unit) {
         const startDate = new Date(baseDate)
         let endDate = new Date(startDate)
 
-        switch (service.duration.unit) {
+        switch (variation.duration.unit) {
           case 'days':
-            endDate.setDate(endDate.getDate() + service.duration.value)
+            endDate.setDate(endDate.getDate() + variation.duration.value)
             break
           case 'weeks':
-            endDate.setDate(endDate.getDate() + service.duration.value * 7)
+            endDate.setDate(endDate.getDate() + variation.duration.value * 7)
             break
           case 'months':
-            endDate.setMonth(endDate.getMonth() + service.duration.value)
+            endDate.setMonth(endDate.getMonth() + variation.duration.value)
             break
           case 'years':
-            endDate.setFullYear(endDate.getFullYear() + service.duration.value)
+            endDate.setFullYear(endDate.getFullYear() + variation.duration.value)
             break
           default:
             endDate = null
@@ -459,6 +573,15 @@ export default function AddInvoiceModal({
         if (endDate && !Number.isNaN(endDate.getTime())) {
           handleItemChange(index, 'expiryDate', endDate.toISOString().split('T')[0])
         }
+      }
+
+      if (variation.sessions) {
+        handleItemChange(index, 'numberOfSessions', variation.sessions)
+      }
+
+      if (variation.duration?.value && variation.duration?.unit) {
+        const durationLabel = `${variation.duration.value} ${variation.duration.unit}`
+        handleItemChange(index, 'duration', durationLabel)
       }
     }
   }
@@ -763,27 +886,42 @@ export default function AddInvoiceModal({
                       <td className="py-4 px-4">{index + 1}</td>
                       <td className="py-4 px-4">
                         <div className="space-y-2 min-w-[300px]">
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={item.description}
-                              onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                              placeholder="Select service"
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white pr-8"
-                            />
-                            <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                          </div>
-                          {plansData?.plans && (
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Select Service</label>
                             <select
-                              value={item.serviceId}
+                              value={item.selectedServiceId}
                               onChange={(e) => handleServiceSelect(index, e.target.value)}
                               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-sm"
                             >
                               <option value="">Select Service</option>
-                              {plansData.plans.map(plan => (
-                                <option key={plan._id} value={plan._id}>{plan.name}</option>
+                              {servicesData?.services?.map(service => (
+                                <option key={service._id} value={service._id}>
+                                  {service.name}
+                                </option>
                               ))}
                             </select>
+                          </div>
+                          {item.selectedServiceId && (
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">Select Variation</label>
+                              <ServiceVariationsDropdown
+                                serviceId={item.selectedServiceId}
+                                index={index}
+                                value={item.serviceId}
+                                onChange={(variationId) => handleVariationSelect(index, variationId)}
+                              />
+                            </div>
+                          )}
+                          {item.description && (
+                            <div className="mt-2">
+                              <input
+                                type="text"
+                                value={item.description}
+                                onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                placeholder="Description"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-sm"
+                              />
+                            </div>
                           )}
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
@@ -967,14 +1105,19 @@ export default function AddInvoiceModal({
               <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">MODE OF PAYMENT</h3>
                 <div className="space-y-3">
-                  {formData.paymentModes.map((pm, index) => (
+                  {formData.paymentModes.map((pm, index) => {
+                    const hasAmount = parseFloat(pm.amount) > 0
+                    const isMethodRequired = hasAmount && !pm.method
+                    return (
                     <div key={index} className="flex items-center space-x-2">
                       <select
                         value={pm.method}
                         onChange={(e) => handlePaymentModeChange(index, 'method', e.target.value)}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                        className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white ${
+                          isMethodRequired ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       >
-                        <option value="">Select</option>
+                        <option value="">Select Payment Method{isMethodRequired ? ' *' : ''}</option>
                         <option value="cash">Cash</option>
                         <option value="card">Card</option>
                         <option value="upi">UPI</option>
@@ -1009,7 +1152,8 @@ export default function AddInvoiceModal({
                         </button>
                       )}
                     </div>
-                  ))}
+                    )
+                  })}
                   <div className="flex justify-between items-center mt-4">
                     <label className="text-sm font-semibold text-gray-700">Pending</label>
                     <input

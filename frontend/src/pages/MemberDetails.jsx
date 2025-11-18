@@ -1132,6 +1132,7 @@ export default function MemberDetails() {
             setFilter={setPaymentFilter}
             page={paymentPage}
             setPage={setPaymentPage}
+            navigate={navigate}
           />
         )}
 
@@ -1171,10 +1172,59 @@ export default function MemberDetails() {
 
 // Service Card Tab Component
 function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActiveServiceTab, activeServiceStatus, setActiveServiceStatus }) {
+  const [dateChangeModal, setDateChangeModal] = useState({ isOpen: false, invoice: null, itemIndex: 0 })
+  const [freezeModal, setFreezeModal] = useState({ isOpen: false, invoice: null, itemIndex: 0 })
+  const queryClient = useQueryClient()
+
+  // Date change mutation
+  const changeDateMutation = useMutation({
+    mutationFn: async ({ invoiceId, itemIndex, startDate, expiryDate }) => {
+      const res = await api.post('/invoices/change-date', {
+        invoiceId,
+        itemIndex,
+        startDate,
+        expiryDate
+      })
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['member-invoices', member?._id])
+      toast.success('Date changed successfully')
+      setDateChangeModal({ isOpen: false, invoice: null, itemIndex: 0 })
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to change date')
+    }
+  })
+
+  // Freeze mutation
+  const freezeMutation = useMutation({
+    mutationFn: async ({ invoiceId, itemIndex, startDate, endDate, reason }) => {
+      const res = await api.post('/invoices/freeze', {
+        invoiceId,
+        itemIndex,
+        startDate,
+        endDate,
+        reason
+      })
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['member-invoices', member?._id])
+      queryClient.invalidateQueries(['member', member?._id]) // Invalidate member query to update totalFreezeDaysUsed
+      toast.success('Service frozen successfully')
+      setFreezeModal({ isOpen: false, invoice: null, itemIndex: 0 })
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to freeze service')
+    }
+  })
   const calculateDaysRemaining = (endDate) => {
     if (!endDate) return 0
     const today = new Date()
+    today.setHours(0, 0, 0, 0) // Set to start of day
     const expiry = new Date(endDate)
+    expiry.setHours(0, 0, 0, 0) // Set to start of day
     const diffTime = expiry - today
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays > 0 ? diffDays : 0
@@ -1193,17 +1243,13 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
     }
   }
 
-  // Calculate statistics
-  const totalBookings = invoices.filter(inv => inv.type === 'membership' || inv.type === 'renewal').length
+  // Calculate statistics - count all invoices except cancelled ones
+  const totalBookings = invoices.filter(inv => inv.status !== 'cancelled' && inv.status !== 'refunded').length
   const totalBookingValue = invoices
-    .filter(inv => inv.type === 'membership' || inv.type === 'renewal')
+    .filter(inv => inv.status !== 'cancelled' && inv.status !== 'refunded')
     .reduce((sum, inv) => sum + (inv.total || 0), 0)
   const totalReferrals = 0
   const totalReferralValue = 0
-  const totalProducts = invoices.filter(inv => inv.type === 'addon' || inv.invoiceType === 'package').length
-  const totalProductValue = invoices
-    .filter(inv => inv.type === 'addon' || inv.invoiceType === 'package')
-    .reduce((sum, inv) => sum + (inv.total || 0), 0)
   const totalPending = invoices
     .filter(inv => inv.status === 'partial' || inv.status === 'sent' || inv.status === 'overdue')
     .reduce((sum, inv) => sum + (inv.pending || 0), 0)
@@ -1288,9 +1334,22 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
     <div className="p-6 space-y-6">
       {/* Page Title */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Service Card - {member?.firstName?.toUpperCase()} {member?.lastName?.toUpperCase()}
-        </h1>
+        <div className="flex items-center space-x-4">
+          {member?.profilePicture ? (
+            <img
+              src={member.profilePicture}
+              alt={member.firstName}
+              className="w-16 h-16 rounded-full object-cover border-4 border-orange-200 shadow-lg"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center border-4 border-orange-200 shadow-lg">
+              <User className="w-8 h-8 text-gray-500" />
+            </div>
+          )}
+          <h1 className="text-3xl font-bold text-gray-900">
+            Service Card - {member?.firstName?.toUpperCase()} {member?.lastName?.toUpperCase()}
+          </h1>
+        </div>
         <div className="flex items-center space-x-2 flex-wrap gap-2">
           <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
             Inter branch transfer
@@ -1314,111 +1373,64 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
         </div>
       </div>
 
-      {/* Service Overview Section - Improved Structure */}
-      <div className="bg-gradient-to-br from-orange-50 via-orange-50 to-orange-100 rounded-xl border border-orange-200 p-6 shadow-sm">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column */}
-          <div className="space-y-5">
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Current Membership status</p>
-              <p className={`text-base font-bold ${
-                member?.membershipStatus === 'active' ? 'text-green-600' : 
+      {/* Service Overview Section - Modern Design */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Member Overview</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Current Membership Status */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+              <p className="text-xs font-medium text-green-700 mb-2">Current Membership Status</p>
+              <p className={`text-xl font-bold ${
+                member?.membershipStatus === 'active' ? 'text-green-700' : 
                 member?.membershipStatus === 'pending' ? 'text-red-600' : 
                 'text-gray-900'
               }`}>
                 {member?.membershipStatus ? member.membershipStatus.charAt(0).toUpperCase() + member.membershipStatus.slice(1) : 'Pending'}
               </p>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Total Bookings ({totalBookings})</p>
-              <p className="text-base font-bold text-gray-900">{totalBookingValue.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Total Product purchased</p>
-              <p className="text-base font-bold text-gray-900">{totalProducts}</p>
-            </div>
-          </div>
 
-          {/* Middle Column */}
-          <div className="space-y-5">
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Relationship since</p>
-              <p className="text-base font-bold text-gray-900">{relationshipSince}</p>
+            {/* Total Bookings */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+              <p className="text-xs font-medium text-blue-700 mb-2">Total Bookings</p>
+              <p className="text-xl font-bold text-blue-900">{totalBookings}</p>
+              <p className="text-xs text-blue-600 mt-1">₹{totalBookingValue.toLocaleString()}</p>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Total Referrals ({totalReferrals})</p>
-              <p className="text-base font-bold text-gray-900">{totalReferralValue.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Total Product value</p>
-              <p className="text-base font-bold text-gray-900">{totalProductValue.toLocaleString()}</p>
-            </div>
-          </div>
 
-          {/* Right Column */}
-          <div className="space-y-5">
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Member Id</p>
-              <p className="text-base font-bold text-gray-900">{member?.memberId || 'MEM000007'}</p>
+            {/* Relationship Since */}
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+              <p className="text-xs font-medium text-purple-700 mb-2">Relationship Since</p>
+              <p className="text-xl font-bold text-purple-900">{relationshipSince}</p>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Attendance ID</p>
-              <p className="text-base font-bold text-gray-900">{member?.attendanceId || '12345'}</p>
+
+            {/* Total Referrals */}
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
+              <p className="text-xs font-medium text-indigo-700 mb-2">Total Referrals</p>
+              <p className="text-xl font-bold text-indigo-900">{totalReferrals}</p>
+              <p className="text-xs text-indigo-600 mt-1">₹{totalReferralValue.toLocaleString()}</p>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Total Loyalty Points</p>
-              <div className="flex items-center space-x-2">
-                <p className="text-base font-bold text-gray-900">0</p>
-                <button className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs font-medium whitespace-nowrap">
-                  Add/View Loyalty Points
-                </button>
-              </div>
+
+            {/* Member ID */}
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <p className="text-xs font-medium text-gray-600 mb-2">Member ID</p>
+              <p className="text-lg font-bold text-gray-900">{member?.memberId || 'N/A'}</p>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Advance: Current Balance</p>
-              <p className="text-base text-gray-700">(0)</p>
+
+            {/* Attendance ID */}
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <p className="text-xs font-medium text-gray-600 mb-2">Attendance ID</p>
+              <p className="text-lg font-bold text-gray-900">{member?.attendanceId || 'N/A'}</p>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">Total Pending payment</p>
-              <p className="text-base font-bold text-gray-900">({totalPending.toLocaleString()})</p>
+
+            {/* Total Pending Payment */}
+            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200">
+              <p className="text-xs font-medium text-red-700 mb-2">Total Pending Payment</p>
+              <p className="text-xl font-bold text-red-900">₹{totalPending.toLocaleString()}</p>
             </div>
           </div>
-        </div>
-        
-        {/* Profile Picture - Bottom Right */}
-        <div className="flex justify-end mt-6">
-          {member?.profilePicture ? (
-            <img
-              src={member.profilePicture}
-              alt={member.firstName}
-              className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center border-4 border-white shadow-lg">
-              <User className="w-10 h-10 text-gray-500" />
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Access Type Tabs */}
-      <div className="border-b border-gray-200">
-        <div className="flex space-x-4">
-          {['individual', 'multiclub', 'postpaid'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveServiceTab(tab)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors capitalize ${
-                activeServiceTab === tab
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {tab === 'individual' ? 'Individual Access' : tab === 'multiclub' ? 'Multiclub Access' : 'Postpaid Subscription'}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Recent Purchased Services */}
       <div>
@@ -1477,41 +1489,27 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                       <div className="grid grid-cols-2 gap-6">
                         <div>
                           <p className="text-xs font-medium text-gray-600 mb-1.5">Service Name</p>
-                          <p className="text-base font-bold text-gray-900">{invoice.planId?.name || item.description || 'Gym Membership'}</p>
+                          <p className="text-base font-bold text-gray-900">
+                            {item.serviceId?.serviceId?.name || item.description || 'N/A'}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs font-medium text-gray-600 mb-1.5">Service Variation Name</p>
-                          <p className="text-base font-bold text-gray-900">{ '3 Month Membership'}</p>
+                          <p className="text-base font-bold text-gray-900">
+                            {item.serviceId?.name || invoice.planId?.name || item.description || 'N/A'}
+                          </p>
                         </div>
                       </div>
                       
                       <div>
                         <p className="text-xs font-medium text-gray-600 mb-1.5">Service Id</p>
-                        <p className="text-base font-bold text-gray-900">{invoice.invoiceNumber || '5662716'}</p>
+                        <p className="text-base font-bold text-gray-900">{invoice.invoiceNumber || 'N/A'}</p>
                       </div>
 
                       <div className="pt-4 border-t border-gray-200">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Duration</p>
-                            <p className="text-sm font-medium text-gray-900">{formatDurationDisplay(item.duration)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Total Sessions</p>
-                            <p className="text-sm font-medium text-gray-900">{item.numberOfSessions || 'Not Applicable'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Reserved Sessions</p>
-                            <p className="text-sm font-medium text-gray-900">0</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Appointment(s)</p>
-                            <p className="text-sm font-medium text-gray-900">0</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Turf Reservation(s)</p>
-                            <p className="text-sm font-medium text-gray-900">0</p>
-                          </div>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Duration</p>
+                          <p className="text-sm font-medium text-gray-900">{formatDurationDisplay(item.duration)}</p>
                         </div>
                       </div>
 
@@ -1539,7 +1537,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                     {/* Right Column - Date Information */}
                     <div className="border-l border-gray-200 pl-6">
                       <div className="grid grid-cols-3 gap-3 mb-4">
-                        {daysRemaining > 0 && (
+                        {item.expiryDate && (
                           <div className="text-center bg-orange-50 rounded-lg p-3">
                             <p className="text-2xl font-bold text-orange-600">{daysRemaining}</p>
                             <p className="text-xs text-gray-600 uppercase mt-1">Day(s)</p>
@@ -1578,11 +1576,31 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                           </>
                         )}
                       </div>
-                      {(startDate || expiryDate || (!startDate && !expiryDate)) && (
-                        <button className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs font-medium">
-                          Change Date
-                        </button>
-                      )}
+                      <div className="space-y-2">
+                        {(startDate || expiryDate || (!startDate && !expiryDate)) && (
+                          <button 
+                            onClick={() => setDateChangeModal({ isOpen: true, invoice, itemIndex: 0 })}
+                            className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs font-medium"
+                          >
+                            Change Date
+                          </button>
+                        )}
+                        {item.expiryDate && (() => {
+                          const usedFreezeDays = member?.totalFreezeDaysUsed || 0
+                          const remainingFreezeDays = 30 - usedFreezeDays
+                          return (
+                            <button 
+                              onClick={() => setFreezeModal({ isOpen: true, invoice, itemIndex: 0 })}
+                              className="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs font-medium flex items-center justify-between"
+                            >
+                              <span>Freeze</span>
+                              <span className="text-xs font-semibold">
+                                ({remainingFreezeDays} days left)
+                              </span>
+                            </button>
+                          )
+                        })()}
+                      </div>
                     </div>
                   </div>
 
@@ -1595,13 +1613,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                       Staff Update
                     </button>
                     <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium">
-                      Add Appointment
-                    </button>
-                    <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium">
                       Cancel/Refund
-                    </button>
-                    <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium">
-                      Bulk Reservation
                     </button>
                   </div>
                 </div>
@@ -1616,12 +1628,265 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
           </button>
         )}
       </div>
+
+      {/* Date Change Modal */}
+      {dateChangeModal.isOpen && dateChangeModal.invoice && (
+        <DateChangeModal
+          invoice={dateChangeModal.invoice}
+          itemIndex={dateChangeModal.itemIndex}
+          onClose={() => setDateChangeModal({ isOpen: false, invoice: null, itemIndex: 0 })}
+          onSave={(startDate, expiryDate) => {
+            changeDateMutation.mutate({
+              invoiceId: dateChangeModal.invoice._id,
+              itemIndex: dateChangeModal.itemIndex,
+              startDate,
+              expiryDate
+            })
+          }}
+          isLoading={changeDateMutation.isLoading}
+        />
+      )}
+
+      {/* Freeze Modal */}
+      {freezeModal.isOpen && freezeModal.invoice && (
+        <FreezeModal
+          invoice={freezeModal.invoice}
+          itemIndex={freezeModal.itemIndex}
+          member={member}
+          onClose={() => setFreezeModal({ isOpen: false, invoice: null, itemIndex: 0 })}
+          onSave={(startDate, endDate, reason) => {
+            freezeMutation.mutate({
+              invoiceId: freezeModal.invoice._id,
+              itemIndex: freezeModal.itemIndex,
+              startDate,
+              endDate,
+              reason
+            })
+          }}
+          isLoading={freezeMutation.isLoading}
+        />
+      )}
+    </div>
+  )
+}
+
+// Date Change Modal Component
+function DateChangeModal({ invoice, itemIndex, onClose, onSave, isLoading }) {
+  const item = invoice.items?.[itemIndex]
+  const [startDate, setStartDate] = useState(item?.startDate ? new Date(item.startDate).toISOString().split('T')[0] : '')
+  const [expiryDate, setExpiryDate] = useState(item?.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!startDate && !expiryDate) {
+      toast.error('Please select at least one date')
+      return
+    }
+    if (startDate && expiryDate && new Date(startDate) >= new Date(expiryDate)) {
+      toast.error('Start date must be before expiry date')
+      return
+    }
+    onSave(startDate || null, expiryDate || null)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Change Date</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Expiry Date
+            </label>
+            <input
+              type="date"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex items-center justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+            >
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// Freeze Modal Component
+function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading }) {
+  const item = invoice.items?.[itemIndex]
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [reason, setReason] = useState('')
+  const maxFreezeDays = 30
+  const usedFreezeDays = member?.totalFreezeDaysUsed || 0
+  const remainingFreezeDays = maxFreezeDays - usedFreezeDays
+
+  // Calculate freeze days from date range
+  const calculateFreezeDays = (start, end) => {
+    if (!start || !end) return 0
+    const startDateObj = new Date(start)
+    const endDateObj = new Date(end)
+    const diffTime = endDateObj - startDateObj
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // +1 to include both start and end days
+    return diffDays > 0 ? diffDays : 0
+  }
+
+  const currentFreezeDays = calculateFreezeDays(startDate, endDate)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    
+    if (!startDate || !endDate) {
+      toast.error('Please select both start and end dates')
+      return
+    }
+
+    const startDateObj = new Date(startDate)
+    const endDateObj = new Date(endDate)
+
+    if (startDateObj >= endDateObj) {
+      toast.error('End date must be after start date')
+      return
+    }
+
+    const days = calculateFreezeDays(startDate, endDate)
+    
+    if (days <= 0) {
+      toast.error('Invalid date range')
+      return
+    }
+
+    if (days > remainingFreezeDays) {
+      toast.error(`Cannot freeze. The selected period (${days} days) exceeds your remaining freeze days (${remainingFreezeDays} days).`)
+      return
+    }
+
+    onSave(startDate, endDate, reason)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Freeze Service (with Extension)</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Freeze Start Date
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Freeze End Date
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              min={startDate || undefined}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              required
+            />
+            {startDate && endDate && currentFreezeDays > 0 && (
+              <p className={`text-xs mt-1 ${currentFreezeDays > remainingFreezeDays ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+                Selected period: <span className="font-semibold">{currentFreezeDays} days</span>
+                {currentFreezeDays > remainingFreezeDays && (
+                  <span className="block mt-1">⚠️ Exceeds remaining freeze days ({remainingFreezeDays} days)</span>
+                )}
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Available freeze days: <span className="font-semibold text-blue-600">{remainingFreezeDays}</span> out of {maxFreezeDays} days
+              {usedFreezeDays > 0 && (
+                <span className="text-gray-400"> (Used: {usedFreezeDays} days)</span>
+              )}
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Reason (Optional)
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              rows="3"
+              placeholder="Enter reason for freeze"
+            />
+          </div>
+          <div className="flex items-center justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+            >
+              {isLoading ? 'Freezing...' : 'Freeze Service'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
 
 // Payments Tab Component
-function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilter, page, setPage }) {
+function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilter, page, setPage, navigate }) {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -1794,14 +2059,13 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Pending</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Mode</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Write Off</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Paid Invoice & Receipt</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Pro Forma Invoice Details</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                     No payments found
                   </td>
                 </tr>
@@ -1850,35 +2114,35 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-2">
-                          {isPaid && (
-                            <>
-                              <button
-                                className="p-1.5 bg-orange-100 text-orange-600 rounded hover:bg-orange-200 transition-colors"
-                                title="View Invoice"
-                              >
-                                <FileText className="w-4 h-4" />
-                              </button>
-                              <button
-                                className="p-1.5 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
-                                title="View Receipt"
-                              >
-                                <FileText className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center space-x-2">
                           <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              if (invoice._id) {
+                                navigate(`/invoices/${invoice._id}`)
+                              } else {
+                                toast.error('Invoice ID not available')
+                              }
+                            }}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="View"
+                            title="View Invoice"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              if (invoice._id) {
+                                // Open invoice print page in new window
+                                const printUrl = `/invoices/${invoice._id}/print`
+                                window.open(printUrl, '_blank')
+                              } else {
+                                toast.error('Invoice ID not available')
+                              }
+                            }}
                             className="p-1.5 text-gray-600 hover:bg-gray-50 rounded transition-colors"
-                            title="Print"
+                            title="Print Invoice"
                           >
                             <Printer className="w-4 h-4" />
                           </button>
@@ -1887,12 +2151,6 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                             title="Send"
                           >
                             <Mail className="w-4 h-4" />
-                          </button>
-                          <button
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Alert"
-                          >
-                            <AlertCircle className="w-4 h-4" />
                           </button>
                         </div>
                       </td>

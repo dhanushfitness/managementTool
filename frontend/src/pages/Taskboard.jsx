@@ -11,13 +11,13 @@ import {
   PhoneCall as PhoneCallIcon,
   CreditCard as CreditCardIcon,
   Wallet,
-  FileText
+  FileText,
+  UserPlus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingTable from '../components/LoadingTable';
 import Breadcrumbs from '../components/Breadcrumbs';
 import DateInput from '../components/DateInput';
-import CallLogModal from '../components/CallLogModal';
 import AddInvoiceModal from '../components/AddInvoiceModal';
 
 export default function Taskboard() {
@@ -30,7 +30,6 @@ export default function Taskboard() {
   const [selectedStaff, setSelectedStaff] = useState('all');
   const [selectedCallType, setSelectedCallType] = useState('all');
   const [selectedCallStatus, setSelectedCallStatus] = useState('all');
-  const [callLogModalState, setCallLogModalState] = useState({ open: false, enquiryId: null });
   const [invoiceModalState, setInvoiceModalState] = useState({ open: false, member: null });
 
   // Set default dates to today or use date from navigation state
@@ -169,6 +168,19 @@ export default function Taskboard() {
     }
   };
 
+  const convertEnquiryMutation = useMutation({
+    mutationFn: ({ enquiryId, planId }) =>
+      api.post(`/enquiries/${enquiryId}/convert`, planId ? { planId } : {}),
+    onSuccess: () => {
+      toast.success('Enquiry converted to member successfully');
+      refetchTaskboard();
+      refetchStats();
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to convert enquiry');
+    }
+  });
+
   const handleUpdateCallAction = (followUp) => {
     if (followUp.entityType !== 'enquiry' && !followUp.isEnquiry) {
       toast.error('Update call is available only for enquiries.');
@@ -178,7 +190,26 @@ export default function Taskboard() {
       toast.error('Enquiry details are not available for this follow-up.');
       return;
     }
-    setCallLogModalState({ open: true, enquiryId: followUp.entityId });
+    navigate(`/enquiries/${followUp.entityId}/update-call`, {
+      state: { from: `${location.pathname}${location.search}` || '/taskboard' }
+    });
+  };
+
+  const handleConvertToMember = (followUp) => {
+    if (followUp.entityType !== 'enquiry' && !followUp.isEnquiry) {
+      toast.error('Convert to member is available only for enquiries.');
+      return;
+    }
+    if (!followUp.entityId) {
+      toast.error('Enquiry details are not available for this follow-up.');
+      return;
+    }
+
+    const planId = window.prompt('Enter plan ID (optional)');
+    convertEnquiryMutation.mutate({
+      enquiryId: followUp.entityId,
+      planId: planId || undefined
+    });
   };
 
   const handleServiceCardAction = (followUp) => {
@@ -216,14 +247,6 @@ export default function Taskboard() {
     });
   };
 
-  const handleCloseCallLogModal = (shouldRefresh = false) => {
-    setCallLogModalState({ open: false, enquiryId: null });
-    if (shouldRefresh) {
-      refetchTaskboard();
-      refetchStats();
-    }
-  };
-
   const handleCloseInvoiceModal = (shouldRefresh = false) => {
     setInvoiceModalState({ open: false, member: null });
     if (shouldRefresh) {
@@ -235,9 +258,11 @@ export default function Taskboard() {
   const formatCallType = (type) => {
     const types = {
       'renewal-call': 'Renewal Call',
-      'assessment-call': 'Assessment call',
+      'assessment-call': 'Assessment Call',
       'follow-up-call': 'Follow-up Call',
       'enquiry-call': 'Enquiry Call',
+      'welcome-call': 'Welcome Call',
+      'upgrade-call': 'Upgrade Call',
       'other': 'Other'
     };
     return types[type] || type;
@@ -263,11 +288,16 @@ export default function Taskboard() {
         timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
       }
 
-      const key =
-        followUp.dateLabel ||
-        (timeValue !== null
-          ? new Date(timeValue).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-          : 'No Scheduled Date');
+      const formattedScheduledDate =
+        timeValue !== null
+          ? new Date(timeValue).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric'
+            })
+          : null;
+
+      const key = formattedScheduledDate || followUp.dateLabel || 'No Scheduled Date';
 
       if (!acc[key]) {
         acc[key] = {
@@ -375,8 +405,10 @@ export default function Taskboard() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
             >
               <option value="all">All Calls Types</option>
-              <option value="renewal-call">Renewal Call</option>
+              <option value="welcome-call">Welcome Call</option>
               <option value="assessment-call">Assessment Call</option>
+              <option value="upgrade-call">Upgrade Call</option>
+              <option value="renewal-call">Renewal Call</option>
               <option value="follow-up-call">Follow-up Call</option>
               <option value="enquiry-call">Enquiry Call</option>
               <option value="other">Other</option>
@@ -552,6 +584,7 @@ export default function Taskboard() {
                             onServiceCard={handleServiceCardAction}
                             onPayments={handlePaymentsAction}
                             onNewInvoice={handleNewInvoiceAction}
+                            onConvertToMember={handleConvertToMember}
                           />
                         </td>
                       </tr>
@@ -564,13 +597,6 @@ export default function Taskboard() {
         </div>
       </div>
 
-      {callLogModalState.open && (
-        <CallLogModal
-          isOpen={callLogModalState.open}
-          enquiryId={callLogModalState.enquiryId}
-          onClose={(shouldRefresh) => handleCloseCallLogModal(Boolean(shouldRefresh))}
-        />
-      )}
 
       {invoiceModalState.open && (
         <AddInvoiceModal
@@ -633,19 +659,27 @@ function ActionDropdown({
   onUpdateCall,
   onServiceCard,
   onPayments,
-  onNewInvoice
+  onNewInvoice,
+  onConvertToMember
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
 
-  const quickActions = [
-    { label: 'Update Call', icon: PhoneCallIcon, handler: onUpdateCall },
-    { label: 'Service Card', icon: CreditCardIcon, handler: onServiceCard },
-    { label: 'Payments', icon: Wallet, handler: onPayments },
-    { label: 'New Invoice', icon: FileText, handler: onNewInvoice }
-  ];
+  const isEnquiryFollowUp = followUp?.isEnquiry || followUp?.entityType === 'enquiry';
+
+  const quickActions = isEnquiryFollowUp
+    ? [
+        { label: 'Update Call', icon: PhoneCallIcon, handler: onUpdateCall },
+        { label: 'Convert to Member', icon: UserPlus, handler: onConvertToMember }
+      ]
+    : [
+        { label: 'Update Call', icon: PhoneCallIcon, handler: onUpdateCall },
+        { label: 'Service Card', icon: CreditCardIcon, handler: onServiceCard },
+        { label: 'Payments', icon: Wallet, handler: onPayments },
+        { label: 'New Invoice', icon: FileText, handler: onNewInvoice }
+      ];
 
   const closeMenu = () => setIsOpen(false);
 

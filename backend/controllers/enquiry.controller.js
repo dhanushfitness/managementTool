@@ -4,6 +4,13 @@ import Invoice from '../models/Invoice.js';
 import AuditLog from '../models/AuditLog.js';
 import Appointment from '../models/Appointment.js';
 
+// Normalize phone number for comparison (remove spaces, dashes, and other special characters)
+const normalizePhone = (phone) => {
+  if (!phone) return '';
+  // Remove all non-digit characters except +
+  return phone.replace(/[^\d+]/g, '');
+};
+
 // Generate enquiry ID
 const generateEnquiryId = async (organizationId) => {
   const count = await Enquiry.countDocuments({ organizationId });
@@ -129,7 +136,8 @@ export const getEnquiry = async (req, res) => {
       .populate('service')
       .populate('assignedStaff')
       .populate('convertedToMember')
-      .populate('createdBy', 'firstName lastName');
+      .populate('createdBy', 'firstName lastName')
+      .populate('callLogs.staffId', 'firstName lastName');
 
     if (!enquiry) {
       return res.status(404).json({ success: false, message: 'Enquiry not found' });
@@ -212,6 +220,30 @@ export const convertToMember = async (req, res) => {
 
     if (enquiry.convertedToMember) {
       return res.status(400).json({ success: false, message: 'Enquiry already converted' });
+    }
+
+    // Check for duplicate phone number before creating member
+    if (enquiry.phone) {
+      const normalizedPhone = normalizePhone(enquiry.phone);
+      
+      if (normalizedPhone) {
+        const allMembers = await Member.find({
+          organizationId: req.organizationId,
+          isActive: true
+        }).select('phone');
+
+        const duplicateMember = allMembers.find(m => {
+          const existingNormalized = normalizePhone(m.phone);
+          return existingNormalized === normalizedPhone && existingNormalized !== '';
+        });
+
+        if (duplicateMember) {
+          return res.status(400).json({
+            success: false,
+            message: 'A member with this contact number already exists. Please use a different contact number.'
+          });
+        }
+      }
     }
 
     // Create member from enquiry

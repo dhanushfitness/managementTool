@@ -7,6 +7,8 @@ import {
   getCancelledInvoices,
   getInvoice,
   updateInvoice,
+  changeInvoiceItemDate,
+  freezeInvoiceItem,
   deleteInvoice,
   sendInvoice,
   downloadInvoicePDF,
@@ -33,6 +35,8 @@ router.get('/cancelled', getCancelledInvoices);
 router.get('/cancelled/export', exportCancelledInvoices);
 router.get('/stats', getInvoiceStats);
 router.get('/export', exportInvoices);
+router.post('/change-date', authorize('owner', 'manager', 'staff'), changeInvoiceItemDate);
+router.post('/freeze', authorize('owner', 'manager', 'staff'), freezeInvoiceItem);
 router.get('/:invoiceId', getInvoice);
 router.put('/:invoiceId', authorize('owner', 'manager', 'staff'), updateInvoice);
 router.delete('/:invoiceId', authorize('owner', 'manager'), deleteInvoice);

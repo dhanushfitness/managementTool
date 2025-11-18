@@ -5,7 +5,6 @@ import { useAuthStore } from '../store/authStore'
 import AddEnquiryModal from './AddEnquiryModal'
 import AddMemberModal from './AddMemberModal'
 import AddStaffModal from './AddStaffModal'
-import AddExpenseModal from './AddExpenseModal'
 import AddInvoiceModal from './AddInvoiceModal'
 import toast from 'react-hot-toast'
 import {
@@ -92,7 +91,6 @@ export default function Layout() {
   const [showEnquiryModal, setShowEnquiryModal] = useState(false)
   const [showMemberModal, setShowMemberModal] = useState(false)
   const [showStaffModal, setShowStaffModal] = useState(false)
-  const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [showCheckInMenu, setShowCheckInMenu] = useState(false)
   const [showSendMenu, setShowSendMenu] = useState(false)
@@ -192,7 +190,8 @@ export default function Layout() {
       expandable: true,
       subItems: [
         { name: 'Upgrade & Cross-Sell', path: '/reports/client-management/upgrade' },
-        { name: 'Transfer & Extension', path: '/reports/client-management/service-transfer' }
+        { name: 'Transfer & Extension', path: '/reports/client-management/service-transfer' },
+        { name: 'Freeze and Date Change', path: '/reports/client-management/freeze-and-date-change' }
       ]
     },
     {
@@ -416,7 +415,6 @@ export default function Layout() {
     { name: 'Enquiry', icon: HelpCircle, path: '/enquiries', action: 'create' },
     { name: 'Member', icon: Users, path: '/clients', action: 'create' },
     { name: 'Staff', icon: UserCog, path: '/staff', action: 'create' },
-    { name: 'Expense', icon: DollarSign, path: '/expenses', action: 'create' },
     { name: 'Invoice', icon: Receipt, path: '/invoices', action: 'create' },
   ]
 
@@ -430,8 +428,6 @@ export default function Layout() {
       setShowMemberModal(true)
     } else if (option.name === 'Staff') {
       setShowStaffModal(true)
-    } else if (option.name === 'Expense') {
-      setShowExpenseModal(true)
     } else if (option.name === 'Invoice') {
       setShowInvoiceModal(true)
     } else {
@@ -1119,12 +1115,6 @@ export default function Layout() {
       <AddStaffModal 
         isOpen={showStaffModal} 
         onClose={() => setShowStaffModal(false)} 
-      />
-
-      {/* Add Expense Modal */}
-      <AddExpenseModal 
-        isOpen={showExpenseModal} 
-        onClose={() => setShowExpenseModal(false)} 
       />
 
       {/* Add Invoice Modal */}

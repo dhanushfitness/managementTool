@@ -5,9 +5,78 @@ import Branch from '../models/Branch.js';
 import User from '../models/User.js';
 import Member from '../models/Member.js';
 import Payment from '../models/Payment.js';
+import FollowUp from '../models/FollowUp.js';
+import MemberCallLog from '../models/MemberCallLog.js';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+
+// Helper function to update scheduled calls when expiry date changes
+const updateScheduledCallsForExpiryDate = async (memberId, newExpiryDate, organizationId) => {
+  try {
+    if (!memberId || !newExpiryDate) {
+      console.log('Skipping call update: missing memberId or expiryDate');
+      return;
+    }
+
+    const expiryDate = new Date(newExpiryDate);
+    if (isNaN(expiryDate.getTime())) {
+      console.log('Skipping call update: invalid expiry date');
+      return;
+    }
+
+    // Calculate new renewal call date (7 days before expiry)
+    const renewalCallDate = new Date(expiryDate);
+    renewalCallDate.setDate(renewalCallDate.getDate() - 7);
+    renewalCallDate.setHours(10, 0, 0, 0);
+
+    console.log('Updating scheduled calls for member:', memberId);
+    console.log('New expiry date:', expiryDate);
+    console.log('New renewal call date:', renewalCallDate);
+
+    // Update renewal calls in FollowUp
+    const updatedFollowUps = await FollowUp.updateMany(
+      {
+        organizationId,
+        'relatedTo.entityType': 'member',
+        'relatedTo.entityId': memberId,
+        callType: 'renewal-call',
+        callStatus: 'scheduled',
+        status: 'pending'
+      },
+      {
+        $set: {
+          scheduledTime: renewalCallDate,
+          dueDate: renewalCallDate,
+          description: `Renewal call scheduled 7 days before membership expiry (${expiryDate.toLocaleDateString()})`
+        }
+      }
+    );
+
+    console.log(`Updated ${updatedFollowUps.modifiedCount} FollowUp renewal calls`);
+
+    // Update renewal calls in MemberCallLog
+    const updatedCallLogs = await MemberCallLog.updateMany(
+      {
+        organizationId,
+        memberId,
+        callType: 'renewal',
+        status: 'scheduled'
+      },
+      {
+        $set: {
+          scheduledAt: renewalCallDate
+        }
+      }
+    );
+
+    console.log(`Updated ${updatedCallLogs.modifiedCount} MemberCallLog renewal calls`);
+    console.log('Call update completed successfully');
+  } catch (error) {
+    console.error('Failed to update scheduled calls:', error);
+    // Don't throw error - date change should still succeed
+  }
+};
 
 // Generate invoice number
 const generateInvoiceNumber = async (organizationId) => {
@@ -26,6 +95,287 @@ const generateReceiptNumber = async (organizationId) => {
   return `RCP${String(count + 1).padStart(6, '0')}`;
 };
 
+// Schedule automatic calls for new members
+const scheduleAutomaticCalls = async (memberId, invoice, organizationId, branchId, invoiceItems, isFirstInvoice) => {
+  try {
+    console.log('=== Starting automatic call scheduling ===');
+    console.log('memberId:', memberId);
+    console.log('isFirstInvoice:', isFirstInvoice);
+    console.log('invoiceItems:', JSON.stringify(invoiceItems, null, 2));
+    console.log('branchId:', branchId);
+
+    // Get member to find who onboarded them
+    const member = await Member.findById(memberId);
+    if (!member) {
+      console.log('ERROR: Member not found');
+      return;
+    }
+
+    // Get start date and end date from invoice items
+    // Try to find item with dates, otherwise use first item
+    let targetItem = invoiceItems.find(item => {
+      const hasStartDate = item?.startDate && (item.startDate instanceof Date || typeof item.startDate === 'string');
+      const hasExpiryDate = item?.expiryDate && (item.expiryDate instanceof Date || typeof item.expiryDate === 'string');
+      return hasStartDate || hasExpiryDate;
+    });
+    
+    if (!targetItem && invoiceItems.length > 0) {
+      targetItem = invoiceItems[0];
+    }
+    
+    if (!targetItem) {
+      console.log('ERROR: No target item found in invoice items');
+      console.log('invoiceItems length:', invoiceItems.length);
+      return;
+    }
+
+    console.log('targetItem found:', {
+      hasStartDate: !!targetItem.startDate,
+      hasExpiryDate: !!targetItem.expiryDate,
+      startDateType: typeof targetItem.startDate,
+      expiryDateType: typeof targetItem.expiryDate,
+      startDate: targetItem.startDate,
+      expiryDate: targetItem.expiryDate
+    });
+
+    // Parse dates - handle both string and Date objects
+    let startDate = new Date();
+    if (targetItem.startDate) {
+      // Handle both Date objects and string dates
+      const parsedStartDate = targetItem.startDate instanceof Date 
+        ? targetItem.startDate 
+        : new Date(targetItem.startDate);
+      
+      if (!isNaN(parsedStartDate.getTime())) {
+        startDate = parsedStartDate;
+      } else {
+        console.log('WARNING: Invalid startDate, using current date');
+        startDate = new Date();
+      }
+    }
+
+    let endDate = undefined;
+    if (targetItem.expiryDate) {
+      // Handle both Date objects and string dates
+      const parsedEndDate = targetItem.expiryDate instanceof Date 
+        ? targetItem.expiryDate 
+        : new Date(targetItem.expiryDate);
+      
+      if (!isNaN(parsedEndDate.getTime())) {
+        endDate = parsedEndDate;
+      } else {
+        console.log('WARNING: Invalid expiryDate');
+        endDate = undefined;
+      }
+    }
+
+    console.log('startDate:', startDate);
+    console.log('endDate:', endDate);
+
+    // The person who onboarded the client (member.createdBy) or invoice creator
+    const assignedTo = member.createdBy || invoice.createdBy;
+    console.log('assignedTo:', assignedTo);
+
+    if (!branchId) {
+      console.log('ERROR: branchId is missing');
+      return;
+    }
+
+    // Helper function to map FollowUp callType to MemberCallLog callType
+    const mapCallTypeToMemberCallLog = (followUpCallType) => {
+      const mapping = {
+        'welcome-call': 'welcome',
+        'assessment-call': 'assessment',
+        'upgrade-call': 'upgrade',
+        'renewal-call': 'renewal',
+        'follow-up-call': 'follow-up'
+      };
+      return mapping[followUpCallType] || 'other';
+    };
+
+    // Helper function to create both FollowUp and MemberCallLog entries
+    const createCallEntry = async (callData) => {
+      // Create FollowUp entry
+      const followUp = await FollowUp.create(callData.followUpData);
+      console.log(`${callData.title} FollowUp created:`, followUp._id);
+
+      // Create MemberCallLog entry
+      const memberCallLogType = mapCallTypeToMemberCallLog(callData.followUpData.callType);
+      const memberCallLog = await MemberCallLog.create({
+        organizationId,
+        memberId,
+        callType: memberCallLogType,
+        calledBy: assignedTo,
+        status: 'scheduled',
+        notes: callData.followUpData.description || '',
+        scheduledAt: callData.followUpData.scheduledTime,
+        createdBy: null // Set to null for auto-scheduled calls so it shows "Auto" in frontend
+      });
+      console.log(`${callData.title} MemberCallLog created:`, memberCallLog._id);
+
+      return { followUp, memberCallLog };
+    };
+
+    // For first invoice: schedule all 4 calls
+    if (isFirstInvoice) {
+      console.log('Scheduling calls for FIRST invoice');
+      
+      // 1. Welcome Call - scheduled on the day client joins (membership start date)
+      const welcomeCallDate = new Date(startDate);
+      welcomeCallDate.setHours(10, 0, 0, 0); // Set to 10 AM
+
+      console.log('Creating Welcome Call for:', welcomeCallDate);
+      await createCallEntry({
+        title: 'Welcome Call',
+        followUpData: {
+          organizationId,
+          branchId,
+          type: 'follow-up',
+          callType: 'welcome-call',
+          callStatus: 'scheduled',
+          scheduledTime: welcomeCallDate,
+          dueDate: welcomeCallDate,
+          title: 'Welcome Call',
+          description: 'Welcome call for new member',
+          relatedTo: {
+            entityType: 'member',
+            entityId: memberId
+          },
+          assignedTo,
+          priority: 'high',
+          createdBy: invoice.createdBy
+        }
+      });
+
+      // 2. Assessment Call - scheduled 5 days after membership start
+      const assessmentCallDate = new Date(startDate);
+      assessmentCallDate.setDate(assessmentCallDate.getDate() + 5);
+      assessmentCallDate.setHours(10, 0, 0, 0);
+
+      console.log('Creating Assessment Call for:', assessmentCallDate);
+      await createCallEntry({
+        title: 'Assessment Call',
+        followUpData: {
+          organizationId,
+          branchId,
+          type: 'follow-up',
+          callType: 'assessment-call',
+          callStatus: 'scheduled',
+          scheduledTime: assessmentCallDate,
+          dueDate: assessmentCallDate,
+          title: 'Assessment Call',
+          description: 'Assessment call scheduled 5 days after membership start',
+          relatedTo: {
+            entityType: 'member',
+            entityId: memberId
+          },
+          assignedTo,
+          priority: 'medium',
+          createdBy: invoice.createdBy
+        }
+      });
+
+      // 3. Upgrade Call - scheduled 15 days after membership start
+      const upgradeCallDate = new Date(startDate);
+      upgradeCallDate.setDate(upgradeCallDate.getDate() + 15);
+      upgradeCallDate.setHours(10, 0, 0, 0);
+
+      console.log('Creating Upgrade Call for:', upgradeCallDate);
+      await createCallEntry({
+        title: 'Upgrade Call',
+        followUpData: {
+          organizationId,
+          branchId,
+          type: 'follow-up',
+          callType: 'upgrade-call',
+          callStatus: 'scheduled',
+          scheduledTime: upgradeCallDate,
+          dueDate: upgradeCallDate,
+          title: 'Upgrade Call',
+          description: 'Upgrade call scheduled 15 days after membership start',
+          relatedTo: {
+            entityType: 'member',
+            entityId: memberId
+          },
+          assignedTo,
+          priority: 'medium',
+          createdBy: invoice.createdBy
+        }
+      });
+
+      // 4. Renewal Call - scheduled 7 days before membership expiry
+      if (endDate) {
+        const renewalCallDate = new Date(endDate);
+        renewalCallDate.setDate(renewalCallDate.getDate() - 7);
+        renewalCallDate.setHours(10, 0, 0, 0);
+
+        console.log('Creating Renewal Call for:', renewalCallDate);
+        await createCallEntry({
+          title: 'Renewal Call',
+          followUpData: {
+            organizationId,
+            branchId,
+            type: 'follow-up',
+            callType: 'renewal-call',
+            callStatus: 'scheduled',
+            scheduledTime: renewalCallDate,
+            dueDate: renewalCallDate,
+            title: 'Renewal Call',
+            description: 'Renewal call scheduled 7 days before membership expiry',
+            relatedTo: {
+              entityType: 'member',
+              entityId: memberId
+            },
+            assignedTo,
+            priority: 'high',
+            createdBy: invoice.createdBy
+          }
+        });
+      } else {
+        console.log('WARNING: No endDate, skipping Renewal Call');
+      }
+    } else {
+      console.log('Scheduling calls for SUBSEQUENT invoice');
+      // For subsequent invoices: schedule only renewal call
+      if (endDate) {
+        const renewalCallDate = new Date(endDate);
+        renewalCallDate.setDate(renewalCallDate.getDate() - 7);
+        renewalCallDate.setHours(10, 0, 0, 0);
+
+        console.log('Creating Renewal Call for:', renewalCallDate);
+        await createCallEntry({
+          title: 'Renewal Call',
+          followUpData: {
+            organizationId,
+            branchId,
+            type: 'follow-up',
+            callType: 'renewal-call',
+            callStatus: 'scheduled',
+            scheduledTime: renewalCallDate,
+            dueDate: renewalCallDate,
+            title: 'Renewal Call',
+            description: 'Renewal call scheduled 7 days before membership expiry',
+            relatedTo: {
+              entityType: 'member',
+              entityId: memberId
+            },
+            assignedTo,
+            priority: 'high',
+            createdBy: invoice.createdBy
+          }
+        });
+      } else {
+        console.log('WARNING: No endDate, skipping Renewal Call');
+      }
+    }
+    console.log('=== Automatic call scheduling completed ===');
+  } catch (error) {
+    console.error('Failed to schedule automatic calls:', error);
+    console.error('Error stack:', error.stack);
+    // Don't throw error - invoice creation should still succeed
+  }
+};
+
 export const createInvoice = async (req, res) => {
   try {
     const {
@@ -33,8 +383,24 @@ export const createInvoice = async (req, res) => {
       sacCode, discountReason, customerNotes, internalNotes, paymentModes, rounding
     } = req.body;
 
+    console.log('=== Invoice Creation Started ===');
+    console.log('memberId:', memberId);
+    console.log('isProForma:', isProForma);
+    console.log('items from request:', JSON.stringify(items, null, 2));
+
     const invoiceNumber = await generateInvoiceNumber(req.organizationId);
     const organization = await Organization.findById(req.organizationId);
+
+    // Check if this is the first invoice for this member (before creating the invoice)
+    let isFirstInvoice = false;
+    if (memberId) {
+      const existingInvoiceCount = await Invoice.countDocuments({
+        memberId,
+        organizationId: req.organizationId,
+        status: { $ne: 'cancelled' }
+      });
+      isFirstInvoice = existingInvoiceCount === 0;
+    }
 
     // Prevent duplicate overlap for active members
     if (memberId) {
@@ -79,14 +445,32 @@ export const createInvoice = async (req, res) => {
       const total = itemAmount + taxAmount;
       subtotal += itemAmount;
 
-      return {
+      const processedItem = {
         ...item,
         amount: itemAmount,
         taxAmount,
         total,
         discount: item.discount ? { ...item.discount, amount: itemDiscountAmount } : undefined
       };
+      
+      // Preserve dates - ensure they're included in the processed item
+      if (item.startDate) {
+        processedItem.startDate = item.startDate;
+      }
+      if (item.expiryDate) {
+        processedItem.expiryDate = item.expiryDate;
+      }
+      
+      return processedItem;
     });
+
+    console.log('Processed invoiceItems (checking dates):', invoiceItems.map(item => ({
+      description: item.description,
+      startDate: item.startDate,
+      expiryDate: item.expiryDate,
+      startDateType: typeof item.startDate,
+      expiryDateType: typeof item.expiryDate
+    })));
 
     // Apply invoice-level discount
     let discountAmount = 0;
@@ -214,6 +598,36 @@ export const createInvoice = async (req, res) => {
       }
     } catch (memberUpdateError) {
       console.error('Failed to update member status after invoice creation', memberUpdateError);
+    }
+
+    // Schedule automatic calls for the member
+    // Note: We schedule calls for all invoices (including pro-forma) as they represent actual memberships
+    if (memberId) {
+      try {
+        console.log('Attempting to schedule automatic calls...');
+        console.log('isProForma:', isProForma);
+        console.log('memberId:', memberId);
+        console.log('Invoice created with ID:', invoice._id);
+        console.log('Invoice items from saved invoice:', JSON.stringify(invoice.items, null, 2));
+        
+        // Use the saved invoice items (with proper Date objects) instead of processed invoiceItems
+        await scheduleAutomaticCalls(
+          memberId,
+          invoice,
+          req.organizationId,
+          req.body.branchId || req.user.branchId,
+          invoice.items, // Use saved invoice items which have proper Date objects
+          isFirstInvoice
+        );
+        console.log('Call scheduling function completed');
+      } catch (callSchedulingError) {
+        console.error('Failed to schedule automatic calls:', callSchedulingError);
+        console.error('Error details:', callSchedulingError.message);
+        console.error('Error stack:', callSchedulingError.stack);
+        // Don't fail invoice creation if call scheduling fails
+      }
+    } else {
+      console.log('Skipping call scheduling - no memberId');
     }
 
     res.status(201).json({ success: true, invoice });
@@ -397,9 +811,18 @@ export const getInvoice = async (req, res) => {
       _id: req.params.invoiceId,
       organizationId: req.organizationId
     })
-      .populate('memberId')
-      .populate('planId')
-      .populate('createdBy', 'firstName lastName');
+      .populate('memberId', 'firstName lastName email phone memberId salesRep attendanceId')
+      .populate('memberId.salesRep', 'firstName lastName')
+      .populate('planId', 'name duration')
+      .populate('branchId', 'name address')
+      .populate('createdBy', 'firstName lastName')
+      .populate({
+        path: 'items.serviceId',
+        populate: {
+          path: 'serviceId',
+          select: 'name'
+        }
+      });
 
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
@@ -430,6 +853,195 @@ export const updateInvoice = async (req, res) => {
     await invoice.save();
 
     res.json({ success: true, invoice });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const changeInvoiceItemDate = async (req, res) => {
+  try {
+    const { invoiceId, itemIndex, startDate, expiryDate } = req.body;
+
+    const invoice = await Invoice.findOne({
+      _id: invoiceId,
+      organizationId: req.organizationId
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    if (typeof itemIndex !== 'number' || itemIndex < 0 || itemIndex >= invoice.items.length) {
+      return res.status(400).json({ success: false, message: 'Invalid item index' });
+    }
+
+    const item = invoice.items[itemIndex];
+    
+    // Store original dates for audit
+    const originalStartDate = item.startDate;
+    const originalExpiryDate = item.expiryDate;
+
+    // Update dates
+    if (startDate) {
+      item.startDate = new Date(startDate);
+    }
+    if (expiryDate) {
+      item.expiryDate = new Date(expiryDate);
+    }
+
+    // Validate dates
+    if (item.startDate && item.expiryDate && item.startDate >= item.expiryDate) {
+      return res.status(400).json({ success: false, message: 'Start date must be before expiry date' });
+    }
+
+    await invoice.save();
+
+    // Update scheduled calls if expiry date changed
+    if (expiryDate && invoice.memberId) {
+      await updateScheduledCallsForExpiryDate(
+        invoice.memberId,
+        item.expiryDate,
+        req.organizationId
+      );
+    }
+
+    // Create audit log
+    await AuditLog.create({
+      organizationId: req.organizationId,
+      userId: req.user._id,
+      action: 'invoice.item.date_changed',
+      entityType: 'Invoice',
+      entityId: invoice._id,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        itemIndex,
+        originalStartDate,
+        originalExpiryDate,
+        newStartDate: item.startDate,
+        newExpiryDate: item.expiryDate
+      }
+    });
+
+    res.json({ success: true, invoice, message: 'Invoice item dates updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const freezeInvoiceItem = async (req, res) => {
+  try {
+    const { invoiceId, itemIndex, freezeDays, startDate, endDate, reason } = req.body;
+
+    // Calculate freeze days from date range if provided, otherwise use freezeDays
+    let calculatedFreezeDays = freezeDays;
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (start >= end) {
+        return res.status(400).json({ success: false, message: 'End date must be after start date' });
+      }
+      const diffTime = end - start;
+      calculatedFreezeDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end days
+    }
+
+    if (!calculatedFreezeDays || calculatedFreezeDays <= 0 || calculatedFreezeDays > 30) {
+      return res.status(400).json({ success: false, message: 'Freeze days must be between 1 and 30' });
+    }
+
+    const invoice = await Invoice.findOne({
+      _id: invoiceId,
+      organizationId: req.organizationId
+    }).populate('memberId', 'totalFreezeDaysUsed');
+
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    if (typeof itemIndex !== 'number' || itemIndex < 0 || itemIndex >= invoice.items.length) {
+      return res.status(400).json({ success: false, message: 'Invalid item index' });
+    }
+
+    const item = invoice.items[itemIndex];
+    
+    if (!item.expiryDate) {
+      return res.status(400).json({ success: false, message: 'Item does not have an expiry date' });
+    }
+
+    // Check if member has enough remaining freeze days
+    if (invoice.memberId) {
+      const member = invoice.memberId;
+      const usedFreezeDays = member.totalFreezeDaysUsed || 0;
+      const remainingFreezeDays = 30 - usedFreezeDays;
+      
+      if (calculatedFreezeDays > remainingFreezeDays) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Cannot freeze. The selected period (${calculatedFreezeDays} days) exceeds remaining freeze days (${remainingFreezeDays} days).` 
+        });
+      }
+    }
+
+    // Store original expiry date
+    const originalExpiryDate = new Date(item.expiryDate);
+
+    // Extend expiry date by freeze days (freeze with extension)
+    const newExpiryDate = new Date(item.expiryDate);
+    newExpiryDate.setDate(newExpiryDate.getDate() + calculatedFreezeDays);
+    item.expiryDate = newExpiryDate;
+
+    await invoice.save();
+
+    // Update scheduled calls for the new expiry date
+    if (invoice.memberId) {
+      await updateScheduledCallsForExpiryDate(
+        invoice.memberId,
+        item.expiryDate,
+        req.organizationId
+      );
+    }
+
+    // Update member's total freeze days used
+    if (invoice.memberId) {
+      const member = await Member.findById(invoice.memberId);
+      if (member) {
+        const newTotalFreezeDays = (member.totalFreezeDaysUsed || 0) + calculatedFreezeDays;
+        if (newTotalFreezeDays > 30) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `Cannot freeze. Member has already used ${member.totalFreezeDaysUsed || 0} days. Maximum 30 days allowed.` 
+          });
+        }
+        member.totalFreezeDaysUsed = newTotalFreezeDays;
+        await member.save();
+      }
+    }
+
+    // Create audit log
+    await AuditLog.create({
+      organizationId: req.organizationId,
+      userId: req.user._id,
+      action: 'invoice.item.frozen',
+      entityType: 'Invoice',
+      entityId: invoice._id,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        itemIndex,
+        freezeDays: calculatedFreezeDays,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        reason: reason || 'No reason provided',
+        originalExpiryDate,
+        newExpiryDate
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      invoice, 
+      message: `Invoice item frozen for ${calculatedFreezeDays} days successfully`,
+      newExpiryDate,
+      freezeDays: calculatedFreezeDays
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
