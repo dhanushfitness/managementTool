@@ -649,7 +649,7 @@ export const createInvoice = async (req, res) => {
               let paymentLink = null;
               if (invoice.pending > 0) {
                 try {
-                  const { createPaymentLink as createRazorpayPaymentLink } = await import('../utils/razorpay.js');
+                  const { createPaymentLink: createRazorpayPaymentLink } = await import('../utils/razorpay.js');
                   const razorpayPaymentLink = await createRazorpayPaymentLink(
                     invoice.pending,
                     invoice.currency || 'INR',
