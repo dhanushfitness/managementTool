@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Calendar, Plus, Trash2, Search } from 'lucide-react'
+import { X, Calendar, Plus, Trash2, Search, CreditCard } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import DateInput from './DateInput'
+import RazorpayPayment from './RazorpayPayment'
 import { getOrganizationDetails } from '../api/organization'
 import { searchMembers as searchMembersApi, getMember as getMemberApi } from '../api/members'
 
@@ -55,6 +56,8 @@ export default function AddInvoiceModal({
   const [planWarning, setPlanWarning] = useState('')
   const [planInfo, setPlanInfo] = useState(null)
   const memberSearchBlurTimeout = useRef(null)
+  const [showRazorpayModal, setShowRazorpayModal] = useState(false)
+  const [razorpayInvoiceData, setRazorpayInvoiceData] = useState(null)
 
   const queryClient = useQueryClient()
 
@@ -588,28 +591,53 @@ export default function AddInvoiceModal({
 
   // Calculate totals
   const calculateTotals = () => {
+    // Helper function to safely parse numbers
+    const safeParseFloat = (value, defaultValue = 0) => {
+      if (value === null || value === undefined || value === '') return defaultValue
+      const parsed = parseFloat(value)
+      return isNaN(parsed) ? defaultValue : parsed
+    }
+    
     let subtotal = 0
     let taxAmount = 0
     
     formData.items.forEach(item => {
-      const amount = (item.unitPrice || 0) * (item.quantity || 1)
+      const unitPrice = safeParseFloat(item.unitPrice, 0)
+      const quantity = safeParseFloat(item.quantity, 1)
+      const amount = unitPrice * quantity
+      
       let discountAmount = 0
-      if (item.discount && item.discount.value > 0) {
-        if (item.discount.type === 'percentage') {
-          discountAmount = (amount * item.discount.value) / 100
-        } else {
-          discountAmount = item.discount.value
+      if (item.discount && item.discount.value) {
+        const discountValue = safeParseFloat(item.discount.value, 0)
+        if (discountValue > 0) {
+          if (item.discount.type === 'percentage') {
+            discountAmount = (amount * discountValue) / 100
+          } else {
+            discountAmount = discountValue
+          }
         }
       }
-      const itemAmount = amount - discountAmount
-      const itemTax = itemAmount * (item.taxRate || 0) / 100
+      
+      const itemAmount = Math.max(0, amount - discountAmount)
+      const taxRate = safeParseFloat(item.taxRate, 0)
+      const itemTax = (itemAmount * taxRate) / 100
       subtotal += itemAmount
       taxAmount += itemTax
     })
     
-    const total = subtotal + taxAmount
-    const totalPaid = formData.paymentModes.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0)
-    const pending = total - totalPaid
+    subtotal = Number(subtotal.toFixed(2))
+    taxAmount = Number(taxAmount.toFixed(2))
+    const total = Number((subtotal + taxAmount).toFixed(2))
+    const totalPaid = formData.paymentModes.reduce((sum, pm) => {
+      const amount = safeParseFloat(pm.amount, 0)
+      return sum + amount
+    }, 0)
+    const pending = Math.max(0, Number((total - totalPaid).toFixed(2)))
+    
+    // Ensure no NaN values
+    if (isNaN(subtotal) || isNaN(taxAmount) || isNaN(total) || isNaN(pending)) {
+      return { subtotal: 0, taxAmount: 0, total: 0, pending: 0 }
+    }
     
     return { subtotal, taxAmount, total, pending }
   }
@@ -1133,6 +1161,216 @@ export default function AddInvoiceModal({
                         placeholder="0"
                         className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                       />
+                      {pm.method === 'razorpay' && pm.amount > 0 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            // First create the invoice, then process payment
+                            if (!formData.memberId) {
+                              toast.error('Please select a member first')
+                              return
+                            }
+                            
+                            // Validate items
+                            const validItems = formData.items.filter(item => item.serviceId && item.unitPrice > 0)
+                            if (validItems.length === 0) {
+                              toast.error('Please add at least one service with price')
+                              return
+                            }
+                            
+                            try {
+                              // Calculate totals (same logic as handleSubmit)
+                              let subtotal = 0
+                              let totalTaxAmount = 0
+                              
+                              // Helper function to safely parse numbers
+                              const safeParseFloat = (value, defaultValue = 0) => {
+                                if (value === null || value === undefined || value === '') return defaultValue
+                                const parsed = parseFloat(value)
+                                return isNaN(parsed) ? defaultValue : parsed
+                              }
+                              
+                              const processedItems = validItems.map(item => {
+                                // Get original unitPrice (before any calculations)
+                                const unitPrice = safeParseFloat(item.unitPrice, 0)
+                                const quantity = safeParseFloat(item.quantity, 1)
+                                
+                                // Backend will recalculate, but we need to provide unitPrice
+                                // Calculate for validation only
+                                const amount = unitPrice * quantity
+                                
+                                let discountAmount = 0
+                                if (item.discount && item.discount.value) {
+                                  const discountValue = safeParseFloat(item.discount.value, 0)
+                                  if (discountValue > 0) {
+                                    if (item.discount.type === 'percentage') {
+                                      discountAmount = (amount * discountValue) / 100
+                                    } else {
+                                      discountAmount = discountValue
+                                    }
+                                  }
+                                }
+                                
+                                const itemAmount = Math.max(0, amount - discountAmount)
+                                const taxRate = safeParseFloat(item.taxRate, 0)
+                                const taxAmount = (itemAmount * taxRate) / 100
+                                
+                                // Validate before using toFixed
+                                if (isNaN(unitPrice) || isNaN(quantity) || isNaN(itemAmount) || isNaN(taxAmount)) {
+                                  throw new Error(`Invalid calculation for item: ${item.description || 'Unknown'}. Please check unit price, quantity, and tax rate.`)
+                                }
+                                
+                                subtotal += itemAmount
+                                totalTaxAmount += taxAmount
+                                
+                                // Ensure all values are valid numbers
+                                const finalAmount = Number(itemAmount.toFixed(2))
+                                const finalTaxAmount = Number(taxAmount.toFixed(2))
+                                const finalTotal = Number((itemAmount + taxAmount).toFixed(2))
+                                
+                                if (isNaN(finalAmount) || isNaN(finalTaxAmount) || isNaN(finalTotal)) {
+                                  throw new Error(`Invalid calculation result for item: ${item.description || 'Unknown'}`)
+                                }
+                                
+                                return {
+                                  serviceId: item.selectedServiceId || item.serviceId,
+                                  description: item.description || '',
+                                  quantity: Number(quantity),
+                                  unitPrice: Number(unitPrice), // Backend needs original unitPrice to recalculate
+                                  amount: finalAmount,
+                                  taxAmount: finalTaxAmount,
+                                  total: finalTotal,
+                                  taxRate: Number(taxRate),
+                                  taxType: item.taxType || 'No tax',
+                                  startDate: item.startDate || undefined,
+                                  expiryDate: item.expiryDate || undefined,
+                                  numberOfSessions: item.numberOfSessions || undefined,
+                                  sacCode: item.sacCode || undefined,
+                                  discount: item.discount && safeParseFloat(item.discount.value, 0) > 0 ? item.discount : undefined
+                                }
+                              })
+                              
+                              // Ensure totals are valid numbers
+                              subtotal = Number(subtotal.toFixed(2))
+                              totalTaxAmount = Number(totalTaxAmount.toFixed(2))
+                              const total = Number((subtotal + totalTaxAmount).toFixed(2))
+                              
+                              const otherPayments = formData.paymentModes
+                                .filter(p => p.method && p.amount > 0 && p.method !== 'razorpay')
+                                .reduce((sum, p) => {
+                                  const amount = safeParseFloat(p.amount, 0)
+                                  return sum + amount
+                                }, 0)
+                              const pending = Math.max(0, Number((total - otherPayments).toFixed(2)))
+                              
+                              // Validate all numeric values before sending
+                              if (isNaN(subtotal) || isNaN(totalTaxAmount) || isNaN(total) || isNaN(pending)) {
+                                console.error('Validation failed:', { subtotal, totalTaxAmount, total, pending })
+                                throw new Error('Invalid calculation values. Please check your invoice items.')
+                              }
+                              
+                              // Validate processed items
+                              processedItems.forEach((item, index) => {
+                                if (isNaN(item.amount) || isNaN(item.taxAmount) || isNaN(item.total)) {
+                                  console.error(`Invalid item at index ${index}:`, item)
+                                  throw new Error(`Invalid values in item ${index + 1}. Please check the item details.`)
+                                }
+                              })
+                              
+                              // Create invoice first (without Razorpay payment)
+                              const taxRate = safeParseFloat(formData.items[0]?.taxRate, 0)
+                              const invoiceData = {
+                                memberId: formData.memberId,
+                                type: 'pro-forma',
+                                invoiceType,
+                                isProForma: true,
+                                items: processedItems,
+                                subtotal: subtotal,
+                                tax: {
+                                  rate: taxRate,
+                                  amount: totalTaxAmount
+                                },
+                                total: total,
+                                pending: pending,
+                                rounding: 0,
+                                sacCode: formData.sacCode || undefined,
+                                discountReason: formData.discountReason || undefined,
+                                customerNotes: formData.customerNotes || undefined,
+                                internalNotes: formData.internalNotes || undefined,
+                                paymentModes: formData.paymentModes
+                                  .filter(p => p.method && p.amount > 0 && p.method !== 'razorpay')
+                                  .map(p => ({
+                                    method: p.method,
+                                    amount: safeParseFloat(p.amount, 0)
+                                  })),
+                                terms: formData.termsAndConditions || undefined,
+                                status: 'draft'
+                              }
+                              
+                              // Final validation before API call - ensure no NaN values
+                              const validateInvoiceData = (data) => {
+                                const checkValue = (value, path) => {
+                                  if (typeof value === 'number' && isNaN(value)) {
+                                    throw new Error(`NaN value found at ${path}`)
+                                  }
+                                  if (typeof value === 'object' && value !== null) {
+                                    Object.keys(value).forEach(key => {
+                                      checkValue(value[key], `${path}.${key}`)
+                                    })
+                                  }
+                                  if (Array.isArray(value)) {
+                                    value.forEach((item, index) => {
+                                      checkValue(item, `${path}[${index}]`)
+                                    })
+                                  }
+                                }
+                                checkValue(data, 'invoiceData')
+                              }
+                              
+                              try {
+                                validateInvoiceData(invoiceData)
+                              } catch (validationError) {
+                                console.error('Invoice validation error:', validationError)
+                                console.error('Invoice data:', invoiceData)
+                                throw new Error(`Invalid invoice data: ${validationError.message}`)
+                              }
+                              
+                              console.log('Invoice data being sent:', JSON.stringify(invoiceData, null, 2))
+                              
+                              // Create invoice via API
+                              const createRes = await api.post('/invoices', invoiceData)
+                              const createdInvoice = createRes.data.invoice
+                              
+                              // Get member data for payment modal
+                              const memberRes = await getMemberApi(formData.memberId)
+                              const member = memberRes.data.member
+                              
+                              // Prepare invoice data for payment modal with populated member
+                              const invoiceForPayment = {
+                                ...createdInvoice,
+                                memberId: {
+                                  _id: member._id,
+                                  firstName: member.firstName,
+                                  lastName: member.lastName,
+                                  phone: member.phone,
+                                  email: member.email
+                                }
+                              }
+                              
+                              setRazorpayInvoiceData(invoiceForPayment)
+                              setShowRazorpayModal(true)
+                            } catch (error) {
+                              console.error('Error creating invoice:', error)
+                              toast.error(error.response?.data?.message || 'Failed to create invoice. Please try again.')
+                            }
+                          }}
+                          className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-1 text-sm font-medium"
+                          title="Pay with Razorpay"
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          <span>Pay Now</span>
+                        </button>
+                      )}
                       {formData.paymentModes.length > 1 && (
                         <button
                           type="button"
@@ -1252,6 +1490,27 @@ export default function AddInvoiceModal({
           </div>
         </form>
       </div>
+
+      {/* Razorpay Payment Modal */}
+      {showRazorpayModal && razorpayInvoiceData && (
+        <RazorpayPayment
+          invoice={razorpayInvoiceData}
+          onClose={() => {
+            setShowRazorpayModal(false)
+            setRazorpayInvoiceData(null)
+          }}
+          onSuccess={(payment) => {
+            // Payment is already processed and invoice is created
+            // Just close the modal and refresh
+            setShowRazorpayModal(false)
+            setRazorpayInvoiceData(null)
+            queryClient.invalidateQueries(['invoices'])
+            queryClient.invalidateQueries(['member-invoices'])
+            onClose()
+            toast.success('Payment processed successfully!')
+          }}
+        />
+      )}
     </>
   )
 }

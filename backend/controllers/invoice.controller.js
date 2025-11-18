@@ -562,43 +562,9 @@ export const createInvoice = async (req, res) => {
       entityId: invoice._id
     });
 
-    // Update member status/current plan
-    try {
-      const targetItem = invoiceItems.find(item => item?.startDate || item?.expiryDate) || invoiceItems[0];
-      if (targetItem) {
-        const startDate = targetItem.startDate ? new Date(targetItem.startDate) : new Date();
-        const endDate = targetItem.expiryDate ? new Date(targetItem.expiryDate) : undefined;
-
-        const sessions = targetItem.numberOfSessions ? {
-          total: targetItem.numberOfSessions,
-          used: 0,
-          remaining: targetItem.numberOfSessions
-        } : undefined;
-
-        await Member.findOneAndUpdate(
-          { _id: memberId, organizationId: req.organizationId },
-          {
-            $set: {
-              membershipStatus: 'active',
-              currentPlan: {
-                planId: planId || targetItem.serviceId || undefined,
-                planName: targetItem.description || invoice.planName || 'Membership Plan',
-                startDate,
-                endDate,
-                sessions
-              }
-            }
-          }
-        );
-      } else {
-        await Member.findOneAndUpdate(
-          { _id: memberId, organizationId: req.organizationId },
-          { $set: { membershipStatus: 'active' } }
-        );
-      }
-    } catch (memberUpdateError) {
-      console.error('Failed to update member status after invoice creation', memberUpdateError);
-    }
+    // NOTE: Membership activation is now done only after payment is confirmed
+    // This prevents activating memberships for unpaid invoices
+    // Activation happens in payment.controller.js and webhook.controller.js
 
     // Schedule automatic calls for the member
     // Note: We schedule calls for all invoices (including pro-forma) as they represent actual memberships
@@ -630,9 +596,126 @@ export const createInvoice = async (req, res) => {
       console.log('Skipping call scheduling - no memberId');
     }
 
+    // Send invoice via email and SMS after creation
+    if (memberId) {
+      try {
+        const member = await Member.findById(memberId);
+        if (member) {
+          // Populate invoice for PDF generation
+          const populatedInvoice = await Invoice.findById(invoice._id)
+            .populate('memberId')
+            .populate('organizationId');
+
+          // Generate PDF
+          const { generateInvoicePDF } = await import('../utils/pdf.js');
+          const pdfBuffer = await generateInvoicePDF(populatedInvoice);
+
+          // Send email with PDF attachment
+          const { sendInvoiceEmail } = await import('../utils/email.js');
+          const emailResults = await sendInvoiceEmail(populatedInvoice, member, organization, pdfBuffer);
+          
+          if (emailResults.memberEmail.success) {
+            console.log('Invoice email sent to member:', member.email);
+          }
+          if (emailResults.ownerEmail.success) {
+            console.log('Invoice email sent to owner');
+          }
+
+          // Send SMS notification
+          if (member.phone) {
+            const { sendSMS } = await import('../utils/sms.js');
+            const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+            const formattedTotal = new Intl.NumberFormat('en-IN', {
+              style: 'currency',
+              currency: invoice.currency || 'INR',
+              minimumFractionDigits: 2
+            }).format(invoice.total);
+
+            const smsMessage = `Hi ${memberName},\n\nInvoice ${invoice.invoiceNumber} has been created.\nAmount: ${formattedTotal}\n\nPlease check your email for the invoice PDF.\n\nThank you!`;
+            
+            const smsResult = await sendSMS(member.phone, smsMessage, 'msg91');
+            if (smsResult.success) {
+              console.log('Invoice SMS sent to member:', member.phone);
+            }
+          }
+
+          // Send WhatsApp notification (if configured)
+          if (member.phone) {
+            try {
+              const { sendInvoiceNotification } = await import('../utils/whatsapp.js');
+              const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+              
+              // Create payment link if pending amount
+              let paymentLink = null;
+              if (invoice.pending > 0) {
+                try {
+                  const { createPaymentLink as createRazorpayPaymentLink } = await import('../utils/razorpay.js');
+                  const razorpayPaymentLink = await createRazorpayPaymentLink(
+                    invoice.pending,
+                    invoice.currency || 'INR',
+                    `Payment for Invoice ${invoice.invoiceNumber}`,
+                    {
+                      name: memberName,
+                      phone: member.phone,
+                      email: member.email
+                    },
+                    {
+                      invoiceId: invoice._id.toString(),
+                      organizationId: req.organizationId.toString(),
+                      invoiceNumber: invoice.invoiceNumber || ''
+                    }
+                  );
+                  paymentLink = razorpayPaymentLink.short_url || razorpayPaymentLink.url;
+                } catch (linkError) {
+                  // If payment link creation fails, use frontend URL
+                  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                  paymentLink = `${frontendUrl}/invoices/${invoice._id}?pay=true`;
+                }
+              }
+
+              const whatsappResult = await sendInvoiceNotification(
+                member.phone,
+                memberName,
+                invoice.invoiceNumber,
+                invoice.total,
+                paymentLink
+              );
+
+              if (whatsappResult.success) {
+                console.log('Invoice WhatsApp sent to member:', member.phone);
+              } else {
+                console.log('WhatsApp notification skipped:', whatsappResult.error);
+              }
+            } catch (whatsappError) {
+              // WhatsApp is optional, don't fail invoice creation
+              console.log('WhatsApp notification skipped (not configured or failed):', whatsappError.message);
+            }
+          }
+        }
+      } catch (notificationError) {
+        console.error('Failed to send invoice notifications:', notificationError);
+        // Don't fail invoice creation if notifications fail
+      }
+    }
+
     res.status(201).json({ success: true, invoice });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('=== Invoice Creation Error ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
+    console.error('Error name:', error.name);
+    if (error.errors) {
+      console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
+    }
+    res.status(500).json({ 
+      success: false, 
+      message: error.message,
+      ...(process.env.NODE_ENV === 'development' && { 
+        stack: error.stack,
+        errors: error.errors 
+      })
+    });
   }
 };
 

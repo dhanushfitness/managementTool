@@ -478,7 +478,11 @@ export default function Dashboard() {
                 navigate('/taskboard', { state: { date: dateStr } });
               }}
             />
-            <SummaryItem title="Service expiry" count={summaryData?.data?.serviceExpiry || 0} />
+            <SummaryItem 
+              title="Service expiry" 
+              count={summaryData?.data?.serviceExpiry || 0}
+              onClick={() => navigate('/reports/client-management/service-expiry')}
+            />
             <SummaryItem title="Upgrades" count={summaryData?.data?.upgrades || 0} />
             <SummaryItem title="Client birthdays" count={summaryData?.data?.clientBirthdays || 0} />
             <SummaryItem title="Staff birthdays" count={summaryData?.data?.staffBirthdays || 0} />

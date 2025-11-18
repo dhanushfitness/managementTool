@@ -201,10 +201,17 @@ export const exportAverageLifetimeValueReport = (params) => api.get('/reports/av
   responseType: 'blob'
 })
 export const getMembershipExpiryReport = (params) => api.get('/reports/membership-expiry', { params })
-export const exportMembershipExpiryReport = (params) => api.get('/reports/membership-expiry/export', {
-  params,
-  responseType: 'blob'
-})
+export const exportMembershipExpiryReport = (params) =>
+  api.get('/reports/membership-expiry/export', {
+    params,
+    responseType: 'blob'
+  })
+export const getServiceExpiryReport = (params) => api.get('/reports/service-expiry', { params })
+export const exportServiceExpiryReport = (params) =>
+  api.get('/reports/service-expiry/export', {
+    params,
+    responseType: 'blob'
+  })
 export const getIrregularMembersReport = (params) => api.get('/reports/irregular-members', { params })
 export const exportIrregularMembersReport = (params) => api.get('/reports/irregular-members/export', {
   params,

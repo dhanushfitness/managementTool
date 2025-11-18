@@ -1,10 +1,11 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import api from '../api/axios'
 import LoadingPage from '../components/LoadingPage'
 import Breadcrumbs from '../components/Breadcrumbs'
-import { ArrowLeft, Printer, Mail, Download } from 'lucide-react'
+import RazorpayPayment from '../components/RazorpayPayment'
+import { ArrowLeft, Printer, Mail, Download, CreditCard } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function InvoiceDetails() {
@@ -12,6 +13,7 @@ export default function InvoiceDetails() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const shouldPrint = searchParams.get('print') === 'true'
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['invoice', invoiceId],
@@ -200,6 +202,15 @@ export default function InvoiceDetails() {
                 <Breadcrumbs />
               </div>
               <div className="flex items-center space-x-2">
+                {pendingAmount > 0 && invoice.status !== 'paid' && (
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Pay Online</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     window.open(`/invoices/${invoiceId}/print`, '_blank')
@@ -443,6 +454,18 @@ export default function InvoiceDetails() {
           </div>
         </div>
       </div>
+
+      {/* Razorpay Payment Modal */}
+      {showPaymentModal && invoice && (
+        <RazorpayPayment
+          invoice={invoice}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={() => {
+            // Refresh invoice data
+            window.location.reload()
+          }}
+        />
+      )}
     </>
   )
 }

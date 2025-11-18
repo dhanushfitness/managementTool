@@ -125,6 +125,7 @@ const invoiceSchema = new mongoose.Schema({
     enum: ['razorpay', 'cash', 'card', 'upi', 'bank_transfer', 'other']
   },
   razorpayOrderId: String,
+  razorpayQRCodeId: String,
   razorpayPaymentId: String,
   notes: String,
   terms: String,

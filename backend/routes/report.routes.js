@@ -91,6 +91,8 @@ import {
   exportAverageLifetimeValueReport,
   getMembershipExpiryReport,
   exportMembershipExpiryReport,
+  getServiceExpiryReport,
+  exportServiceExpiryReport,
   getIrregularMembersReport,
   exportIrregularMembersReport,
   getActiveMembersReport,
@@ -184,6 +186,8 @@ router.get('/membership', authorize('owner', 'manager', 'staff'), getMembershipR
 router.get('/membership/export', authorize('owner', 'manager', 'staff'), exportMembershipReport);
 router.get('/membership-expiry', authorize('owner', 'manager', 'staff'), getMembershipExpiryReport);
 router.get('/membership-expiry/export', authorize('owner', 'manager', 'staff'), exportMembershipExpiryReport);
+router.get('/service-expiry', authorize('owner', 'manager', 'staff'), getServiceExpiryReport);
+router.get('/service-expiry/export', authorize('owner', 'manager', 'staff'), exportServiceExpiryReport);
 router.get('/irregular-members', authorize('owner', 'manager', 'staff'), getIrregularMembersReport);
 router.get('/irregular-members/export', authorize('owner', 'manager', 'staff'), exportIrregularMembersReport);
 router.get('/active-members', authorize('owner', 'manager', 'staff'), getActiveMembersReport);

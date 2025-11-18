@@ -2,15 +2,19 @@ import WebhookEvent from '../models/WebhookEvent.js';
 import Payment from '../models/Payment.js';
 import Invoice from '../models/Invoice.js';
 import Member from '../models/Member.js';
-import { verifyPayment } from '../utils/razorpay.js';
+import { verifyPayment, verifyWebhookSignature } from '../utils/razorpay.js';
+import { sendPaymentConfirmation } from '../utils/whatsapp.js';
 
 export const handleRazorpayWebhook = async (req, res) => {
   try {
     const { event, payload } = req.body;
     const signature = req.headers['x-razorpay-signature'];
 
-    // Verify webhook signature (simplified - implement proper verification)
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    // Verify webhook signature
+    if (!verifyWebhookSignature(req.body, signature)) {
+      console.error('Invalid webhook signature');
+      return res.status(401).json({ success: false, message: 'Invalid webhook signature' });
+    }
     
     // Create webhook event record
     const webhookEvent = await WebhookEvent.create({
@@ -37,7 +41,11 @@ export const handleRazorpayWebhook = async (req, res) => {
         });
 
         if (!existingPayment) {
-          await Payment.create({
+          // Generate receipt number
+          const receiptCount = await Payment.countDocuments({ organizationId: invoice.organizationId });
+          const receiptNumber = `RCP${String(receiptCount + 1).padStart(6, '0')}`;
+
+          const payment = await Payment.create({
             organizationId: invoice.organizationId,
             branchId: invoice.branchId,
             invoiceId: invoice._id,
@@ -54,17 +62,53 @@ export const handleRazorpayWebhook = async (req, res) => {
               wallet: paymentData.wallet,
               vpa: paymentData.vpa
             },
+            receiptNumber,
             paidAt: new Date(paymentData.created_at * 1000),
             reconciled: true,
             reconciledAt: new Date()
           });
 
-          // Update invoice
-          invoice.status = 'paid';
-          invoice.paidDate = new Date();
+          // Update invoice status
+          const totalPaid = await Payment.aggregate([
+            { $match: { invoiceId: invoice._id, status: { $in: ['completed', 'processing'] } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+          ]);
+          const paidAmount = totalPaid[0]?.total || 0;
+          
+          if (paidAmount >= invoice.total) {
+            invoice.status = 'paid';
+            invoice.paidDate = new Date();
+            
+            // Activate membership only after payment is confirmed
+            try {
+              const { activateMembershipFromInvoice } = await import('../utils/membership.js');
+              await activateMembershipFromInvoice(invoice);
+            } catch (membershipError) {
+              console.error('Failed to activate membership after payment:', membershipError);
+              // Don't fail the payment if membership activation fails
+            }
+          } else if (paidAmount > 0) {
+            invoice.status = 'partial';
+          }
           invoice.paymentMethod = 'razorpay';
           invoice.razorpayPaymentId = paymentData.id;
           await invoice.save();
+
+          // Send payment confirmation via WhatsApp
+          try {
+            const member = await Member.findById(invoice.memberId);
+            if (member && member.phone) {
+              await sendPaymentConfirmation(
+                member.phone,
+                `${member.firstName} ${member.lastName}`,
+                paymentData.amount / 100,
+                invoice.invoiceNumber,
+                `#receipt-${receiptNumber}`
+              );
+            }
+          } catch (whatsappError) {
+            console.error('WhatsApp confirmation failed:', whatsappError);
+          }
         }
       }
     }

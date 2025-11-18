@@ -410,20 +410,155 @@ export const deleteMember = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
-    member.isActive = false;
-    member.membershipStatus = 'cancelled';
-    await member.save();
+    // Prevent deletion if member still has an active membership plan
+    const hasActivePlan = (() => {
+      if (member.membershipStatus === 'active') {
+        if (member.currentPlan?.endDate) {
+          return new Date(member.currentPlan.endDate) >= new Date();
+        }
+        return true;
+      }
+      return false;
+    })();
 
+    if (hasActivePlan) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete member while an active membership plan is available. Please end or expire the plan first.'
+      });
+    }
+
+    const memberId = member._id;
+    const organizationId = req.organizationId;
+
+    // Import all related models
+    const Invoice = (await import('../models/Invoice.js')).default;
+    const Payment = (await import('../models/Payment.js')).default;
+    const Attendance = (await import('../models/Attendance.js')).default;
+    const FollowUp = (await import('../models/FollowUp.js')).default;
+    const MemberCallLog = (await import('../models/MemberCallLog.js')).default;
+    const Referral = (await import('../models/Referral.js')).default;
+    const Appointment = (await import('../models/Appointment.js')).default;
+    const Communication = (await import('../models/Communication.js')).default;
+    const Enquiry = (await import('../models/Enquiry.js')).default;
+
+    // Delete all related records
+    const deletionResults = {
+      invoices: 0,
+      payments: 0,
+      attendance: 0,
+      followUps: 0,
+      callLogs: 0,
+      referrals: 0,
+      appointments: 0,
+      communications: 0,
+      enquiries: 0
+    };
+
+    // Delete Invoices
+    const invoiceResult = await Invoice.deleteMany({
+      memberId: memberId,
+      organizationId: organizationId
+    });
+    deletionResults.invoices = invoiceResult.deletedCount;
+
+    // Delete Payments
+    const paymentResult = await Payment.deleteMany({
+      memberId: memberId,
+      organizationId: organizationId
+    });
+    deletionResults.payments = paymentResult.deletedCount;
+
+    // Delete Attendance records
+    const attendanceResult = await Attendance.deleteMany({
+      memberId: memberId,
+      organizationId: organizationId
+    });
+    deletionResults.attendance = attendanceResult.deletedCount;
+
+    // Delete Follow-ups (where member is the related entity)
+    const followUpResult = await FollowUp.deleteMany({
+      organizationId: organizationId,
+      'relatedTo.entityType': 'member',
+      'relatedTo.entityId': memberId
+    });
+    deletionResults.followUps = followUpResult.deletedCount;
+
+    // Delete Call Logs
+    const callLogResult = await MemberCallLog.deleteMany({
+      memberId: memberId,
+      organizationId: organizationId
+    });
+    deletionResults.callLogs = callLogResult.deletedCount;
+
+    // Delete Referrals (both as member and referred member)
+    const referralResult = await Referral.deleteMany({
+      organizationId: organizationId,
+      $or: [
+        { memberId: memberId },
+        { referredMemberId: memberId }
+      ]
+    });
+    deletionResults.referrals = referralResult.deletedCount;
+
+    // Delete Appointments
+    const appointmentResult = await Appointment.deleteMany({
+      memberId: memberId,
+      organizationId: organizationId
+    });
+    deletionResults.appointments = appointmentResult.deletedCount;
+
+    // Delete Communication recipients (remove member from recipients array)
+    const communicationResult = await Communication.updateMany(
+      {
+        organizationId: organizationId,
+        'recipients.memberId': memberId
+      },
+      {
+        $pull: {
+          recipients: { memberId: memberId }
+        }
+      }
+    );
+    deletionResults.communications = communicationResult.modifiedCount;
+
+    // Update Enquiries (remove convertedToMember reference)
+    const enquiryResult = await Enquiry.updateMany(
+      {
+        organizationId: organizationId,
+        convertedToMember: memberId
+      },
+      {
+        $unset: { convertedToMember: '', convertedAt: '' },
+        $set: { isMember: false }
+      }
+    );
+    deletionResults.enquiries = enquiryResult.modifiedCount;
+
+    // Finally, delete the member
+    await Member.deleteOne({ _id: memberId });
+
+    // Log the deletion
     await AuditLog.create({
-      organizationId: req.organizationId,
+      organizationId: organizationId,
       userId: req.user._id,
       action: 'member.deleted',
       entityType: 'Member',
-      entityId: member._id
+      entityId: memberId,
+      details: {
+        memberName: `${member.firstName} ${member.lastName}`,
+        memberId: member.memberId,
+        deletedRecords: deletionResults
+      }
     });
 
-    res.json({ success: true, message: 'Member deleted successfully' });
+    res.json({
+      success: true,
+      message: 'Member and all related records deleted successfully',
+      deletedRecords: deletionResults
+    });
   } catch (error) {
+    console.error('Error deleting member:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

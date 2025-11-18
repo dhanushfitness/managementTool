@@ -14,6 +14,7 @@ import Appointment from '../models/Appointment.js';
 import StaffTarget from '../models/StaffTarget.js';
 import Expense from '../models/Expense.js';
 import AuditLog from '../models/AuditLog.js';
+import FollowUp from '../models/FollowUp.js';
 
 const startOfDay = (date) => {
   const d = new Date(date);
@@ -11306,6 +11307,630 @@ export const exportMembershipExpiryReport = async (req, res) => {
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=membership-expiry-report-${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csvContent);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Service Expiry Report (Comprehensive)
+export const getServiceExpiryReport = async (req, res) => {
+  try {
+    const { 
+      fromDate, 
+      toDate, 
+      search, 
+      memberType = 'all',
+      staffId,
+      serviceId,
+      page = 1, 
+      limit = 50 
+    } = req.query;
+
+    // Date range is required
+    if (!fromDate || !toDate) {
+      return res.json({
+        success: true,
+        data: {
+          records: [],
+          paidAmount: 0,
+          pagination: {
+            page: 1,
+            limit: parseInt(limit),
+            total: 0,
+            pages: 0
+          }
+        }
+      });
+    }
+
+    // Parse dates correctly - handle YYYY-MM-DD format
+    const start = new Date(fromDate + 'T00:00:00.000Z');
+    const end = new Date(toDate + 'T23:59:59.999Z');
+
+    // Simple query: Get active members with currentPlan.endDate in the date range
+    const memberQuery = {
+      organizationId: req.organizationId,
+      membershipStatus: 'active', // Only active members
+      'currentPlan.endDate': {
+        $gte: start,
+        $lte: end
+      }
+    };
+
+    // Debug logging (can be removed later)
+    console.log('Service Expiry Query:', {
+      organizationId: req.organizationId,
+      fromDate,
+      toDate,
+      start: start.toISOString(),
+      end: end.toISOString(),
+      query: memberQuery
+    });
+
+    // Filter by staff
+    if (staffId && staffId !== 'all') {
+      memberQuery.salesRep = staffId;
+    }
+
+    // Get members with expiring plans in the date range
+    const membersWithExpiringPlans = await Member.find(memberQuery)
+      .populate('salesRep', 'firstName lastName')
+      .populate('generalTrainer', 'firstName lastName')
+      .populate('currentPlan.planId', 'name serviceId variationId serviceName')
+      .lean();
+
+    // Debug logging
+    console.log('Service Expiry - Found members:', membersWithExpiringPlans.length);
+    if (membersWithExpiringPlans.length > 0) {
+      console.log('Sample member:', {
+        memberId: membersWithExpiringPlans[0].memberId,
+        name: `${membersWithExpiringPlans[0].firstName} ${membersWithExpiringPlans[0].lastName}`,
+        endDate: membersWithExpiringPlans[0].currentPlan?.endDate,
+        status: membersWithExpiringPlans[0].membershipStatus
+      });
+    }
+
+    // Get member IDs for additional data
+    const memberIds = membersWithExpiringPlans.map(m => m._id);
+
+    // Get last check-in dates
+    const lastCheckIns = await Attendance.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          memberId: { $in: memberIds }
+        }
+      },
+      {
+        $sort: { checkInTime: -1 }
+      },
+      {
+        $group: {
+          _id: '$memberId',
+          lastCheckIn: { $first: '$checkInTime' }
+        }
+      }
+    ]);
+    const checkInMap = {};
+    lastCheckIns.forEach(ci => {
+      checkInMap[ci._id.toString()] = ci.lastCheckIn;
+    });
+
+    // Get last follow-up/contact dates
+    const lastFollowUps = await FollowUp.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          'relatedTo.entityType': 'member',
+          'relatedTo.entityId': { $in: memberIds }
+        }
+      },
+      {
+        $sort: { contactedAt: -1, attemptedAt: -1, createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: '$relatedTo.entityId',
+          lastContactedDate: { $first: '$contactedAt' },
+          lastCallStatus: { $first: '$callStatus' },
+          lastStatus: { $first: '$status' }
+        }
+      }
+    ]);
+    const followUpMap = {};
+    lastFollowUps.forEach(fu => {
+      followUpMap[fu._id.toString()] = {
+        lastContactedDate: fu.lastContactedDate,
+        lastCallStatus: fu.lastCallStatus,
+        lastStatus: fu.lastStatus
+      };
+    });
+
+    // Get last invoice dates for all members
+    const lastInvoices = await Invoice.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          memberId: { $in: memberIds },
+          status: { $in: ['paid', 'partial'] }
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: '$memberId',
+          lastInvoiceDate: { $first: '$createdAt' }
+        }
+      }
+    ]);
+    const lastInvoiceMap = {};
+    lastInvoices.forEach(li => {
+      lastInvoiceMap[li._id.toString()] = li.lastInvoiceDate;
+    });
+
+    // Get invoices for members to find amounts
+    const memberInvoices = await Invoice.find({
+      organizationId: req.organizationId,
+      memberId: { $in: memberIds },
+      status: { $in: ['paid', 'partial'] }
+    })
+      .populate('items.serviceId', 'name')
+      .lean();
+    
+    const invoiceMap = {}; // Map memberId -> array of invoices
+    memberInvoices.forEach(inv => {
+      const memberIdStr = inv.memberId?._id?.toString();
+      if (memberIdStr) {
+        if (!invoiceMap[memberIdStr]) {
+          invoiceMap[memberIdStr] = [];
+        }
+        invoiceMap[memberIdStr].push(inv);
+      }
+    });
+
+    // Build records
+    const records = [];
+    let totalPaidAmount = 0;
+
+    // Process members with expiring current plans
+    for (const member of membersWithExpiringPlans) {
+      if (!member.currentPlan?.endDate) continue;
+
+      // Filter by service
+      if (serviceId && serviceId !== 'all') {
+        const planServiceId = member.currentPlan?.planId?.serviceId?.toString() || 
+                             member.currentPlan?.planId?._id?.toString();
+        if (planServiceId !== serviceId) continue;
+      }
+
+      // Search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim().toLowerCase();
+        const mobile = (member.phone || '').toLowerCase();
+        const email = (member.email || '').toLowerCase();
+        
+        if (!memberName.includes(searchLower) && 
+            !mobile.includes(searchLower) && 
+            !email.includes(searchLower)) {
+          continue;
+        }
+      }
+
+      const serviceName = member.currentPlan?.planId?.serviceName || 
+                         member.currentPlan?.planId?.name || 
+                         member.currentPlan?.planName || 
+                         'Service';
+      
+      // Exclude PT services
+      if (serviceName.toLowerCase().includes('pt') || 
+          serviceName.toLowerCase().includes('personal training')) {
+        continue;
+      }
+
+      const memberId = member.memberId || '-';
+      const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+      const mobile = member.phone || '-';
+      const email = member.email || '-';
+      const status = member.membershipStatus === 'active' ? 'Active' : 
+                    member.membershipStatus === 'expired' ? 'Expired' : 
+                    member.membershipStatus === 'frozen' ? 'Frozen' : 
+                    member.membershipStatus === 'cancelled' ? 'Cancelled' : 'Inactive';
+      
+      const salesRep = member.salesRep 
+        ? `${member.salesRep.firstName || ''} ${member.salesRep.lastName || ''}`.trim()
+        : '-';
+      
+      const generalTrainer = member.generalTrainer
+        ? `${member.generalTrainer.firstName || ''} ${member.generalTrainer.lastName || ''}`.trim()
+        : '-';
+
+      const serviceVariationName = member.currentPlan?.planId?.name || 
+                                   member.currentPlan?.planName || 
+                                   serviceName;
+      
+      // Find the invoice for this member's current plan to get the amount
+      let amount = 0;
+      const memberInvoicesList = invoiceMap[member._id.toString()] || [];
+      for (const memberInvoice of memberInvoicesList) {
+        // Find the matching item in the invoice
+        const matchingItem = memberInvoice.items?.find(item => {
+          const itemServiceId = item.serviceId?._id?.toString() || item.serviceId?.toString();
+          const planServiceId = member.currentPlan?.planId?._id?.toString() || 
+                               member.currentPlan?.planId?.toString();
+          if (itemServiceId !== planServiceId) return false;
+          
+          const itemExpiry = item.expiryDate ? new Date(item.expiryDate) : null;
+          const planExpiry = member.currentPlan?.endDate ? new Date(member.currentPlan.endDate) : null;
+          return itemExpiry && planExpiry && 
+                 Math.abs(itemExpiry.getTime() - planExpiry.getTime()) < 86400000; // Within 1 day
+        });
+        if (matchingItem) {
+          amount = matchingItem.total || matchingItem.amount || 0;
+          break; // Found matching invoice, no need to continue
+        }
+      }
+      totalPaidAmount += amount;
+
+      const formatDate = (date) => {
+        if (!date) return '-';
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
+      const startDate = member.currentPlan?.startDate ? formatDate(member.currentPlan.startDate) : '-';
+      const expiryDateStr = formatDate(member.currentPlan.endDate);
+      const serviceDuration = member.currentPlan?.startDate && member.currentPlan?.endDate 
+        ? `${formatDate(member.currentPlan.startDate)} To ${formatDate(member.currentPlan.endDate)}`
+        : '-';
+
+      // Get last invoice date
+      const lastInvoiceDate = lastInvoiceMap[member._id.toString()] 
+        ? formatDate(lastInvoiceMap[member._id.toString()]) 
+        : '-';
+
+      const totalSessions = member.currentPlan?.sessions?.total || 'Not Applicable';
+      const utilized = member.currentPlan?.sessions?.used || 0;
+      const balance = totalSessions === 'Not Applicable' 
+        ? '-' 
+        : (totalSessions - utilized);
+
+      const checkInData = checkInMap[member._id.toString()];
+      const followUpData = followUpMap[member._id.toString()];
+
+      records.push({
+        _id: `member-${member._id}-${member.currentPlan.endDate.getTime()}`,
+        memberId,
+        memberName,
+        mobile,
+        email,
+        status,
+        salesRep,
+        generalTrainer,
+        serviceName: serviceName.split(' - ')[0] || serviceName,
+        serviceVariationName,
+        amount: amount.toFixed(2),
+        serviceDuration,
+        expiryDate: expiryDateStr,
+        lastInvoiceDate,
+        totalSessions: totalSessions === 'Not Applicable' ? 'Not Applicable' : totalSessions,
+        utilized,
+        balance: balance === '-' ? '-' : balance,
+        lastContactedDate: followUpData?.lastContactedDate ? formatDate(followUpData.lastContactedDate) : '-',
+        lastCheckInDate: checkInData ? formatDate(checkInData) : '-',
+        lastStatus: followUpData?.lastStatus || '-',
+        lastCallStatus: followUpData?.lastCallStatus || '-',
+        invoiceId: null,
+        memberMongoId: member._id
+      });
+    }
+
+
+    // Sort records by expiry date (handle date format DD-MM-YYYY)
+    records.sort((a, b) => {
+      try {
+        const dateA = new Date(a.expiryDate.split('-').reverse().join('-'));
+        const dateB = new Date(b.expiryDate.split('-').reverse().join('-'));
+        return dateA - dateB;
+      } catch (e) {
+        return 0;
+      }
+    });
+
+    // Pagination
+    const startIndex = (parseInt(page) - 1) * parseInt(limit);
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedRecords = records.slice(startIndex, endIndex);
+
+    res.json({
+      success: true,
+      data: {
+        records: paginatedRecords,
+        paidAmount: totalPaidAmount,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: records.length,
+          pages: Math.ceil(records.length / parseInt(limit))
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const exportServiceExpiryReport = async (req, res) => {
+  try {
+    const { 
+      fromDate, 
+      toDate, 
+      search, 
+      memberType = 'all',
+      staffId,
+      serviceId
+    } = req.query;
+
+    const start = fromDate ? new Date(fromDate) : new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = toDate ? new Date(toDate) : new Date();
+    end.setHours(23, 59, 59, 999);
+
+    // Build invoice query
+    const invoiceQuery = {
+      organizationId: req.organizationId,
+      invoiceType: 'service',
+      type: { $in: ['membership', 'renewal'] },
+      'items.expiryDate': {
+        $gte: start,
+        $lte: end
+      }
+    };
+
+    if (serviceId && serviceId !== 'all') {
+      invoiceQuery['items.serviceId'] = serviceId;
+    }
+
+    const invoices = await Invoice.find(invoiceQuery)
+      .populate('memberId', 'memberId firstName lastName phone email membershipStatus salesRep generalTrainer')
+      .populate('items.serviceId', 'name serviceId variationId')
+      .populate('createdBy', 'firstName lastName')
+      .populate('branchId', 'name')
+      .sort({ 'items.expiryDate': 1 })
+      .lean();
+
+    const memberIds = [...new Set(invoices.map(inv => inv.memberId?._id).filter(Boolean))];
+
+    const lastCheckIns = await Attendance.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          memberId: { $in: memberIds }
+        }
+      },
+      {
+        $sort: { checkInTime: -1 }
+      },
+      {
+        $group: {
+          _id: '$memberId',
+          lastCheckIn: { $first: '$checkInTime' }
+        }
+      }
+    ]);
+    const checkInMap = {};
+    lastCheckIns.forEach(ci => {
+      checkInMap[ci._id.toString()] = ci.lastCheckIn;
+    });
+
+    const lastFollowUps = await FollowUp.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          'relatedTo.entityType': 'member',
+          'relatedTo.entityId': { $in: memberIds }
+        }
+      },
+      {
+        $sort: { contactedAt: -1, attemptedAt: -1, createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: '$relatedTo.entityId',
+          lastContactedDate: { $first: '$contactedAt' },
+          lastCallStatus: { $first: '$callStatus' },
+          lastStatus: { $first: '$status' }
+        }
+      }
+    ]);
+    const followUpMap = {};
+    lastFollowUps.forEach(fu => {
+      followUpMap[fu._id.toString()] = {
+        lastContactedDate: fu.lastContactedDate,
+        lastCallStatus: fu.lastCallStatus,
+        lastStatus: fu.lastStatus
+      };
+    });
+
+    const members = await Member.find({
+      _id: { $in: memberIds }
+    })
+      .populate('salesRep', 'firstName lastName')
+      .populate('generalTrainer', 'firstName lastName')
+      .lean();
+    
+    const memberMap = {};
+    members.forEach(m => {
+      memberMap[m._id.toString()] = m;
+    });
+
+    // Get last invoice dates for all members
+    const lastInvoices = await Invoice.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          memberId: { $in: memberIds },
+          status: { $in: ['paid', 'partial'] }
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      },
+      {
+        $group: {
+          _id: '$memberId',
+          lastInvoiceDate: { $first: '$createdAt' }
+        }
+      }
+    ]);
+    const lastInvoiceMap = {};
+    lastInvoices.forEach(li => {
+      lastInvoiceMap[li._id.toString()] = li.lastInvoiceDate;
+    });
+
+    const records = [];
+
+    for (const invoice of invoices) {
+      if (!invoice.memberId) continue;
+
+      const member = memberMap[invoice.memberId._id.toString()] || invoice.memberId;
+      
+      if (staffId && staffId !== 'all') {
+        const salesRepId = member.salesRep?._id?.toString() || member.salesRep?.toString();
+        if (salesRepId !== staffId) continue;
+      }
+
+      if (memberType !== 'all') {
+        if (memberType === 'active' && member.membershipStatus !== 'active') continue;
+        if (memberType === 'inactive' && member.membershipStatus === 'active') continue;
+      }
+
+      for (const item of invoice.items) {
+        if (!item.expiryDate) continue;
+        const expiryDate = new Date(item.expiryDate);
+        if (expiryDate < start || expiryDate > end) continue;
+
+        const serviceName = item.serviceId?.name || item.description || '';
+        if (serviceName.toLowerCase().includes('pt') || 
+            serviceName.toLowerCase().includes('personal training')) {
+          continue;
+        }
+
+        if (search) {
+          const searchLower = search.toLowerCase();
+          const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim().toLowerCase();
+          const mobile = (member.phone || '').toLowerCase();
+          const email = (member.email || '').toLowerCase();
+          
+          if (!memberName.includes(searchLower) && 
+              !mobile.includes(searchLower) && 
+              !email.includes(searchLower)) {
+            continue;
+          }
+        }
+
+        const formatDate = (date) => {
+          if (!date) return '-';
+          const d = new Date(date);
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          return `${day}-${month}-${year}`;
+        };
+
+        const memberId = member.memberId || '-';
+        const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+        const mobile = member.phone || '-';
+        const email = member.email || '-';
+        const status = member.membershipStatus === 'active' ? 'Active' : 
+                      member.membershipStatus === 'expired' ? 'Expired' : 
+                      member.membershipStatus === 'frozen' ? 'Frozen' : 
+                      member.membershipStatus === 'cancelled' ? 'Cancelled' : 'Inactive';
+        
+        const salesRep = member.salesRep 
+          ? `${member.salesRep.firstName || ''} ${member.salesRep.lastName || ''}`.trim()
+          : '-';
+        
+        const generalTrainer = member.generalTrainer
+          ? `${member.generalTrainer.firstName || ''} ${member.generalTrainer.lastName || ''}`.trim()
+          : '-';
+
+        const serviceVariationName = item.serviceId?.name || item.description || serviceName;
+        const amount = item.total || item.amount || 0;
+
+        const startDate = item.startDate ? formatDate(item.startDate) : '-';
+        const expiryDateStr = formatDate(item.expiryDate);
+        const serviceDuration = item.startDate && item.expiryDate 
+          ? `${formatDate(item.startDate)} To ${formatDate(item.expiryDate)}`
+          : '-';
+
+        // Get last invoice date (for export, we'll use the same map if available)
+        const lastInvoiceDate = lastInvoiceMap[member._id.toString()] 
+          ? formatDate(lastInvoiceMap[member._id.toString()]) 
+          : '-';
+
+        const totalSessions = item.numberOfSessions || (member.currentPlan?.sessions?.total) || 'Not Applicable';
+        const utilized = item.numberOfSessions 
+          ? (member.currentPlan?.sessions?.used || 0)
+          : (member.currentPlan?.sessions?.used || 0);
+        const balance = item.numberOfSessions 
+          ? (item.numberOfSessions - utilized)
+          : '-';
+
+        const checkInData = checkInMap[member._id.toString()];
+        const followUpData = followUpMap[member._id.toString()];
+
+        records.push({
+          'S.No': records.length + 1,
+          'Member ID': memberId,
+          'Member Name': memberName,
+          'Mobile': mobile,
+          'Email': email,
+          'Status': status,
+          'Sales Rep': salesRep,
+          'General Trainer': generalTrainer,
+          'Service Name': serviceName.split(' - ')[0] || serviceName,
+          'Service Variation Name': serviceVariationName,
+          'Amount': amount.toFixed(2),
+          'Service Duration': serviceDuration,
+          'Expiry Date': expiryDateStr,
+          'Last Invoice Date': lastInvoiceDate,
+          'Total Sessions': totalSessions === 'Not Applicable' ? 'Not Applicable' : totalSessions,
+          'Utilized': utilized,
+          'Balance': balance === '-' ? '-' : balance,
+          'Last Contacted Date': followUpData?.lastContactedDate ? formatDate(followUpData.lastContactedDate) : '-',
+          'Last Check-In Date': checkInData ? formatDate(checkInData) : '-',
+          'Last Status': followUpData?.lastStatus || '-',
+          'Last Call Status': followUpData?.lastCallStatus || '-'
+        });
+      }
+    }
+
+    const headers = [
+      'S.No', 'Member ID', 'Member Name', 'Mobile', 'Email', 'Status',
+      'Sales Rep', 'General Trainer', 'Service Name', 'Service Variation Name',
+      'Amount', 'Service Duration', 'Expiry Date', 'Last Invoice Date',
+      'Total Sessions', 'Utilized', 'Balance', 'Last Contacted Date',
+      'Last Check-In Date', 'Last Status', 'Last Call Status'
+    ];
+
+    let csvContent = headers.join(',') + '\n';
+    records.forEach((record) => {
+      const row = headers.map(header => {
+        const value = record[header] || '-';
+        return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+      });
+      csvContent += row.join(',') + '\n';
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=service-expiry-report-${new Date().toISOString().split('T')[0]}.csv`);
     res.send(csvContent);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

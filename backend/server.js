@@ -112,8 +112,19 @@ app.use((req, res) => {
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gym_management')
-.then(() => {
+.then(async() => {
   console.log('✅ MongoDB connected successfully');
+  
+  // Initialize cron jobs after MongoDB connection
+  if (process.env.ENABLE_CRON_JOBS !== 'false') {
+    try {
+      const { initializeCronJobs } = await import('./jobs/membershipExpiry.js');
+      initializeCronJobs();
+      console.log('✅ Cron jobs initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize cron jobs:', error);
+    }
+  }
   
   // Start server
   const PORT = process.env.PORT || 5000;

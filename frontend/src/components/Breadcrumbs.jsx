@@ -310,6 +310,7 @@ const reportSections = {
       'renewals': 'Renewals Report',
       'membership': 'Membership Report',
       'membership-expiry': 'Membership Expiry Report',
+      'service-expiry': 'Service Expiry',
       'irregular-members': 'Irregular Members Report',
       'active-members': 'Active Members Report',
       'inactive-members': 'Inactive Members Report',

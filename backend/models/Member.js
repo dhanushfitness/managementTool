@@ -129,7 +129,8 @@ const memberSchema = new mongoose.Schema({
       total: Number,
       used: { type: Number, default: 0 },
       remaining: Number
-    }
+    },
+    lastExpiryNotification: Date // Track last expiry notification sent
   },
   subscription: {
     subscriptionId: String, // Razorpay subscription ID

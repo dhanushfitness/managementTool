@@ -20,12 +20,15 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  User
+  User,
+  X,
+  AlertTriangle
 } from 'lucide-react'
 import LoadingTable from '../components/LoadingTable'
 import LoadingPage from '../components/LoadingPage'
 import ClientFilterModal from '../components/ClientFilterModal'
 import Breadcrumbs from '../components/Breadcrumbs'
+import { deleteMember } from '../api/members'
 
 // Info Popup Component using Portal
 function InfoPopup({ member }) {
@@ -121,6 +124,7 @@ export default function Clients() {
   const [selectedMembers, setSelectedMembers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilterModal, setShowFilterModal] = useState(false)
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(null) // { member: {...}, show: true }
   const [filters, setFilters] = useState({
     service: '',
     ageGroup: '',
@@ -254,6 +258,49 @@ export default function Clients() {
   }
 
   const displayStats = getDisplayStats()
+
+  // Delete member mutation
+  const deleteMemberMutation = useMutation({
+    mutationFn: (memberId) => deleteMember(memberId),
+    onSuccess: (response) => {
+      const deletedRecords = response.data?.deletedRecords || {}
+      const recordCount = Object.values(deletedRecords).reduce((sum, count) => sum + count, 0)
+      
+      toast.success(
+        `Member and ${recordCount} related records deleted successfully`,
+        { duration: 5000 }
+      )
+      
+      // Invalidate queries to refresh the list
+      queryClient.invalidateQueries(['members'])
+      queryClient.invalidateQueries(['member-stats'])
+      
+      setDeleteConfirmModal(null)
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to delete member')
+    }
+  })
+
+  const memberHasActivePlan = (member) => {
+    if (member.membershipStatus !== 'active') return false
+    if (!member.currentPlan?.endDate) return true
+    return new Date(member.currentPlan.endDate) >= new Date()
+  }
+
+  const handleDeleteClick = (member) => {
+    if (memberHasActivePlan(member)) {
+      toast.error('Cannot delete member while an active membership is running')
+      return
+    }
+    setDeleteConfirmModal({ member, show: true })
+  }
+
+  const handleDeleteConfirm = () => {
+    if (deleteConfirmModal?.member?._id) {
+      deleteMemberMutation.mutate(deleteConfirmModal.member._id)
+    }
+  }
 
   const handleSelectAll = (checked) => {
     if (checked) {
@@ -622,8 +669,10 @@ export default function Clients() {
                         </td>
                         <td className="py-3 px-4">
                           <button
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Delete member"
+                            onClick={() => handleDeleteClick(member)}
+                            disabled={memberHasActivePlan(member)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={memberHasActivePlan(member) ? 'Active membership in progress. End the plan before deleting.' : 'Delete member and all records'}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -707,6 +756,76 @@ export default function Clients() {
         onFilterChange={handleFilterChange}
         onApply={handleApplyFilters}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal?.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-start space-x-4 mb-6">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    Delete Member Permanently?
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    This will permanently delete <strong>{deleteConfirmModal.member?.firstName} {deleteConfirmModal.member?.lastName}</strong> and <strong>ALL</strong> their related records including:
+                  </p>
+                  <ul className="text-xs text-gray-600 space-y-1 mb-4 list-disc list-inside">
+                    <li>All Invoices</li>
+                    <li>All Payments</li>
+                    <li>All Attendance Records</li>
+                    <li>All Call Logs</li>
+                    <li>All Follow-ups</li>
+                    <li>All Appointments</li>
+                    <li>All Referrals</li>
+                    <li>And other related data</li>
+                  </ul>
+                  <p className="text-sm font-semibold text-red-600">
+                    This action cannot be undone!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDeleteConfirmModal(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setDeleteConfirmModal(null)}
+                  disabled={deleteMemberMutation.isPending}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleteMemberMutation.isPending}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                >
+                  {deleteMemberMutation.isPending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete Permanently</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

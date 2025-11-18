@@ -7,6 +7,7 @@ import LoadingPage from '../components/LoadingPage'
 import AttendanceTab from '../components/AttendanceTab'
 import DateInput from '../components/DateInput'
 import Breadcrumbs from '../components/Breadcrumbs'
+import RazorpayPayment from '../components/RazorpayPayment'
 import toast from 'react-hot-toast'
 import {
   User,
@@ -401,27 +402,6 @@ export default function MemberDetails() {
               <h1 className="text-3xl font-bold text-gray-900">
                 Profile - {member.firstName?.toUpperCase()} {member.lastName?.toUpperCase()}
               </h1>
-              <div className="flex items-center space-x-2">
-                <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-                  Inter branch transfer
-                </button>
-                <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium flex items-center space-x-2">
-                  <Printer className="w-4 h-4" />
-                  <span>Print profile</span>
-                </button>
-                <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-                  Add Advance Payment
-                </button>
-                <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-                  New Invoice
-                </button>
-                <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-                  New Call
-                </button>
-                <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-                  New appointment
-                </button>
-              </div>
             </div>
 
             {/* Sub Tabs */}
@@ -1350,27 +1330,6 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
             Service Card - {member?.firstName?.toUpperCase()} {member?.lastName?.toUpperCase()}
           </h1>
         </div>
-        <div className="flex items-center space-x-2 flex-wrap gap-2">
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            Inter branch transfer
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium flex items-center space-x-2">
-            <Printer className="w-4 h-4" />
-            <span>Print profile</span>
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            Add Advance Payment
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New Invoice
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New Call
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New appointment
-          </button>
-        </div>
       </div>
 
       {/* Service Overview Section - Modern Design */}
@@ -1887,6 +1846,7 @@ function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading })
 
 // Payments Tab Component
 function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilter, page, setPage, navigate }) {
+  const [showPaymentModal, setShowPaymentModal] = useState(null)
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -1945,9 +1905,6 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
         </h1>
         <div className="flex items-center space-x-2">
           <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
-            New Invoice
-          </button>
-          <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
             Product
           </button>
         </div>
@@ -1973,26 +1930,6 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                 <option value="pro-forma">Pro Forma</option>
               </select>
             </div>
-          </div>
-          <div className="flex items-center space-x-2 flex-wrap gap-2">
-            <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-              Inter branch transfer
-            </button>
-            <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-              Print profile
-            </button>
-            <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-              Add Advance Payment
-            </button>
-            <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-              New Invoice
-            </button>
-            <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-              New Call
-            </button>
-            <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-              New appointment
-            </button>
           </div>
         </div>
       </div>
@@ -2207,6 +2144,18 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
           </button>
         </div>
       </div>
+
+      {/* Razorpay Payment Modal */}
+      {showPaymentModal && (
+        <RazorpayPayment
+          invoice={showPaymentModal}
+          onClose={() => setShowPaymentModal(null)}
+          onSuccess={() => {
+            setShowPaymentModal(null)
+            // The query will auto-refresh due to invalidation in RazorpayPayment component
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -2347,27 +2296,6 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
         <h1 className="text-3xl font-bold text-gray-900">
           Member Call log - {member?.firstName?.toUpperCase()} {member?.lastName?.toUpperCase()}
         </h1>
-        <div className="flex items-center space-x-2 flex-wrap gap-2">
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            Inter branch transfer
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium flex items-center space-x-2">
-            <Printer className="w-4 h-4" />
-            <span>Print profile</span>
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            Add Advance Payment
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New Invoice
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New Call
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New appointment
-          </button>
-        </div>
       </div>
 
       {/* Call Statistics Summary */}
@@ -2867,27 +2795,6 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
         <h1 className="text-3xl font-bold text-gray-900">
           Referral - {memberName}
         </h1>
-        <div className="flex items-center space-x-2 flex-wrap gap-2">
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            Inter branch transfer
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium flex items-center space-x-2">
-            <Printer className="w-4 h-4" />
-            <span>Print profile</span>
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            Add Advance Payment
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New Invoice
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New Call
-          </button>
-          <button className="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium">
-            New appointment
-          </button>
-        </div>
       </div>
 
       {/* Sub Tabs */}

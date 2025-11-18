@@ -56,6 +56,7 @@ import NewClientsReport from './pages/NewClientsReport'
 import RenewalsReport from './pages/RenewalsReport'
 import MembershipReport from './pages/MembershipReport'
 import MembershipExpiryReport from './pages/MembershipExpiryReport'
+import ServiceExpiry from './pages/ServiceExpiry'
 import IrregularMembersReport from './pages/IrregularMembersReport'
 import ActiveMembersReport from './pages/ActiveMembersReport'
 import InactiveMembersReport from './pages/InactiveMembersReport'
@@ -204,6 +205,7 @@ function App() {
           <Route path="reports/client-management/renewals" element={<RenewalsReport />} />
           <Route path="reports/client-management/membership" element={<MembershipReport />} />
           <Route path="reports/client-management/membership-expiry" element={<MembershipExpiryReport />} />
+          <Route path="reports/client-management/service-expiry" element={<ServiceExpiry />} />
           <Route path="reports/client-management/irregular-members" element={<IrregularMembersReport />} />
           <Route path="reports/client-management/active-members" element={<ActiveMembersReport />} />
           <Route path="reports/client-management/inactive-members" element={<InactiveMembersReport />} />
