@@ -1,236 +1,297 @@
-import { useMemo, useState } from 'react'
-import { CalendarHeart, Download, Filter } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
+import { Download } from 'lucide-react'
+import LoadingPage from '../components/LoadingPage'
+import { getStaffBirthdayReport, exportStaffBirthdayReport } from '../api/reports'
+import toast from 'react-hot-toast'
 import DateInput from '../components/DateInput'
-
-const celebrationDataset = [
-  {
-    id: 'celebration-001',
-    staffId: 'STF1201',
-    staffName: 'Anishv Suresh',
-    occasion: 'Birthday',
-    date: '2025-11-13',
-    designation: 'Assessment Coach',
-    branch: 'HSR Layout',
-    contact: '9886355099',
-    notes: 'Favourite cake: Dark chocolate'
-  },
-  {
-    id: 'celebration-002',
-    staffId: 'STF1220',
-    staffName: 'Swathi Gowda',
-    occasion: 'Work Anniversary',
-    date: '2025-12-02',
-    designation: 'Client Success',
-    branch: 'Indiranagar',
-    contact: '7892863424',
-    notes: 'Completed 3 years of service'
-  }
-]
-
-const occasionOptions = [
-  { value: 'all', label: 'Birthday & Anniversary' },
-  { value: 'Birthday', label: 'Birthday' },
-  { value: 'Work Anniversary', label: 'Work Anniversary' }
-]
+import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function StaffBirthdayReport() {
+  const location = useLocation()
+  
+  const getDefaultFromDate = () => {
+    const date = new Date()
+    date.setMonth(0)
+    date.setDate(1)
+    return date.toISOString().split('T')[0]
+  }
+
+  const getDefaultToDate = () => {
+    const date = new Date()
+    date.setMonth(11)
+    date.setDate(31)
+    return date.toISOString().split('T')[0]
+  }
+
+  // Get date from URL params if present (for navigation from dashboard)
+  const searchParams = new URLSearchParams(location.search)
+  const urlFromDate = searchParams.get('fromDate')
+  const urlToDate = searchParams.get('toDate')
+  
+  const getInitialFromDate = () => {
+    if (urlFromDate) return urlFromDate
+    return getDefaultFromDate()
+  }
+  
+  const getInitialToDate = () => {
+    if (urlToDate) return urlToDate
+    return getDefaultToDate()
+  }
+
   const [filters, setFilters] = useState({
-    occasion: 'all',
-    from: '2025-11-01',
-    to: '2025-12-31'
+    fromDate: getInitialFromDate(),
+    toDate: getInitialToDate(),
+    birthdayMonth: 'all'
+  })
+  const [page, setPage] = useState(1)
+  const [hasSearched, setHasSearched] = useState(false)
+  
+  // Update filters when URL params change
+  useEffect(() => {
+    if (urlFromDate || urlToDate) {
+      setFilters(prev => ({
+        ...prev,
+        fromDate: urlFromDate || prev.fromDate,
+        toDate: urlToDate || prev.toDate
+      }))
+      setHasSearched(true)
+    }
+  }, [urlFromDate, urlToDate])
+
+  const { data: reportData, isLoading, refetch } = useQuery({
+    queryKey: ['staff-birthday-report', filters, page],
+    queryFn: () => getStaffBirthdayReport({
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      birthdayMonth: filters.birthdayMonth !== 'all' ? filters.birthdayMonth : undefined,
+      page,
+      limit: 20
+    }).then(res => res.data),
+    enabled: hasSearched
   })
 
-  const upcomingCelebrations = useMemo(() => {
-    return celebrationDataset.filter(item => {
-      if (filters.occasion !== 'all' && item.occasion !== filters.occasion) {
-        return false
-      }
-
-      const celebrationDate = new Date(item.date)
-      const fromDate = filters.from ? new Date(filters.from) : null
-      const toDate = filters.to ? new Date(filters.to) : null
-
-      if (fromDate && celebrationDate < fromDate) return false
-      if (toDate && celebrationDate > toDate) return false
-
-      return true
-    })
-  }, [filters])
-
-  const summary = useMemo(() => {
-    const birthdays = upcomingCelebrations.filter(item => item.occasion === 'Birthday').length
-    const anniversaries = upcomingCelebrations.filter(item => item.occasion !== 'Birthday').length
-    const nextCelebration = upcomingCelebrations.reduce((closest, item) => {
-      if (!closest) return item
-      return new Date(item.date) < new Date(closest.date) ? item : closest
-    }, null)
-
-    return {
-      total: upcomingCelebrations.length,
-      birthdays,
-      anniversaries,
-      nextCelebration
+  // Auto-search on mount
+  useEffect(() => {
+    if (!hasSearched) {
+      setHasSearched(true)
     }
-  }, [upcomingCelebrations])
+  }, [])
+
+  const records = reportData?.data?.records || []
+  const pagination = reportData?.data?.pagination || { page: 1, pages: 1, total: 0 }
+
+  const monthOptions = [
+    { value: 'all', label: 'Birthday' },
+    { value: '1', label: 'January' },
+    { value: '2', label: 'February' },
+    { value: '3', label: 'March' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'May' },
+    { value: '6', label: 'June' },
+    { value: '7', label: 'July' },
+    { value: '8', label: 'August' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'October' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'December' }
+  ]
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+    setPage(1)
+  }
+
+  const handleSearch = () => {
+    setHasSearched(true)
+    setPage(1)
+    refetch()
+  }
+
+  const handleExportExcel = async () => {
+    try {
+      const response = await exportStaffBirthdayReport({
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        birthdayMonth: filters.birthdayMonth !== 'all' ? filters.birthdayMonth : undefined
+      })
+      const blob = new Blob([response.data], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `staff-birthday-report-${new Date().toISOString().split('T')[0]}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success('Report exported successfully')
+    } catch (error) {
+      toast.error('Failed to export report')
+      console.error('Export error:', error)
+    }
+  }
+
+  if (isLoading) return <LoadingPage />
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full w-full overflow-x-hidden">
+      {/* Breadcrumbs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <nav className="text-sm">
-          <span className="text-gray-600">Home</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Reports</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-gray-600">Staff</span>
-          <span className="text-gray-400 mx-2">/</span>
-          <span className="text-orange-600 font-medium">Staff Birthday Report</span>
-        </nav>
+        <Breadcrumbs />
       </div>
 
-      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Staff Birthday Report</h1>
-          <p className="text-gray-600 mt-1">Plan celebrations and reminders for your team in advance.</p>
-        </div>
-        <button className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg shadow-sm hover:bg-orange-600 transition-colors">
-          <Download className="w-4 h-4" />
-          Export Excel
-        </button>
-      </header>
+      {/* Page Title */}
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-gray-900">Staff Birthday Report</h1>
+      </div>
 
-      <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-          <Filter className="w-4 h-4" />
-          Filters
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700">Occasion</label>
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-[140px]">
+            <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
+            <DateInput
+              value={filters.fromDate}
+              onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+            />
+          </div>
+          <div className="flex-1 min-w-[140px]">
+            <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
+            <DateInput
+              value={filters.toDate}
+              onChange={(e) => handleFilterChange('toDate', e.target.value)}
+            />
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Birthday</label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              value={filters.occasion}
-              onChange={(event) => setFilters(prev => ({ ...prev, occasion: event.target.value }))}
+              value={filters.birthdayMonth}
+              onChange={(e) => handleFilterChange('birthdayMonth', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
             >
-              {occasionOptions.map(option => (
+              {monthOptions.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700">From</label>
-            <DateInput
-              value={filters.from}
-              onChange={(event) => setFilters(prev => ({ ...prev, from: event.target.value }))}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700">To</label>
-            <DateInput
-              value={filters.to}
-              onChange={(event) => setFilters(prev => ({ ...prev, to: event.target.value }))}
-            />
-          </div>
-          <div className="flex items-end gap-3">
-            <button className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-              Reset
-            </button>
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <button className="px-5 py-2 bg-orange-500 text-white rounded-lg shadow hover:bg-orange-600 transition-colors">
+          <button
+            onClick={handleSearch}
+            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+          >
             Go
           </button>
+          <button
+            onClick={handleExportExcel}
+            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export Excel
+          </button>
         </div>
-      </section>
+      </div>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <article className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Upcoming Celebrations</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-2">{summary.total}</p>
-          <p className="text-xs text-gray-500 mt-3">Across the selected period</p>
-        </article>
-        <article className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Birthdays</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-2">{summary.birthdays}</p>
-          <p className="text-xs text-gray-500 mt-3">Send wishes and rewards</p>
-        </article>
-        <article className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Anniversaries</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-2">{summary.anniversaries}</p>
-          <p className="text-xs text-gray-500 mt-3">Plan recognition activities</p>
-        </article>
-        <article className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Next Celebration</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-2">{summary.nextCelebration ? new Date(summary.nextCelebration.date).toLocaleDateString('en-IN', {
-            day: '2-digit', month: 'short'
-          }) : '—'}</p>
-          <p className="text-xs text-gray-500 mt-3">{summary.nextCelebration ? summary.nextCelebration.staffName : 'No events in range'}</p>
-        </article>
-      </section>
-
-      <section className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Celebration Planner</h2>
-            <p className="text-sm text-gray-500">Stay on top of birthdays, anniversaries and milestones</p>
+      {/* Results Table */}
+      {hasSearched && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          {/* Pagination Header */}
+          <div className="flex justify-between items-center mb-4">
+            <div className="text-sm text-gray-600">
+              Page {pagination.page} Of {pagination.pages}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(1)}
+                disabled={pagination.page === 1 || pagination.pages === 0}
+                className="w-8 h-8 p-0 flex items-center justify-center border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700 font-medium text-sm leading-none box-border"
+                style={{ minWidth: '32px', maxWidth: '32px' }}
+                title="First page"
+              >
+                {'<<'}
+              </button>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={pagination.page === 1 || pagination.pages === 0}
+                className="w-8 h-8 p-0 flex items-center justify-center border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700 font-medium text-sm leading-none box-border"
+                style={{ minWidth: '32px', maxWidth: '32px' }}
+                title="Previous page"
+              >
+                {'<'}
+              </button>
+              <span className="px-4 py-1 text-sm font-medium text-gray-700 whitespace-nowrap">
+                Page {pagination.page} Of {pagination.pages || 1}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
+                disabled={pagination.page === pagination.pages || pagination.pages === 0}
+                className="w-8 h-8 p-0 flex items-center justify-center border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700 font-medium text-sm leading-none box-border"
+                style={{ minWidth: '32px', maxWidth: '32px' }}
+                title="Next page"
+              >
+                {'>'}
+              </button>
+              <button
+                onClick={() => setPage(pagination.pages)}
+                disabled={pagination.page === pagination.pages || pagination.pages === 0}
+                className="w-8 h-8 p-0 flex items-center justify-center border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700 font-medium text-sm leading-none box-border"
+                style={{ minWidth: '32px', maxWidth: '32px' }}
+                title="Last page"
+              >
+                {'>>'}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <CalendarHeart className="w-4 h-4" />
-            Showing {upcomingCelebrations.length} events
-          </div>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left font-semibold text-gray-600">Staff</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-600">Staff ID</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-600">Occasion</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-600">Date</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-600">Branch</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-600">Contact</th>
-                <th className="px-6 py-3 text-left font-semibold text-gray-600">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {upcomingCelebrations.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-gray-500">
-                    No celebrations scheduled within the selected period.
-                  </td>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">S.No</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Mobile No</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Mail</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Designation</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Branch</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Birthday</th>
                 </tr>
-              ) : (
-                upcomingCelebrations.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-900">{item.staffName}</span>
-                        <span className="text-xs text-gray-500">{item.designation}</span>
-                      </div>
+              </thead>
+              <tbody>
+                {records.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                      No Results Found.
                     </td>
-                    <td className="px-6 py-4 text-gray-700">{item.staffId}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-                        {item.occasion}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700">{new Date(item.date).toLocaleDateString('en-IN', {
-                      day: '2-digit', month: 'short', year: 'numeric'
-                    })}</td>
-                    <td className="px-6 py-4 text-gray-700">{item.branch}</td>
-                    <td className="px-6 py-4 text-gray-700">{item.contact}</td>
-                    <td className="px-6 py-4 text-gray-500">{item.notes}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  records.map((record, index) => (
+                    <tr 
+                      key={record._id} 
+                      className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                      }`}
+                    >
+                      <td className="px-4 py-3 text-sm text-gray-700">{((pagination.page - 1) * 20) + index + 1}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{record.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{record.mobile}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{record.email}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{record.designation}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{record.branch}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{record.birthday}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </section>
+      )}
+
+      {!hasSearched && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-500">
+          Please select date range and click "Go" to view the report
+        </div>
+      )}
     </div>
   )
 }
-
-

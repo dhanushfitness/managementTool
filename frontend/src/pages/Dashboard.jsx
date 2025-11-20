@@ -481,11 +481,35 @@ export default function Dashboard() {
             <SummaryItem 
               title="Service expiry" 
               count={summaryData?.data?.serviceExpiry || 0}
-              onClick={() => navigate('/reports/client-management/service-expiry')}
+              onClick={() => {
+                const today = new Date().toISOString().split('T')[0];
+                navigate(`/reports/client-management/service-expiry?fromDate=${today}&toDate=${today}`);
+              }}
             />
-            <SummaryItem title="Upgrades" count={summaryData?.data?.upgrades || 0} />
-            <SummaryItem title="Client birthdays" count={summaryData?.data?.clientBirthdays || 0} />
-            <SummaryItem title="Staff birthdays" count={summaryData?.data?.staffBirthdays || 0} />
+            <SummaryItem 
+              title="Upgrades" 
+              count={summaryData?.data?.upgrades || 0}
+              onClick={() => {
+                // Navigate to upgrades report if it exists, otherwise do nothing
+                navigate('/reports/client-management/upgrade');
+              }}
+            />
+            <SummaryItem 
+              title="Client birthdays" 
+              count={summaryData?.data?.clientBirthdays || 0}
+              onClick={() => {
+                const today = new Date().toISOString().split('T')[0];
+                navigate(`/reports/client-management/birthday?fromDate=${today}&toDate=${today}`);
+              }}
+            />
+            <SummaryItem 
+              title="Staff birthdays" 
+              count={summaryData?.data?.staffBirthdays || 0}
+              onClick={() => {
+                const today = new Date().toISOString().split('T')[0];
+                navigate(`/reports/staff/birthday?fromDate=${today}&toDate=${today}`);
+              }}
+            />
           </div>
         </div>
 

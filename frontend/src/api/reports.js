@@ -170,6 +170,11 @@ export const exportBirthdayReport = (params) => api.get('/reports/birthday/expor
   params,
   responseType: 'blob'
 })
+export const getStaffBirthdayReport = (params) => api.get('/reports/staff/birthday', { params })
+export const exportStaffBirthdayReport = (params) => api.get('/reports/staff/birthday/export', {
+  params,
+  responseType: 'blob'
+})
 export const getClientAttendanceReport = (params) => api.get('/reports/client-attendance', { params })
 export const exportClientAttendanceReport = (params) => api.get('/reports/client-attendance/export', {
   params,

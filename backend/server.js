@@ -120,7 +120,11 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gym_manag
     try {
       const { initializeCronJobs } = await import('./jobs/membershipExpiry.js');
       initializeCronJobs();
-      console.log('✅ Cron jobs initialized');
+      
+      const { initializeDailyCronJobs } = await import('./jobs/dailyCronJobs.js');
+      initializeDailyCronJobs();
+      
+      console.log('✅ All cron jobs initialized');
     } catch (error) {
       console.error('❌ Failed to initialize cron jobs:', error);
     }

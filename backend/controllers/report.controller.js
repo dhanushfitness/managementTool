@@ -9708,53 +9708,79 @@ export const getBirthdayReport = async (req, res) => {
       if (!member.dateOfBirth) continue;
 
       const dob = new Date(member.dateOfBirth);
-      const currentYear = new Date().getFullYear();
-      const thisYearBirthday = new Date(currentYear, dob.getMonth(), dob.getDate());
-
-      // Check if birthday falls in the date range
-      if (thisYearBirthday >= start && thisYearBirthday <= end) {
-        // Apply month filter if provided
-        if (birthdayMonth && birthdayMonth !== 'all') {
-          if (dob.getMonth() + 1 !== parseInt(birthdayMonth)) {
-            continue;
-          }
-        }
-
-        const formatDate = (date) => {
-          if (!date) return '-';
-          const d = new Date(date);
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = d.getFullYear();
-          return `${day}-${month}-${year}`;
-        };
-
-        // Get active services
-        const activeInvoices = await Invoice.find({
-          memberId: member._id,
-          organizationId: req.organizationId,
-          status: { $in: ['paid', 'partial'] },
-          'items.expiryDate': { $gte: new Date() }
-        })
-          .populate('items.serviceId', 'name')
-          .lean();
-
-        const serviceCards = activeInvoices.map(inv => {
-          return inv.items.map(item => ({
-            serviceName: item.serviceId?.name || item.description || '-',
-            expiryDate: item.expiryDate
-          }));
-        }).flat();
-
-        records.push({
-          _id: member._id.toString(),
-          name: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
-          mobile: member.phone || '-',
-          email: member.email || '-',
-          birthday: formatDate(member.dateOfBirth),
-          serviceCards
-        });
+      
+      // Validate the date
+      if (isNaN(dob.getTime())) {
+        continue;
       }
+
+      // Get month and day from the date of birth (ignore the year)
+      const birthMonth = dob.getMonth();
+      const birthDay = dob.getDate();
+
+      // Apply month filter first if provided
+      if (birthdayMonth && birthdayMonth !== 'all') {
+        if (birthMonth + 1 !== parseInt(birthdayMonth)) {
+          continue;
+        }
+      }
+
+      // Check if birthday (month/day) falls in the date range
+      // We only consider the month and day, not the year of birth
+      const startYear = start.getFullYear();
+      const endYear = end.getFullYear();
+      
+      let birthdayInRange = false;
+      
+      // Check the birthday in each year that falls within the date range
+      for (let year = startYear; year <= endYear; year++) {
+        const birthdayThisYear = new Date(year, birthMonth, birthDay);
+        // Set time to start of day for accurate comparison
+        birthdayThisYear.setHours(0, 0, 0, 0);
+        
+        // Check if this year's birthday falls within the date range
+        if (birthdayThisYear >= start && birthdayThisYear <= end) {
+          birthdayInRange = true;
+          break;
+        }
+      }
+
+      if (!birthdayInRange) continue;
+
+      const formatDate = (date) => {
+        if (!date) return '-';
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
+      // Get active services
+      const activeInvoices = await Invoice.find({
+        memberId: member._id,
+        organizationId: req.organizationId,
+        status: { $in: ['paid', 'partial'] },
+        'items.expiryDate': { $gte: new Date() }
+      })
+        .populate('items.serviceId', 'name')
+        .lean();
+
+      const serviceCards = activeInvoices.map(inv => {
+        return inv.items.map(item => ({
+          serviceName: item.serviceId?.name || item.description || '-',
+          expiryDate: item.expiryDate
+        }));
+      }).flat();
+
+      records.push({
+        _id: member._id.toString(),
+        name: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
+        mobile: member.phone || '-',
+        email: member.email || '-',
+        birthday: formatDate(member.dateOfBirth),
+        serviceCards
+      });
     }
 
     // Sort by birthday date
@@ -9807,32 +9833,60 @@ export const exportBirthdayReport = async (req, res) => {
       if (!member.dateOfBirth) continue;
 
       const dob = new Date(member.dateOfBirth);
-      const currentYear = new Date().getFullYear();
-      const thisYearBirthday = new Date(currentYear, dob.getMonth(), dob.getDate());
-
-      if (thisYearBirthday >= start && thisYearBirthday <= end) {
-        if (birthdayMonth && birthdayMonth !== 'all') {
-          if (dob.getMonth() + 1 !== parseInt(birthdayMonth)) {
-            continue;
-          }
-        }
-
-        const formatDate = (date) => {
-          if (!date) return '-';
-          const d = new Date(date);
-          const day = String(d.getDate()).padStart(2, '0');
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const year = d.getFullYear();
-          return `${day}-${month}-${year}`;
-        };
-
-        records.push({
-          name: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
-          mobile: member.phone || '-',
-          email: member.email || '-',
-          birthday: formatDate(member.dateOfBirth)
-        });
+      
+      // Validate the date
+      if (isNaN(dob.getTime())) {
+        continue;
       }
+
+      // Get month and day from the date of birth (ignore the year)
+      const birthMonth = dob.getMonth();
+      const birthDay = dob.getDate();
+
+      // Apply month filter first if provided
+      if (birthdayMonth && birthdayMonth !== 'all') {
+        if (birthMonth + 1 !== parseInt(birthdayMonth)) {
+          continue;
+        }
+      }
+
+      // Check if birthday (month/day) falls in the date range
+      // We only consider the month and day, not the year of birth
+      const startYear = start.getFullYear();
+      const endYear = end.getFullYear();
+      
+      let birthdayInRange = false;
+      
+      // Check the birthday in each year that falls within the date range
+      for (let year = startYear; year <= endYear; year++) {
+        const birthdayThisYear = new Date(year, birthMonth, birthDay);
+        // Set time to start of day for accurate comparison
+        birthdayThisYear.setHours(0, 0, 0, 0);
+        
+        // Check if this year's birthday falls within the date range
+        if (birthdayThisYear >= start && birthdayThisYear <= end) {
+          birthdayInRange = true;
+          break;
+        }
+      }
+
+      if (!birthdayInRange) continue;
+
+      const formatDate = (date) => {
+        if (!date) return '-';
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
+      records.push({
+        name: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
+        mobile: member.phone || '-',
+        email: member.email || '-',
+        birthday: formatDate(member.dateOfBirth)
+      });
     }
 
     records.sort((a, b) => {
@@ -9857,6 +9911,234 @@ export const exportBirthdayReport = async (req, res) => {
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename=birthday-report-${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csvContent);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Staff Birthday Report
+export const getStaffBirthdayReport = async (req, res) => {
+  try {
+    const {
+      fromDate,
+      toDate,
+      birthdayMonth,
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const start = fromDate ? new Date(fromDate) : new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = toDate ? new Date(toDate) : new Date();
+    end.setHours(23, 59, 59, 999);
+
+    // Get all staff users
+    const users = await User.find({
+      organizationId: req.organizationId,
+      dateOfBirth: { $exists: true, $ne: null }
+    })
+      .populate('branchId', 'name')
+      .lean();
+
+    const records = [];
+
+    for (const user of users) {
+      if (!user.dateOfBirth) continue;
+
+      const dob = new Date(user.dateOfBirth);
+      
+      // Validate the date
+      if (isNaN(dob.getTime())) {
+        continue;
+      }
+
+      // Get month and day from the date of birth (ignore the year)
+      const birthMonth = dob.getMonth();
+      const birthDay = dob.getDate();
+
+      // Apply month filter first if provided
+      if (birthdayMonth && birthdayMonth !== 'all') {
+        if (birthMonth + 1 !== parseInt(birthdayMonth)) {
+          continue;
+        }
+      }
+
+      // Check if birthday (month/day) falls in the date range
+      // We only consider the month and day, not the year of birth
+      const startYear = start.getFullYear();
+      const endYear = end.getFullYear();
+      
+      let birthdayInRange = false;
+      
+      // Check the birthday in each year that falls within the date range
+      for (let year = startYear; year <= endYear; year++) {
+        const birthdayThisYear = new Date(year, birthMonth, birthDay);
+        // Set time to start of day for accurate comparison
+        birthdayThisYear.setHours(0, 0, 0, 0);
+        
+        // Check if this year's birthday falls within the date range
+        if (birthdayThisYear >= start && birthdayThisYear <= end) {
+          birthdayInRange = true;
+          break;
+        }
+      }
+
+      if (!birthdayInRange) continue;
+
+      const formatDate = (date) => {
+        if (!date) return '-';
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
+      records.push({
+        _id: user._id.toString(),
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        mobile: user.phone || '-',
+        email: user.email || '-',
+        birthday: formatDate(user.dateOfBirth),
+        designation: user.jobDesignation || '-',
+        branch: user.branchId?.name || '-'
+      });
+    }
+
+    // Sort by birthday date
+    records.sort((a, b) => {
+      const dateA = new Date(a.birthday.split('-').reverse().join('-'));
+      const dateB = new Date(b.birthday.split('-').reverse().join('-'));
+      return dateA - dateB;
+    });
+
+    const startIndex = (parseInt(page) - 1) * parseInt(limit);
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedRecords = records.slice(startIndex, endIndex);
+
+    res.json({
+      success: true,
+      data: {
+        records: paginatedRecords,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: records.length,
+          pages: Math.ceil(records.length / parseInt(limit))
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Export Staff Birthday Report
+export const exportStaffBirthdayReport = async (req, res) => {
+  try {
+    const { fromDate, toDate, birthdayMonth } = req.query;
+
+    const start = fromDate ? new Date(fromDate) : new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = toDate ? new Date(toDate) : new Date();
+    end.setHours(23, 59, 59, 999);
+
+    const users = await User.find({
+      organizationId: req.organizationId,
+      dateOfBirth: { $exists: true, $ne: null }
+    })
+      .populate('branchId', 'name')
+      .lean();
+
+    const records = [];
+
+    for (const user of users) {
+      if (!user.dateOfBirth) continue;
+
+      const dob = new Date(user.dateOfBirth);
+      
+      // Validate the date
+      if (isNaN(dob.getTime())) {
+        continue;
+      }
+
+      // Get month and day from the date of birth (ignore the year)
+      const birthMonth = dob.getMonth();
+      const birthDay = dob.getDate();
+
+      // Apply month filter first if provided
+      if (birthdayMonth && birthdayMonth !== 'all') {
+        if (birthMonth + 1 !== parseInt(birthdayMonth)) {
+          continue;
+        }
+      }
+
+      // Check if birthday (month/day) falls in the date range
+      // We only consider the month and day, not the year of birth
+      const startYear = start.getFullYear();
+      const endYear = end.getFullYear();
+      
+      let birthdayInRange = false;
+      
+      // Check the birthday in each year that falls within the date range
+      for (let year = startYear; year <= endYear; year++) {
+        const birthdayThisYear = new Date(year, birthMonth, birthDay);
+        // Set time to start of day for accurate comparison
+        birthdayThisYear.setHours(0, 0, 0, 0);
+        
+        // Check if this year's birthday falls within the date range
+        if (birthdayThisYear >= start && birthdayThisYear <= end) {
+          birthdayInRange = true;
+          break;
+        }
+      }
+
+      if (!birthdayInRange) continue;
+
+      const formatDate = (date) => {
+        if (!date) return '-';
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
+      records.push({
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        mobile: user.phone || '-',
+        email: user.email || '-',
+        birthday: formatDate(user.dateOfBirth),
+        designation: user.jobDesignation || '-',
+        branch: user.branchId?.name || '-'
+      });
+    }
+
+    records.sort((a, b) => {
+      const dateA = new Date(a.birthday.split('-').reverse().join('-'));
+      const dateB = new Date(b.birthday.split('-').reverse().join('-'));
+      return dateA - dateB;
+    });
+
+    const headers = ['S.No', 'Name', 'Mobile No', 'Mail', 'Designation', 'Branch', 'Birthday'];
+
+    let csvContent = headers.join(',') + '\n';
+    records.forEach((record, index) => {
+      const row = [
+        index + 1,
+        `"${record.name}"`,
+        record.mobile,
+        record.email,
+        `"${record.designation}"`,
+        `"${record.branch}"`,
+        record.birthday
+      ];
+      csvContent += row.join(',') + '\n';
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=staff-birthday-report-${new Date().toISOString().split('T')[0]}.csv`);
     res.send(csvContent);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -11447,7 +11729,7 @@ export const getServiceExpiryReport = async (req, res) => {
       };
     });
 
-    // Get last invoice dates for all members
+    // Get last invoice dates and amounts for all members
     const lastInvoices = await Invoice.aggregate([
       {
         $match: {
@@ -11462,33 +11744,26 @@ export const getServiceExpiryReport = async (req, res) => {
       {
         $group: {
           _id: '$memberId',
-          lastInvoiceDate: { $first: '$createdAt' }
+          lastInvoiceDate: { $first: '$createdAt' },
+          lastInvoiceTotal: { $first: '$total' },
+          lastInvoicePending: { $first: '$pending' },
+          lastInvoiceId: { $first: '$_id' }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          lastInvoiceDate: 1,
+          lastInvoiceAmount: { $subtract: ['$lastInvoiceTotal', '$lastInvoicePending'] }
         }
       }
     ]);
     const lastInvoiceMap = {};
     lastInvoices.forEach(li => {
-      lastInvoiceMap[li._id.toString()] = li.lastInvoiceDate;
-    });
-
-    // Get invoices for members to find amounts
-    const memberInvoices = await Invoice.find({
-      organizationId: req.organizationId,
-      memberId: { $in: memberIds },
-      status: { $in: ['paid', 'partial'] }
-    })
-      .populate('items.serviceId', 'name')
-      .lean();
-    
-    const invoiceMap = {}; // Map memberId -> array of invoices
-    memberInvoices.forEach(inv => {
-      const memberIdStr = inv.memberId?._id?.toString();
-      if (memberIdStr) {
-        if (!invoiceMap[memberIdStr]) {
-          invoiceMap[memberIdStr] = [];
-        }
-        invoiceMap[memberIdStr].push(inv);
-      }
+      lastInvoiceMap[li._id.toString()] = {
+        date: li.lastInvoiceDate,
+        amount: li.lastInvoiceAmount || 0
+      };
     });
 
     // Build records
@@ -11552,27 +11827,9 @@ export const getServiceExpiryReport = async (req, res) => {
                                    member.currentPlan?.planName || 
                                    serviceName;
       
-      // Find the invoice for this member's current plan to get the amount
-      let amount = 0;
-      const memberInvoicesList = invoiceMap[member._id.toString()] || [];
-      for (const memberInvoice of memberInvoicesList) {
-        // Find the matching item in the invoice
-        const matchingItem = memberInvoice.items?.find(item => {
-          const itemServiceId = item.serviceId?._id?.toString() || item.serviceId?.toString();
-          const planServiceId = member.currentPlan?.planId?._id?.toString() || 
-                               member.currentPlan?.planId?.toString();
-          if (itemServiceId !== planServiceId) return false;
-          
-          const itemExpiry = item.expiryDate ? new Date(item.expiryDate) : null;
-          const planExpiry = member.currentPlan?.endDate ? new Date(member.currentPlan.endDate) : null;
-          return itemExpiry && planExpiry && 
-                 Math.abs(itemExpiry.getTime() - planExpiry.getTime()) < 86400000; // Within 1 day
-        });
-        if (matchingItem) {
-          amount = matchingItem.total || matchingItem.amount || 0;
-          break; // Found matching invoice, no need to continue
-        }
-      }
+      // Get amount from last invoice
+      const lastInvoiceData = lastInvoiceMap[member._id.toString()];
+      const amount = lastInvoiceData?.amount || 0;
       totalPaidAmount += amount;
 
       const formatDate = (date) => {
@@ -11591,8 +11848,8 @@ export const getServiceExpiryReport = async (req, res) => {
         : '-';
 
       // Get last invoice date
-      const lastInvoiceDate = lastInvoiceMap[member._id.toString()] 
-        ? formatDate(lastInvoiceMap[member._id.toString()]) 
+      const lastInvoiceDate = lastInvoiceData?.date 
+        ? formatDate(lastInvoiceData.date) 
         : '-';
 
       const totalSessions = member.currentPlan?.sessions?.total || 'Not Applicable';

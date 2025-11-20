@@ -325,25 +325,40 @@ export const getDashboardSummary = async (req, res) => {
       membershipStatus: 'active'
     });
 
-    // Client birthdays (this month)
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    const clientBirthdays = await Member.countDocuments({
+    // Client birthdays (today only - checking month and day, ignoring year)
+    const todayMonth = today.getMonth();
+    const todayDate = today.getDate();
+    const currentYear = today.getFullYear();
+    
+    // Get all members with birthdays
+    const allMembers = await Member.find({
       organizationId: req.organizationId,
-      dateOfBirth: {
-        $gte: startOfMonth,
-        $lte: endOfMonth
+      dateOfBirth: { $exists: true, $ne: null }
+    }).select('dateOfBirth').lean();
+    
+    let clientBirthdays = 0;
+    for (const member of allMembers) {
+      if (!member.dateOfBirth) continue;
+      const dob = new Date(member.dateOfBirth);
+      if (dob.getMonth() === todayMonth && dob.getDate() === todayDate) {
+        clientBirthdays++;
       }
-    });
+    }
 
-    // Staff birthdays (this month)
-    const staffBirthdays = await User.countDocuments({
+    // Staff birthdays (today only - checking month and day, ignoring year)
+    const allUsers = await User.find({
       organizationId: req.organizationId,
-      dateOfBirth: {
-        $gte: startOfMonth,
-        $lte: endOfMonth
+      dateOfBirth: { $exists: true, $ne: null }
+    }).select('dateOfBirth').lean();
+    
+    let staffBirthdays = 0;
+    for (const user of allUsers) {
+      if (!user.dateOfBirth) continue;
+      const dob = new Date(user.dateOfBirth);
+      if (dob.getMonth() === todayMonth && dob.getDate() === todayDate) {
+        staffBirthdays++;
       }
-    });
+    }
 
     res.json({
       success: true,

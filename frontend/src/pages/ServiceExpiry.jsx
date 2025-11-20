@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Download, RotateCcw } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getServiceExpiryReport, exportServiceExpiryReport } from '../api/reports'
@@ -12,6 +12,7 @@ import Breadcrumbs from '../components/Breadcrumbs'
 
 export default function ServiceExpiry() {
   const navigate = useNavigate()
+  const location = useLocation()
   
   const getDefaultFromDate = () => {
     const date = new Date()
@@ -25,9 +26,24 @@ export default function ServiceExpiry() {
     return date.toISOString().split('T')[0]
   }
 
+  // Get date from URL params if present (for navigation from dashboard)
+  const searchParams = new URLSearchParams(location.search)
+  const urlFromDate = searchParams.get('fromDate')
+  const urlToDate = searchParams.get('toDate')
+  
+  const getInitialFromDate = () => {
+    if (urlFromDate) return urlFromDate
+    return getDefaultFromDate()
+  }
+  
+  const getInitialToDate = () => {
+    if (urlToDate) return urlToDate
+    return getDefaultToDate()
+  }
+
   const [filters, setFilters] = useState({
-    fromDate: getDefaultFromDate(),
-    toDate: getDefaultToDate(),
+    fromDate: getInitialFromDate(),
+    toDate: getInitialToDate(),
     search: '',
     memberType: 'all',
     staffId: 'all',
@@ -37,6 +53,18 @@ export default function ServiceExpiry() {
   const [page, setPage] = useState(1)
   const [hasSearched, setHasSearched] = useState(false)
   const [selectedRows, setSelectedRows] = useState(new Set())
+  
+  // Update filters when URL params change
+  useEffect(() => {
+    if (urlFromDate || urlToDate) {
+      setFilters(prev => ({
+        ...prev,
+        fromDate: urlFromDate || prev.fromDate,
+        toDate: urlToDate || prev.toDate
+      }))
+      setHasSearched(true)
+    }
+  }, [urlFromDate, urlToDate])
 
   // Fetch services
   const { data: servicesData } = useQuery({
@@ -61,7 +89,7 @@ export default function ServiceExpiry() {
       serviceId: filters.serviceId !== 'all' ? filters.serviceId : undefined,
       page,
       limit: 50
-    }),
+    }).then(res => res.data),
     enabled: hasSearched
   })
 
@@ -130,6 +158,55 @@ export default function ServiceExpiry() {
 
   const handleRebook = (record) => {
     navigate(`/clients/${record.memberMongoId}`, { state: { action: 'renew' } })
+  }
+
+  const isServiceExpired = (expiryDateStr) => {
+    if (!expiryDateStr || expiryDateStr === '-') return true
+    
+    try {
+      // Parse DD-MM-YYYY format
+      const parts = expiryDateStr.split('-')
+      if (parts.length !== 3) {
+        console.warn('Invalid date format:', expiryDateStr)
+        return true
+      }
+      
+      const day = parseInt(parts[0], 10)
+      const month = parseInt(parts[1], 10)
+      const year = parseInt(parts[2], 10)
+      
+      if (isNaN(day) || isNaN(month) || isNaN(year)) {
+        console.warn('Invalid date values:', { day, month, year })
+        return true
+      }
+      
+      // Create dates in local timezone to avoid UTC conversion issues
+      const expiryDate = new Date(year, month - 1, day, 23, 59, 59, 999)
+      
+      // Get today's date in local timezone
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+      
+      // Service is expired if expiry date is today or before today
+      // Button should be disabled if expired (return true)
+      // Button should be enabled only if expiry date is in the future
+      const isExpired = expiryDate <= today
+      
+      // Debug logging
+      console.log('Expiry check:', {
+        expiryDateStr,
+        expiryDateLocal: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+        todayLocal: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
+        expiryTimestamp: expiryDate.getTime(),
+        todayTimestamp: today.getTime(),
+        isExpired
+      })
+      
+      return isExpired
+    } catch (error) {
+      console.error('Error parsing expiry date:', error, expiryDateStr)
+      return true // If we can't parse, assume expired for safety
+    }
   }
 
   if (isLoading && hasSearched) return <LoadingPage />
@@ -300,35 +377,43 @@ export default function ServiceExpiry() {
             <div className="text-sm text-gray-600">
               Showing {((pagination.page - 1) * 50) + 1} to {Math.min(pagination.page * 50, pagination.total)} of {pagination.total} results
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(1)}
-                disabled={pagination.page === 1}
-                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                disabled={pagination.page === 1 || pagination.pages === 0}
+                className="w-8 h-8 p-0 flex items-center justify-center border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700 font-medium text-sm leading-none box-border"
+                style={{ minWidth: '32px', maxWidth: '32px' }}
+                title="First page"
               >
                 {'<<'}
               </button>
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={pagination.page === 1}
-                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                disabled={pagination.page === 1 || pagination.pages === 0}
+                className="w-8 h-8 p-0 flex items-center justify-center border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700 font-medium text-sm leading-none box-border"
+                style={{ minWidth: '32px', maxWidth: '32px' }}
+                title="Previous page"
               >
                 {'<'}
               </button>
-              <span className="px-4 py-1 text-sm font-medium">
-                Page {pagination.page} Of {pagination.pages}
+              <span className="px-4 py-1 text-sm font-medium text-gray-700 whitespace-nowrap">
+                Page {pagination.page} Of {pagination.pages || 1}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
-                disabled={pagination.page === pagination.pages}
-                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                disabled={pagination.page === pagination.pages || pagination.pages === 0}
+                className="w-8 h-8 p-0 flex items-center justify-center border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700 font-medium text-sm leading-none box-border"
+                style={{ minWidth: '32px', maxWidth: '32px' }}
+                title="Next page"
               >
                 {'>'}
               </button>
               <button
                 onClick={() => setPage(pagination.pages)}
-                disabled={pagination.page === pagination.pages}
-                className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                disabled={pagination.page === pagination.pages || pagination.pages === 0}
+                className="w-8 h-8 p-0 flex items-center justify-center border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 text-gray-700 font-medium text-sm leading-none box-border"
+                style={{ minWidth: '32px', maxWidth: '32px' }}
+                title="Last page"
               >
                 {'>>'}
               </button>
@@ -336,7 +421,7 @@ export default function ServiceExpiry() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300">
+            <table className="min-w-full border-collapse border border-gray-300">
               <thead>
                 <tr className="bg-gray-50">
                   <th className="border border-gray-300 px-3 py-2 text-left">
@@ -347,34 +432,31 @@ export default function ServiceExpiry() {
                       className="cursor-pointer"
                     />
                   </th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">S.No</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Member ID</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Member Name</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Mobile</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Email</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Status</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Sales Rep</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">General Trainer</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Service Name</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Service Variation Name</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Amount</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Service Duration</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Expiry Date</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Last Invoice Date</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Total Sessions</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Utilized</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Balance</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Last Contacted Date</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Last Check-In Date</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Last Status</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Last Call Status</th>
-                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold">Renewal</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">S.No</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Member ID</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Member Name</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Mobile</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Email</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Status</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Sales Rep</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">General Trainer</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Service Name</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Service Variation</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Amount</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Service Duration</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Expiry Date</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Last Invoice Date</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Last Contacted</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Last Check-In</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Last Status</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Call Status</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left text-sm font-semibold whitespace-nowrap">Renewal</th>
                 </tr>
               </thead>
               <tbody>
                 {records.length === 0 ? (
                   <tr>
-                    <td colSpan="23" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
+                    <td colSpan="20" className="border border-gray-300 px-4 py-8 text-center text-gray-500">
                       No Results Found.
                     </td>
                   </tr>
@@ -392,41 +474,60 @@ export default function ServiceExpiry() {
                           className="cursor-pointer"
                         />
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{((pagination.page - 1) * 50) + index + 1}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.memberId}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{((pagination.page - 1) * 50) + index + 1}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.memberId}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">
                         <button
                           onClick={() => navigate(`/clients/${record.memberMongoId}`)}
                           className="text-orange-600 hover:underline"
+                          title={record.memberName}
                         >
                           {record.memberName}
                         </button>
                       </td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.mobile}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.email}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.status}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.salesRep}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.generalTrainer}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.serviceName}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.serviceVariationName}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.amount}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.serviceDuration}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.expiryDate}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.lastInvoiceDate}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.totalSessions}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.utilized}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.balance}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.lastContactedDate}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.lastCheckInDate}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.lastStatus}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">{record.lastCallStatus}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm">
-                        <button
-                          onClick={() => handleRebook(record)}
-                          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs font-medium"
-                        >
-                          Rebook
-                        </button>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.mobile}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap" title={record.email}>{record.email}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.status}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap" title={record.salesRep}>{record.salesRep}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap" title={record.generalTrainer}>{record.generalTrainer}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap" title={record.serviceName}>{record.serviceName}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap" title={record.serviceVariationName}>{record.serviceVariationName}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.amount}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.serviceDuration}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.expiryDate}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.lastInvoiceDate}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.lastContactedDate}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.lastCheckInDate}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.lastStatus}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">{record.lastCallStatus}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-sm whitespace-nowrap">
+                        {(() => {
+                          const expired = isServiceExpired(record.expiryDate)
+                          // Inverted logic: button enabled when expired, disabled when not expired
+                          const isButtonEnabled = expired
+                          console.log(`Button state for ${record.memberName} (${record.expiryDate}): expired=${expired}, buttonEnabled=${isButtonEnabled}`)
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                if (isButtonEnabled) {
+                                  handleRebook(record)
+                                } else {
+                                  console.log('Button clicked but service has not expired yet')
+                                }
+                              }}
+                              disabled={!isButtonEnabled}
+                              className={`px-3 py-1 rounded transition-colors text-xs font-medium whitespace-nowrap ${
+                                isButtonEnabled
+                                  ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
+                                  : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-50'
+                              }`}
+                              title={isButtonEnabled ? 'Click to rebook service' : 'Service has not expired yet. Cannot rebook.'}
+                            >
+                              Rebook
+                            </button>
+                          )
+                        })()}
                       </td>
                     </tr>
                   ))

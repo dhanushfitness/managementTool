@@ -77,6 +77,8 @@ import {
   exportServiceTransferReport,
   getBirthdayReport,
   exportBirthdayReport,
+  getStaffBirthdayReport,
+  exportStaffBirthdayReport,
   getClientAttendanceReport,
   exportClientAttendanceReport,
   getMembershipRetentionReport,
@@ -208,6 +210,8 @@ router.get('/service-transfer', authorize('owner', 'manager', 'staff'), getServi
 router.get('/service-transfer/export', authorize('owner', 'manager', 'staff'), exportServiceTransferReport);
 router.get('/birthday', authorize('owner', 'manager', 'staff'), getBirthdayReport);
 router.get('/birthday/export', authorize('owner', 'manager', 'staff'), exportBirthdayReport);
+router.get('/staff/birthday', authorize('owner', 'manager', 'staff'), getStaffBirthdayReport);
+router.get('/staff/birthday/export', authorize('owner', 'manager', 'staff'), exportStaffBirthdayReport);
 router.get('/client-attendance', authorize('owner', 'manager', 'staff'), getClientAttendanceReport);
 router.get('/client-attendance/export', authorize('owner', 'manager', 'staff'), exportClientAttendanceReport);
 router.get('/membership-retention', authorize('owner', 'manager', 'staff'), getMembershipRetentionReport);
