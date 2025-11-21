@@ -3,6 +3,7 @@ import Member from '../models/Member.js';
 import Invoice from '../models/Invoice.js';
 import AuditLog from '../models/AuditLog.js';
 import Appointment from '../models/Appointment.js';
+import { handleError } from '../utils/errorHandler.js';
 
 // Normalize phone number for comparison (remove spaces, dashes, and other special characters)
 const normalizePhone = (phone) => {
@@ -41,7 +42,7 @@ export const createEnquiry = async (req, res) => {
 
     res.status(201).json({ success: true, enquiry });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -124,7 +125,7 @@ export const getEnquiries = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -146,7 +147,7 @@ export const getEnquiry = async (req, res) => {
 
     res.json({ success: true, enquiry });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -174,7 +175,7 @@ export const updateEnquiry = async (req, res) => {
 
     res.json({ success: true, enquiry });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -201,7 +202,7 @@ export const deleteEnquiry = async (req, res) => {
 
     res.json({ success: true, message: 'Enquiry deleted successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -336,7 +337,7 @@ export const convertToMember = async (req, res) => {
 
     res.json({ success: true, enquiry, member, invoice });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -358,7 +359,7 @@ export const archiveEnquiry = async (req, res) => {
 
     res.json({ success: true, enquiry });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -424,16 +425,86 @@ export const getEnquiryStats = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
 export const importEnquiries = async (req, res) => {
   try {
-    // CSV import logic would go here
-    res.json({ success: true, message: 'Import functionality to be implemented' });
+    // Validate that a file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please upload a CSV file' 
+      });
+    }
+
+    const fs = await import('fs');
+    const csv = await import('csv-parser');
+    const { default: csvParser } = csv;
+    
+    const results = [];
+    const errors = [];
+    let lineNumber = 1;
+
+    // Read and parse CSV file
+    const stream = fs.default.createReadStream(req.file.path)
+      .pipe(csvParser());
+
+    for await (const row of stream) {
+      lineNumber++;
+      
+      try {
+        // Validate required fields
+        if (!row.name || !row.phone) {
+          errors.push({ line: lineNumber, error: 'Missing required fields: name and phone' });
+          continue;
+        }
+
+        // Generate enquiry ID
+        const enquiryCount = await Enquiry.countDocuments({ organizationId: req.organizationId });
+        const enquiryId = `ENQ${String(enquiryCount + 1 + results.length).padStart(6, '0')}`;
+
+        // Create enquiry object
+        const enquiryData = {
+          organizationId: req.organizationId,
+          branchId: req.branchId || row.branchId,
+          enquiryId,
+          name: row.name,
+          phone: row.phone,
+          email: row.email || undefined,
+          leadSource: row.leadSource || 'other',
+          enquiryStage: row.enquiryStage || 'opened',
+          gender: row.gender || undefined,
+          fitnessGoal: row.fitnessGoal || undefined,
+          callTag: row.callTag || undefined,
+          notes: row.notes || undefined,
+          createdBy: req.user._id
+        };
+
+        // Create enquiry
+        const enquiry = await Enquiry.create(enquiryData);
+        results.push(enquiry);
+      } catch (error) {
+        errors.push({ 
+          line: lineNumber, 
+          error: error.message,
+          row: row.name || row.phone 
+        });
+      }
+    }
+
+    // Clean up uploaded file
+    fs.default.unlinkSync(req.file.path);
+
+    res.json({ 
+      success: true, 
+      message: `Imported ${results.length} enquiries`,
+      imported: results.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -529,7 +600,7 @@ export const exportEnquiries = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=enquiries-${Date.now()}.csv`);
     res.send(csvContent);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -553,7 +624,7 @@ export const bulkArchive = async (req, res) => {
 
     res.json({ success: true, message: 'Enquiries archived successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -573,7 +644,7 @@ export const bulkChangeStaff = async (req, res) => {
 
     res.json({ success: true, message: 'Staff changed successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -623,7 +694,7 @@ export const addCallLog = async (req, res) => {
       callLog: populatedCallLogs.callLogs[populatedCallLogs.callLogs.length - 1]
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -641,7 +712,7 @@ export const getEnquiryAppointments = async (req, res) => {
 
     res.json({ success: true, appointments });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -661,7 +732,7 @@ export const createEnquiryAppointment = async (req, res) => {
 
     res.status(201).json({ success: true, appointment });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 

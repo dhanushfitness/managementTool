@@ -538,27 +538,26 @@ export default function Enquiries() {
                       className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
                     />
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">S.No</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Enquiry ID</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Date</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Service</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Lead Source</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Enquiry Stage</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Call Status</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Call Tag</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Call log</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Convert to member</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Other Appointment</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Staff</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Fitness Log</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Action</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">S.No</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Enquiry ID</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Date</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Name</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Service</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Lead Source</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Enquiry Stage</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Last Call Status</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Call Tag</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Call Log</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Convert To Member</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Staff</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Fitness Log</th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {enquiries.length === 0 ? (
                   <tr>
-                    <td colSpan={16} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={15} className="px-4 py-8 text-center text-gray-500">
                       No enquiries found
                     </td>
                   </tr>
@@ -580,20 +579,20 @@ export default function Enquiries() {
                             className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
                           />
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-900">{serialNumber}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900">{enquiry.enquiryId}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900">
+                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">{serialNumber}</td>
+                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">{enquiry.enquiryId}</td>
+                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">
                           {new Date(enquiry.date).toLocaleDateString('en-GB')}
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-900 font-medium">
+                        <td className="py-3 px-4 text-sm text-gray-900 font-medium whitespace-nowrap">
                           {enquiry.name}
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-900">{enquiry.serviceName || 'N/A'}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900 capitalize">
+                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">{enquiry.serviceName || 'N/A'}</td>
+                        <td className="py-3 px-4 text-sm text-gray-900 capitalize whitespace-nowrap">
                           {enquiry.leadSource?.replace('-', ' ') || 'N/A'}
                         </td>
-                        <td className="py-3 px-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                             enquiry.enquiryStage === 'converted' ? 'bg-green-100 text-green-800' :
                             enquiry.enquiryStage === 'lost' || enquiry.enquiryStage === 'archived' ? 'bg-red-100 text-red-800' :
                             enquiry.enquiryStage === 'opened' || enquiry.enquiryStage === 'enquiry' ? 'bg-blue-100 text-blue-800' :
@@ -606,10 +605,10 @@ export default function Enquiries() {
                             ).join(' ')}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-900 capitalize">
+                        <td className="py-3 px-4 text-sm text-gray-900 capitalize whitespace-nowrap">
                           {enquiry.lastCallStatus?.replace('-', ' ') || 'N/A'}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           {enquiry.callTag && (
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                               enquiry.callTag === 'hot' ? 'bg-red-100 text-red-800' :
@@ -620,7 +619,7 @@ export default function Enquiries() {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           <div className="flex items-center space-x-1.5">
                             <button
                               onClick={() => navigate(`/enquiries/${enquiry._id}/update-call`, { state: { from: location.pathname + location.search } })}
@@ -636,7 +635,7 @@ export default function Enquiries() {
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           {!enquiry.convertedToMember ? (
                             <button
                               onClick={() => {
@@ -646,30 +645,21 @@ export default function Enquiries() {
                                   planId: planId || undefined 
                                 })
                               }}
-                              className="px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-medium hover:bg-orange-600 transition-colors"
+                              className="px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-medium hover:bg-orange-600 transition-colors whitespace-nowrap"
                             >
                               Invoice
                             </button>
                           ) : (
-                            <span className="text-xs text-gray-500">Converted</span>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Converted</span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => setShowAppointmentModal(enquiry._id)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Add appointment"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900">
+                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">
                           {enquiry.assignedStaff ? 
                             `${enquiry.assignedStaff.firstName} ${enquiry.assignedStaff.lastName}` : 
                             'N/A'
                           }
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => setShowFitnessLogModal(enquiry._id)}
@@ -686,7 +676,7 @@ export default function Enquiries() {
                             </button>
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => {

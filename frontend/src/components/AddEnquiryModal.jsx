@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import DateInput from './DateInput'
+ import TimeInput from './TimeInput'
 
 export default function AddEnquiryModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('personal')
@@ -32,10 +33,10 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
     enabled: isOpen
   })
 
-  // Fetch plans/services
-  const { data: plansData } = useQuery({
-    queryKey: ['plans-list'],
-    queryFn: () => api.get('/plans').then(res => res.data),
+  // Fetch services (not plans/variations)
+  const { data: servicesData } = useQuery({
+    queryKey: ['services-list'],
+    queryFn: () => api.get('/services').then(res => res.data),
     enabled: isOpen
   })
 
@@ -303,9 +304,9 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
                     >
                       <option value="">Select</option>
-                      {plansData?.plans?.map((plan) => (
-                        <option key={plan._id} value={plan._id}>
-                          {plan.name}
+                      {servicesData?.services?.map((service) => (
+                        <option key={service._id} value={service._id}>
+                          {service.name}
                         </option>
                       ))}
                     </select>
@@ -374,12 +375,10 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Time
                       </label>
-                      <input
-                        type="time"
-                        name="followUpTime"
+                      <TimeInput
                         value={formData.followUpTime}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
+                        onChange={(e) => setFormData({ ...formData, followUpTime: e.target.value })}
+                        className="w-full px-4 py-3"
                       />
                     </div>
                   </div>

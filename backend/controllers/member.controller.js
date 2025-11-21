@@ -8,6 +8,7 @@ import Attendance from '../models/Attendance.js';
 import Organization from '../models/Organization.js';
 import AuditLog from '../models/AuditLog.js';
 import { sendWelcomeMessage } from '../utils/whatsapp.js';
+import { handleError } from '../utils/errorHandler.js';
 
 // Normalize phone number for comparison (remove spaces, dashes, and other special characters)
 const normalizePhone = (phone) => {
@@ -51,6 +52,24 @@ export const createMember = async (req, res) => {
             message: 'A member with this contact number already exists. Please use a different contact number.'
           });
         }
+      }
+    }
+
+    // Check for duplicate email
+    if (req.body.email && req.body.email.trim()) {
+      const normalizedEmail = req.body.email.toLowerCase().trim();
+      
+      const existingMember = await Member.findOne({
+        organizationId: req.organizationId,
+        email: normalizedEmail,
+        isActive: true
+      });
+
+      if (existingMember) {
+        return res.status(400).json({
+          success: false,
+          message: 'A member with this email already exists. Please use a different email address.'
+        });
       }
     }
 
@@ -101,7 +120,7 @@ export const createMember = async (req, res) => {
 
     res.status(201).json({ success: true, member });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -271,7 +290,7 @@ export const getMembers = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -297,7 +316,7 @@ export const searchMembers = async (req, res) => {
 
     res.json({ success: true, members });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -337,7 +356,7 @@ export const getMember = async (req, res) => {
       currentPlanStatus
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -396,7 +415,7 @@ export const updateMember = async (req, res) => {
 
     res.json({ success: true, member });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -560,7 +579,7 @@ export const deleteMember = async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting member:', error);
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -622,7 +641,7 @@ export const enrollMember = async (req, res) => {
     // Create invoice (will be handled by invoice controller)
     res.json({ success: true, member, message: 'Member enrolled successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -689,7 +708,7 @@ export const renewMembership = async (req, res) => {
 
     res.json({ success: true, member, message: 'Membership renewed successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -718,7 +737,7 @@ export const freezeMembership = async (req, res) => {
 
     res.json({ success: true, member, message: 'Membership frozen successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -755,7 +774,7 @@ export const unfreezeMembership = async (req, res) => {
 
     res.json({ success: true, member, message: 'Membership unfrozen successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -786,7 +805,7 @@ export const upgradeDowngradePlan = async (req, res) => {
 
     res.json({ success: true, member, message: 'Plan changed successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -817,7 +836,7 @@ export const getMemberAttendance = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -841,7 +860,7 @@ export const getMemberInvoices = async (req, res) => {
 
     res.json({ success: true, invoices });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -856,7 +875,7 @@ export const getMemberPayments = async (req, res) => {
 
     res.json({ success: true, payments });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -906,7 +925,7 @@ export const getMemberCalls = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -930,7 +949,7 @@ export const createMemberCall = async (req, res) => {
     const populated = await callLog.populate('calledBy', 'firstName lastName').populate('createdBy', 'firstName lastName');
     res.status(201).json({ success: true, call: populated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -961,7 +980,7 @@ export const updateMemberCall = async (req, res) => {
     
     res.json({ success: true, call: populated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1020,14 +1039,18 @@ export const getMemberInvoicesWithPayments = async (req, res) => {
         .filter(p => p.status === 'completed')
         .reduce((sum, p) => sum + p.amount, 0);
       
-      const tdsAmount = 0; // TODO: Calculate TDS if needed
+      // Calculate TDS (Tax Deducted at Source) if applicable
+      // TDS is typically applicable for professional services or specific payment types
+      // For gym memberships, TDS is usually not applicable
+      // However, if invoice has a TDS field, use it; otherwise it's 0
+      const tdsAmount = invoice.tds?.amount || 0;
       
       return {
         ...invoice.toObject(),
         payments: invoicePayments,
         totalPaid,
         tdsAmount,
-        writeOff: false // TODO: Add write-off field to invoice model
+        writeOff: invoice.writeOff || false
       };
     });
 
@@ -1044,17 +1067,80 @@ export const getMemberInvoicesWithPayments = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
 export const getMemberStats = async (req, res) => {
   try {
-    const query = { organizationId: req.organizationId, isActive: true };
+    const organizationId = req.organizationId;
+    const query = { organizationId, isActive: true };
     
+    // Get total members
     const total = await Member.countDocuments(query);
-    const active = await Member.countDocuments({ ...query, membershipStatus: 'active' });
-    const inactive = await Member.countDocuments({ ...query, membershipStatus: { $ne: 'active' } });
+    
+    // Calculate active members based on actual invoices (not stored membershipStatus)
+    // A member is active if they have at least one invoice that is:
+    // 1. Status is 'paid' or 'partial'
+    // 2. If invoice has expiryDate, it should be >= today
+    // 3. If invoice has no expiryDate, it's considered active if paid/partial
+    
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    // Find all invoices with active memberships
+    const activeInvoices = await Invoice.aggregate([
+      {
+        $match: {
+          organizationId,
+          status: { $in: ['paid', 'partial'] },
+          'items.0': { $exists: true } // Has at least one item
+        }
+      },
+      {
+        $project: {
+          memberId: 1,
+          status: 1,
+          itemExpiryDate: { $arrayElemAt: ['$items.expiryDate', 0] }
+        }
+      },
+      {
+        $match: {
+          $or: [
+            // Has expiry date and it's in the future or today
+            {
+              itemExpiryDate: { $exists: true, $ne: null, $gte: now }
+            },
+            // No expiry date or null (session-based memberships) - consider active if paid/partial
+            {
+              $or: [
+                { itemExpiryDate: { $exists: false } },
+                { itemExpiryDate: null }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: '$memberId'
+        }
+      }
+    ]);
+    
+    // Get unique member IDs with active memberships
+    const activeMemberIds = activeInvoices.map(inv => inv._id);
+    
+    // Count active members
+    const active = activeMemberIds.length > 0 
+      ? await Member.countDocuments({ 
+          ...query, 
+          _id: { $in: activeMemberIds } 
+        })
+      : 0;
+    
+    // Inactive = total - active
+    const inactive = total - active;
 
     res.json({
       success: true,
@@ -1065,7 +1151,7 @@ export const getMemberStats = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1075,7 +1161,7 @@ export const importMembers = async (req, res) => {
     // For now, return success
     res.json({ success: true, message: 'Import functionality to be implemented' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1099,7 +1185,7 @@ export const getMemberReferrals = async (req, res) => {
       referrals
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1136,7 +1222,7 @@ export const createMemberReferral = async (req, res) => {
     
     res.status(201).json({ success: true, referral: populated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 

@@ -247,25 +247,12 @@ export const getTaskboard = async (req, res) => {
       const enquiryQuery = {
         organizationId: req.organizationId,
         isArchived: false,
-        $or: [
-          {
-            followUpDate: {
-              $gte: dateRange.start,
-              $lte: dateRange.end
-            }
-          },
-          {
-            $and: [
-              { $or: [{ followUpDate: null }, { followUpDate: { $exists: false } }] },
-              {
-                date: {
-                  $gte: dateRange.start,
-                  $lte: dateRange.end
-                }
-              }
-            ]
-          }
-        ]
+        followUpDate: {
+          $exists: true,
+          $ne: null,
+          $gte: dateRange.start,
+          $lte: dateRange.end
+        }
       };
 
       if (staffId && staffId !== 'all') {
@@ -295,7 +282,7 @@ export const getTaskboard = async (req, res) => {
       });
 
       const enquiryFollowUps = filteredEnquiries.map((enquiry) => {
-        const effectiveDate = parseDateValue(enquiry.followUpDate || enquiry.date);
+        const effectiveDate = parseDateValue(enquiry.followUpDate);
         const timeStr = effectiveDate
           ? effectiveDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
           : 'N/A';
@@ -313,8 +300,8 @@ export const getTaskboard = async (req, res) => {
           memberMobile: enquiry.phone || 'N/A',
           callStatus: getCallStatusFromEnquiry(enquiry.lastCallStatus),
           staffName: staffName || 'Unassigned',
-          scheduledTime: null,
-          dueDate: enquiry.date,
+          scheduledTime: enquiry.followUpDate || null,
+          dueDate: enquiry.followUpDate || enquiry.date,
           effectiveScheduledTime: effectiveDate ? effectiveDate.toISOString() : null,
           dateLabel,
           timeLabel: timeStr,
@@ -382,25 +369,12 @@ export const getTaskboardStats = async (req, res) => {
       const enquiryQuery = {
         organizationId: req.organizationId,
         isArchived: false,
-        $or: [
-          {
-            followUpDate: {
-              $gte: dateRange.start,
-              $lte: dateRange.end
-            }
-          },
-          {
-            $and: [
-              { $or: [{ followUpDate: null }, { followUpDate: { $exists: false } }] },
-              {
-                date: {
-                  $gte: dateRange.start,
-                  $lte: dateRange.end
-                }
-              }
-            ]
-          }
-        ]
+        followUpDate: {
+          $exists: true,
+          $ne: null,
+          $gte: dateRange.start,
+          $lte: dateRange.end
+        }
       };
 
       if (staffId && staffId !== 'all') {

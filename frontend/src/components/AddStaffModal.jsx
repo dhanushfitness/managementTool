@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Calendar, Upload, User, Eye, EyeOff } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import DateInput from './DateInput'
+import LoadingSpinner from './LoadingSpinner'
 
 export default function AddStaffModal({ isOpen, onClose }) {
   const [showPassword, setShowPassword] = useState(false)
@@ -16,7 +18,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
     gender: '',
     dateOfBirth: '',
     anniversary: '',
-    vaccinated: '',
     loginAccess: true,
     password: '',
     resume: null,
@@ -29,10 +30,8 @@ export default function AddStaffModal({ isOpen, onClose }) {
     adminRights: '',
     dateOfJoining: '',
     panCard: '',
-    gstNumber: '',
     accountNumber: '',
     ifsc: '',
-    hrmsId: '',
     profilePicture: null
   })
 
@@ -55,7 +54,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
         gender: '',
         dateOfBirth: '',
         anniversary: '',
-        vaccinated: '',
         loginAccess: true,
         password: '',
         resume: null,
@@ -68,10 +66,8 @@ export default function AddStaffModal({ isOpen, onClose }) {
         adminRights: '',
         dateOfJoining: '',
         panCard: '',
-        gstNumber: '',
         accountNumber: '',
         ifsc: '',
-        hrmsId: '',
         profilePicture: null
       })
     },
@@ -89,6 +85,12 @@ export default function AddStaffModal({ isOpen, onClose }) {
       return
     }
     
+    // Validate password length
+    if (formData.loginAccess && formData.password && formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters long')
+      return
+    }
+    
     const staffData = {
       firstName: formData.firstName.split(' ')[0] || formData.firstName,
       lastName: formData.firstName.split(' ').slice(1).join(' ') || formData.lastName || '',
@@ -99,7 +101,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
       gender: formData.gender,
       dateOfBirth: formData.dateOfBirth || undefined,
       anniversary: formData.anniversary || undefined,
-      vaccinated: formData.vaccinated || undefined,
       loginAccess: formData.loginAccess,
       employeeType: formData.employeeType || undefined,
       category: formData.category || undefined,
@@ -110,12 +111,10 @@ export default function AddStaffModal({ isOpen, onClose }) {
       adminRights: formData.adminRights || undefined,
       dateOfJoining: formData.dateOfJoining || undefined,
       panCard: formData.panCard || undefined,
-      gstNumber: formData.gstNumber || undefined,
       bankAccount: formData.accountNumber || formData.ifsc ? {
         accountNumber: formData.accountNumber,
         ifsc: formData.ifsc
       } : undefined,
-      hrmsId: formData.hrmsId || undefined,
       profilePicture: formData.profilePicture || undefined,
       resume: formData.resume ? {
         name: formData.resume.name,
@@ -166,20 +165,83 @@ export default function AddStaffModal({ isOpen, onClose }) {
     }
   }
 
-  return (
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Save the current overflow style
+      const originalStyle = window.getComputedStyle(document.body).overflow
+      // Disable body scroll
+      document.body.style.overflow = 'hidden'
+      // Cleanup: restore original overflow when modal closes
+      return () => {
+        document.body.style.overflow = originalStyle
+      }
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  const modalContent = (
     <>
-      {/* Backdrop */}
+      {/* Full-page loading overlay */}
+      {createStaffMutation.isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-[10000] flex items-center justify-center">
+          <div className="flex flex-col items-center p-6 bg-white rounded-lg shadow-xl">
+            <LoadingSpinner size="lg" className="text-orange-500" />
+            <p className="mt-4 text-lg font-semibold text-gray-800">Creating staff member...</p>
+          </div>
+        </div>
+      )}
+      
       <div 
-        className={`fixed inset-0 bg-black z-40 transition-opacity duration-300 ${
-          isOpen ? 'bg-opacity-50 opacity-100' : 'bg-opacity-0 opacity-0 pointer-events-none'
-        }`}
+        className="fixed inset-0 z-[9999] pointer-events-none" 
+        style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0,
+          overflow: 'hidden'
+        }}
+      >
+        {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300 pointer-events-auto"
         onClick={onClose}
+        style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0,
+          overflow: 'hidden'
+        }}
       />
       
       {/* Slide-in Form */}
-      <div className={`fixed right-0 top-0 h-full w-3/4 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      } overflow-y-auto ${!isOpen ? 'pointer-events-none' : ''}`}>
+      <div 
+        className={`fixed right-0 top-0 h-full w-3/4 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out pointer-events-auto ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        style={{ 
+          position: 'fixed', 
+          top: 0, 
+          right: 0, 
+          height: '100vh', 
+          width: '75%',
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}
+      >
+        {/* Loading Overlay */}
+        {createStaffMutation.isLoading && (
+          <div className="absolute inset-0 bg-white bg-opacity-90 z-50 flex items-center justify-center">
+            <div className="flex flex-col items-center space-y-4">
+              <LoadingSpinner size="lg" />
+              <p className="text-gray-600 font-semibold">Creating staff member...</p>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 px-8 py-5 flex items-center justify-between z-10 shadow-sm">
           <div>
@@ -318,36 +380,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Vaccinated
-                </label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="vaccinated"
-                      value="yes"
-                      checked={formData.vaccinated === 'yes'}
-                      onChange={handleChange}
-                      className="w-4 h-4 text-orange-500 border-gray-300 focus:ring-orange-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900 font-medium">Yes</span>
-                  </label>
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="vaccinated"
-                      value="no"
-                      checked={formData.vaccinated === 'no'}
-                      onChange={handleChange}
-                      className="w-4 h-4 text-orange-500 border-gray-300 focus:ring-orange-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700 group-hover:text-gray-900 font-medium">No</span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Login Access
                 </label>
                 <div className="flex items-center">
@@ -384,6 +416,8 @@ export default function AddStaffModal({ isOpen, onClose }) {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
+                      minLength={6}
+                      placeholder="Minimum 6 characters"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white pr-10"
                     />
                     <button
@@ -601,19 +635,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  GST number
-                </label>
-                <input
-                  type="text"
-                  name="gstNumber"
-                  value={formData.gstNumber}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Account No
                 </label>
                 <input
@@ -633,19 +654,6 @@ export default function AddStaffModal({ isOpen, onClose }) {
                   type="text"
                   name="ifsc"
                   value={formData.ifsc}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  HRMS ID
-                </label>
-                <input
-                  type="text"
-                  name="hrmsId"
-                  value={formData.hrmsId}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
                 />
@@ -679,7 +687,10 @@ export default function AddStaffModal({ isOpen, onClose }) {
           </div>
         </form>
       </div>
+    </div>
     </>
   )
+
+  return createPortal(modalContent, document.body)
 }
 

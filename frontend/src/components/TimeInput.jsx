@@ -1,28 +1,25 @@
-import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import dayjs from 'dayjs'
 
-export default function DateInput({
+export default function TimeInput({
   value,
   onChange,
   className = '',
   containerClassName = '',
-  hideIcon = false,
   required,
   disabled,
-  name,
   ...props
 }) {
-  // Convert value from string (YYYY-MM-DD) to dayjs object
-  const dayjsValue = value && dayjs(value).isValid() ? dayjs(value) : null
+  // Convert value from string (HH:mm) to dayjs object
+  const dayjsValue = value && dayjs(value, 'HH:mm').isValid() ? dayjs(value, 'HH:mm') : null
 
   // Handle change event
   const handleChange = (newValue) => {
     if (onChange) {
-      // Convert dayjs object back to string format (YYYY-MM-DD) for native input compatibility
+      // Convert dayjs object back to string format (HH:mm) for native input compatibility
       const event = {
         target: {
-          name: name || '',
-          value: newValue && dayjs(newValue).isValid() ? newValue.format('YYYY-MM-DD') : '',
+          value: newValue && dayjs(newValue).isValid() ? newValue.format('HH:mm') : '',
         },
       }
       onChange(event)
@@ -31,10 +28,10 @@ export default function DateInput({
 
   return (
     <div className={containerClassName}>
-      <DatePicker
+      <TimePicker
         value={dayjsValue}
         onChange={handleChange}
-        format="YYYY-MM-DD"
+        format="HH:mm"
         disabled={disabled}
         slotProps={{
           textField: {
@@ -42,15 +39,11 @@ export default function DateInput({
             size: 'small',
             className: className,
             required: required,
-            name: name,
             ...props,
-          },
-          popper: {
-            style: { zIndex: 10004 },
-            placement: 'bottom-start',
           },
         }}
       />
     </div>
   )
 }
+

@@ -2,10 +2,28 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 
-// Use environment variable if set, otherwise use full URL with /api prefix
-// In development, you can set VITE_API_BASE_URL=/api to use the Vite proxy
+// Use environment variable if set, otherwise use Vite proxy in development
+// In development mode, use '/api' to leverage Vite proxy to localhost:5000
+// In production, use the full API URL
+const isDevelopment = import.meta.env.DEV || import.meta.env.MODE === 'development'
+
+// For local development, always use the proxy unless explicitly overridden
+// .env.local takes precedence over .env, so create .env.local with VITE_API_BASE_URL=/api for local dev
+const getBaseURL = () => {
+  // If VITE_API_BASE_URL is explicitly set, use it
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL
+  }
+  // In development, default to using the Vite proxy
+  if (isDevelopment) {
+    return '/api'
+  }
+  // Fallback for production
+  return 'http://localhost:5000/api'
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://api.airfitluxury.in/api'
+  baseURL: getBaseURL()
 })
 
 api.interceptors.request.use(

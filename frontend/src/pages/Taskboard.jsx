@@ -276,33 +276,89 @@ export default function Taskboard() {
 
     const groupsMap = followUps.reduce((acc, followUp) => {
       let timeValue = null;
+      let dateForGrouping = null;
 
+      // Prefer dateLabel from backend if available (it's already formatted correctly)
+      if (followUp.dateLabel) {
+        // Use the dateLabel directly as the grouping key
+        const key = followUp.dateLabel;
+        
+        // Still calculate timeValue for sorting
+        if (followUp.effectiveScheduledTime) {
+          const date = new Date(followUp.effectiveScheduledTime);
+          timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+        } else if (followUp.scheduledTime) {
+          const date = new Date(followUp.scheduledTime);
+          timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+        } else if (followUp.dueDate) {
+          const date = new Date(followUp.dueDate);
+          timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+        }
+
+        if (!acc[key]) {
+          acc[key] = {
+            key,
+            sortValue: timeValue ?? Number.MAX_SAFE_INTEGER,
+            label: key,
+            items: []
+          };
+        }
+
+        acc[key].items.push({
+          ...followUp,
+          effectiveScheduledTime: timeValue
+        });
+
+        return acc;
+      }
+
+      // Fallback: calculate date from effectiveScheduledTime or other date fields
       if (followUp.effectiveScheduledTime) {
         const date = new Date(followUp.effectiveScheduledTime);
         timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+        if (timeValue !== null) {
+          // Extract date components in local timezone to avoid timezone shift issues
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          const day = date.getDate();
+          dateForGrouping = new Date(year, month, day, 0, 0, 0, 0);
+        }
       } else if (followUp.scheduledTime) {
         const date = new Date(followUp.scheduledTime);
         timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+        if (timeValue !== null) {
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          const day = date.getDate();
+          dateForGrouping = new Date(year, month, day, 0, 0, 0, 0);
+        }
       } else if (followUp.dueDate) {
         const date = new Date(followUp.dueDate);
         timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
+        if (timeValue !== null) {
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          const day = date.getDate();
+          dateForGrouping = new Date(year, month, day, 0, 0, 0, 0);
+        }
       }
 
+      // Format date using local date components to ensure correct grouping
       const formattedScheduledDate =
-        timeValue !== null
-          ? new Date(timeValue).toLocaleDateString('en-GB', {
+        dateForGrouping !== null
+          ? dateForGrouping.toLocaleDateString('en-GB', {
               day: '2-digit',
               month: '2-digit',
               year: 'numeric'
             })
           : null;
 
-      const key = formattedScheduledDate || followUp.dateLabel || 'No Scheduled Date';
+      const key = formattedScheduledDate || 'No Scheduled Date';
 
       if (!acc[key]) {
         acc[key] = {
           key,
-          sortValue: timeValue ?? Number.MAX_SAFE_INTEGER,
+          sortValue: dateForGrouping ? dateForGrouping.getTime() : (timeValue ?? Number.MAX_SAFE_INTEGER),
           label: key,
           items: []
         };

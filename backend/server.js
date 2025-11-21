@@ -30,9 +30,14 @@ import centralPanelRoutes from './routes/centralPanel.routes.js';
 import followupRoutes from './routes/followup.routes.js';
 import leaderboardRoutes from './routes/leaderboard.routes.js';
 import clientManagementRoutes from './routes/clientManagement.routes.js';
+import { handleError } from './utils/errorHandler.js';
 
 // Load environment variables
 dotenv.config();
+
+// Validate environment variables
+import { validateEnv } from './utils/envValidator.js';
+validateEnv(false); // false = non-strict mode (warnings only)
 
 const app = express();
 
@@ -125,11 +130,7 @@ app.use('/api/client-management', clientManagementRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+  handleError(err, res, err.status || 500);
 });
 
 // 404 handler
@@ -147,7 +148,6 @@ const mongoOptions = {
   maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
   retryWrites: true, // Retry writes on transient errors
   retryReads: true, // Retry reads on transient errors
-  bufferMaxEntries: 0, // Disable mongoose buffering
   bufferCommands: false, // Disable mongoose buffering
 };
 

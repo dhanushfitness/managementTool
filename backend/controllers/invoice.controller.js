@@ -10,6 +10,7 @@ import MemberCallLog from '../models/MemberCallLog.js';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import { handleError } from '../utils/errorHandler.js';
 
 // Helper function to update scheduled calls when expiry date changes
 const updateScheduledCallsForExpiryDate = async (memberId, newExpiryDate, organizationId) => {
@@ -413,6 +414,20 @@ export const createInvoice = async (req, res) => {
         return res.status(404).json({ success: false, message: 'Member not found' });
       }
 
+      // Check for active invoices (not cancelled or refunded)
+      const activeInvoice = await Invoice.findOne({
+        memberId,
+        organizationId: req.organizationId,
+        status: { $nin: ['cancelled', 'refunded'] }
+      }).sort({ createdAt: -1 });
+
+      if (activeInvoice) {
+        return res.status(400).json({
+          success: false,
+          message: `Member already has an active invoice (${activeInvoice.invoiceNumber}) with status "${activeInvoice.status}". Only one active invoice per client is allowed. Please cancel or complete the existing invoice before creating a new one.`
+        });
+      }
+
       const hasActivePlan = member.membershipStatus === 'active' && member.currentPlan?.endDate && new Date(member.currentPlan.endDate) > new Date();
       const planSessionRemaining = member.currentPlan?.sessions?.remaining > 0;
 
@@ -597,106 +612,106 @@ export const createInvoice = async (req, res) => {
     }
 
     // Send invoice via email and SMS after creation
-    if (memberId) {
-      try {
-        const member = await Member.findById(memberId);
-        if (member) {
-          // Populate invoice for PDF generation
-          const populatedInvoice = await Invoice.findById(invoice._id)
-            .populate('memberId')
-            .populate('organizationId');
+    // if (memberId) {
+    //   try {
+    //     const member = await Member.findById(memberId);
+    //     if (member) {
+    //       // Populate invoice for PDF generation
+    //       const populatedInvoice = await Invoice.findById(invoice._id)
+    //         .populate('memberId')
+    //         .populate('organizationId');
 
-          // Generate PDF
-          const { generateInvoicePDF } = await import('../utils/pdf.js');
-          const pdfBuffer = await generateInvoicePDF(populatedInvoice);
+    //       // Generate PDF
+    //       const { generateInvoicePDF } = await import('../utils/pdf.js');
+    //       const pdfBuffer = await generateInvoicePDF(populatedInvoice);
 
-          // Send email with PDF attachment
-          const { sendInvoiceEmail } = await import('../utils/email.js');
-          const emailResults = await sendInvoiceEmail(populatedInvoice, member, organization, pdfBuffer);
+    //       // Send email with PDF attachment
+    //       const { sendInvoiceEmail } = await import('../utils/email.js');
+    //       const emailResults = await sendInvoiceEmail(populatedInvoice, member, organization, pdfBuffer);
           
-          if (emailResults.memberEmail.success) {
-            console.log('Invoice email sent to member:', member.email);
-          }
-          if (emailResults.ownerEmail.success) {
-            console.log('Invoice email sent to owner');
-          }
+    //       if (emailResults.memberEmail.success) {
+    //         console.log('Invoice email sent to member:', member.email);
+    //       }
+    //       if (emailResults.ownerEmail.success) {
+    //         console.log('Invoice email sent to owner');
+    //       }
 
-          // Send SMS notification
-          if (member.phone) {
-            const { sendSMS } = await import('../utils/sms.js');
-            const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
-            const formattedTotal = new Intl.NumberFormat('en-IN', {
-              style: 'currency',
-              currency: invoice.currency || 'INR',
-              minimumFractionDigits: 2
-            }).format(invoice.total);
+    //       // Send SMS notification
+    //       if (member.phone) {
+    //         const { sendSMS } = await import('../utils/sms.js');
+    //         const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+    //         const formattedTotal = new Intl.NumberFormat('en-IN', {
+    //           style: 'currency',
+    //           currency: invoice.currency || 'INR',
+    //           minimumFractionDigits: 2
+    //         }).format(invoice.total);
 
-            const smsMessage = `Hi ${memberName},\n\nInvoice ${invoice.invoiceNumber} has been created.\nAmount: ${formattedTotal}\n\nPlease check your email for the invoice PDF.\n\nThank you!`;
+    //         const smsMessage = `Hi ${memberName},\n\nInvoice ${invoice.invoiceNumber} has been created.\nAmount: ${formattedTotal}\n\nPlease check your email for the invoice PDF.\n\nThank you!`;
             
-            const smsResult = await sendSMS(member.phone, smsMessage, 'msg91');
-            if (smsResult.success) {
-              console.log('Invoice SMS sent to member:', member.phone);
-            }
-          }
+    //         const smsResult = await sendSMS(member.phone, smsMessage, 'msg91');
+    //         if (smsResult.success) {
+    //           console.log('Invoice SMS sent to member:', member.phone);
+    //         }
+    //       }
 
-          // Send WhatsApp notification (if configured)
-          if (member.phone) {
-            try {
-              const { sendInvoiceNotification } = await import('../utils/whatsapp.js');
-              const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+    //       // Send WhatsApp notification (if configured)
+    //       if (member.phone) {
+    //         try {
+    //           const { sendInvoiceNotification } = await import('../utils/whatsapp.js');
+    //           const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
               
-              // Create payment link if pending amount
-              let paymentLink = null;
-              if (invoice.pending > 0) {
-                try {
-                  const { createPaymentLink: createRazorpayPaymentLink } = await import('../utils/razorpay.js');
-                  const razorpayPaymentLink = await createRazorpayPaymentLink(
-                    invoice.pending,
-                    invoice.currency || 'INR',
-                    `Payment for Invoice ${invoice.invoiceNumber}`,
-                    {
-                      name: memberName,
-                      phone: member.phone,
-                      email: member.email
-                    },
-                    {
-                      invoiceId: invoice._id.toString(),
-                      organizationId: req.organizationId.toString(),
-                      invoiceNumber: invoice.invoiceNumber || ''
-                    }
-                  );
-                  paymentLink = razorpayPaymentLink.short_url || razorpayPaymentLink.url;
-                } catch (linkError) {
-                  // If payment link creation fails, use frontend URL
-                  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-                  paymentLink = `${frontendUrl}/invoices/${invoice._id}?pay=true`;
-                }
-              }
+    //           // Create payment link if pending amount
+    //           let paymentLink = null;
+    //           if (invoice.pending > 0) {
+    //             try {
+    //               const { createPaymentLink: createRazorpayPaymentLink } = await import('../utils/razorpay.js');
+    //               const razorpayPaymentLink = await createRazorpayPaymentLink(
+    //                 invoice.pending,
+    //                 invoice.currency || 'INR',
+    //                 `Payment for Invoice ${invoice.invoiceNumber}`,
+    //                 {
+    //                   name: memberName,
+    //                   phone: member.phone,
+    //                   email: member.email
+    //                 },
+    //                 {
+    //                   invoiceId: invoice._id.toString(),
+    //                   organizationId: req.organizationId.toString(),
+    //                   invoiceNumber: invoice.invoiceNumber || ''
+    //                 }
+    //               );
+    //               paymentLink = razorpayPaymentLink.short_url || razorpayPaymentLink.url;
+    //             } catch (linkError) {
+    //               // If payment link creation fails, use frontend URL
+    //               const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    //               paymentLink = `${frontendUrl}/invoices/${invoice._id}?pay=true`;
+    //             }
+    //           }
 
-              const whatsappResult = await sendInvoiceNotification(
-                member.phone,
-                memberName,
-                invoice.invoiceNumber,
-                invoice.total,
-                paymentLink
-              );
+    //           const whatsappResult = await sendInvoiceNotification(
+    //             member.phone,
+    //             memberName,
+    //             invoice.invoiceNumber,
+    //             invoice.total,
+    //             paymentLink
+    //           );
 
-              if (whatsappResult.success) {
-                console.log('Invoice WhatsApp sent to member:', member.phone);
-              } else {
-                console.log('WhatsApp notification skipped:', whatsappResult.error);
-              }
-            } catch (whatsappError) {
-              // WhatsApp is optional, don't fail invoice creation
-              console.log('WhatsApp notification skipped (not configured or failed):', whatsappError.message);
-            }
-          }
-        }
-      } catch (notificationError) {
-        console.error('Failed to send invoice notifications:', notificationError);
-        // Don't fail invoice creation if notifications fail
-      }
-    }
+    //           if (whatsappResult.success) {
+    //             console.log('Invoice WhatsApp sent to member:', member.phone);
+    //           } else {
+    //             console.log('WhatsApp notification skipped:', whatsappResult.error);
+    //           }
+    //         } catch (whatsappError) {
+    //           // WhatsApp is optional, don't fail invoice creation
+    //           console.log('WhatsApp notification skipped (not configured or failed):', whatsappError.message);
+    //         }
+    //       }
+    //     }
+    //   } catch (notificationError) {
+    //     console.error('Failed to send invoice notifications:', notificationError);
+    //     // Don't fail invoice creation if notifications fail
+    //   }
+    // }
 
     res.status(201).json({ success: true, invoice });
   } catch (error) {
@@ -708,14 +723,7 @@ export const createInvoice = async (req, res) => {
     if (error.errors) {
       console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
     }
-    res.status(500).json({ 
-      success: false, 
-      message: error.message,
-      ...(process.env.NODE_ENV === 'development' && { 
-        stack: error.stack,
-        errors: error.errors 
-      })
-    });
+    handleError(error, res, 500);
   }
 };
 
@@ -938,7 +946,7 @@ export const getInvoices = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -967,7 +975,7 @@ export const getInvoice = async (req, res) => {
 
     res.json({ success: true, invoice });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -991,7 +999,7 @@ export const updateInvoice = async (req, res) => {
 
     res.json({ success: true, invoice });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1061,7 +1069,7 @@ export const changeInvoiceItemDate = async (req, res) => {
 
     res.json({ success: true, invoice, message: 'Invoice item dates updated successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1180,7 +1188,7 @@ export const freezeInvoiceItem = async (req, res) => {
       freezeDays: calculatedFreezeDays
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1203,7 +1211,7 @@ export const deleteInvoice = async (req, res) => {
 
     res.json({ success: true, message: 'Invoice deleted successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1227,7 +1235,7 @@ export const sendInvoice = async (req, res) => {
 
     res.json({ success: true, message: 'Invoice sent successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1278,7 +1286,7 @@ export const downloadInvoicePDF = async (req, res) => {
 
     doc.end();
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1453,7 +1461,7 @@ export const getPaidInvoices = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1628,7 +1636,7 @@ export const exportPaidInvoices = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=paid-invoices-${new Date().toISOString().split('T')[0]}.csv`);
     res.send(csvContent);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -1898,7 +1906,7 @@ export const getPendingCollections = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -2078,7 +2086,7 @@ export const exportPendingCollections = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=pending-collections-${new Date().toISOString().split('T')[0]}.csv`);
     res.send(csvContent);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -2295,7 +2303,7 @@ export const getCancelledInvoices = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -2530,7 +2538,7 @@ export const exportCancelledInvoices = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=cancelled-invoices-${new Date().toISOString().split('T')[0]}.csv`);
     res.send(csvContent);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -2565,7 +2573,7 @@ export const getInvoiceStats = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -2728,7 +2736,7 @@ export const exportInvoices = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=invoices-${new Date().toISOString().split('T')[0]}.csv`);
     res.send(csvContent);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 

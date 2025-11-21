@@ -92,10 +92,10 @@ export default function Dashboard() {
     enabled: !!token
   });
 
-  // Fetch client stats
-  const { data: clientData } = useQuery({
-    queryKey: ['members', 'stats'],
-    queryFn: () => api.get('/members', { params: { page: 1, limit: 1000 } }).then(res => res.data),
+  // Fetch client stats from backend (backend calculates active/inactive based on invoices)
+  const { data: clientStatsData } = useQuery({
+    queryKey: ['member-stats'],
+    queryFn: () => api.get('/members/stats').then(res => res.data),
     enabled: !!token
   });
 
@@ -121,10 +121,10 @@ export default function Dashboard() {
   });
 
   const statsData = stats?.stats || {};
-  const clientStats = {
-    total: clientData?.pagination?.total || 0,
-    active: clientData?.members?.filter(m => m.membershipStatus === 'active').length || 0,
-    inactive: clientData?.members?.filter(m => m.membershipStatus !== 'active').length || 0
+  const clientStats = clientStatsData?.stats || {
+    total: 0,
+    active: 0,
+    inactive: 0
   };
 
   const formatCurrency = (amount) => {

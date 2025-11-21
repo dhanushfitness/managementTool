@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import {
   createEnquiry,
   getEnquiries,
@@ -20,6 +21,19 @@ import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
+// Multer configuration for CSV file upload
+const upload = multer({
+  dest: 'uploads/temp/',
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed'));
+    }
+  }
+});
+
 // All routes require authentication
 router.use(authenticate);
 
@@ -27,7 +41,7 @@ router.post('/', authorize('owner', 'manager', 'staff'), createEnquiry);
 router.get('/', getEnquiries);
 router.get('/stats', getEnquiryStats);
 router.get('/export', authorize('owner', 'manager'), exportEnquiries);
-router.post('/import', authorize('owner', 'manager'), importEnquiries);
+router.post('/import', authorize('owner', 'manager'), upload.single('file'), importEnquiries);
 router.post('/bulk/archive', authorize('owner', 'manager'), bulkArchive);
 router.post('/bulk/staff-change', authorize('owner', 'manager'), bulkChangeStaff);
 router.get('/:enquiryId', getEnquiry);

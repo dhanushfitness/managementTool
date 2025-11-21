@@ -4,6 +4,7 @@ import Member from '../models/Member.js';
 import Enquiry from '../models/Enquiry.js';
 import FollowUp from '../models/FollowUp.js';
 import User from '../models/User.js';
+import StaffTarget from '../models/StaffTarget.js';
 
 // Helper function to get date range for month/year
 const getDateRange = (month, year) => {
@@ -12,6 +13,28 @@ const getDateRange = (month, year) => {
   const endDate = new Date(year, month, 0);
   endDate.setHours(23, 59, 59, 999);
   return { start: startDate, end: endDate };
+};
+
+// Helper function to get staff targets for a specific month/year
+const getStaffTargets = async (organizationId, targetType, month, year) => {
+  const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 
+                     'july', 'august', 'september', 'october', 'november', 'december'];
+  const monthName = monthNames[month - 1];
+  
+  const targets = await StaffTarget.find({
+    organizationId,
+    targetType,
+    year
+  }).lean();
+  
+  const targetMap = new Map();
+  targets.forEach(target => {
+    const staffId = target.staffId.toString();
+    const monthlyTarget = target.monthlyTargets?.[monthName] || 0;
+    targetMap.set(staffId, monthlyTarget);
+  });
+  
+  return targetMap;
 };
 
 // 1. Service(S) & Product(M) Revenue Leaderboard
@@ -69,6 +92,9 @@ export const getRevenueLeaderboard = async (req, res) => {
       { $unwind: { path: '$staff', preserveNullAndEmptyArrays: true } }
     ]);
 
+    // Fetch revenue targets for the month
+    const targetMap = await getStaffTargets(req.organizationId, 'sales', currentMonth, currentYear);
+
     // Format response
     const formattedData = [];
     const staffMap = new Map();
@@ -81,7 +107,7 @@ export const getRevenueLeaderboard = async (req, res) => {
         staffMap.set(staffId, {
           staffId,
           staffName: item.staff ? `${item.staff.firstName || ''} ${item.staff.lastName || ''}`.trim() : 'Unknown',
-          salesTarget: 0, // TODO: Add target functionality
+          salesTarget: targetMap.get(staffId) || 0,
           typeS: { newSales: 0, renewals: 0 },
           typeM: { newSales: 0, renewals: 0 }
         });
@@ -198,8 +224,12 @@ export const getClosureCountLeaderboard = async (req, res) => {
       { $unwind: { path: '$staff', preserveNullAndEmptyArrays: true } }
     ]);
 
+    // Fetch conversion targets for the month
+    const targetMap = await getStaffTargets(req.organizationId, 'conversions', currentMonth, currentYear);
+
     const formattedData = closureData.map((item, index) => {
-      const target = 0; // TODO: Add target functionality
+      const staffId = item._id.toString();
+      const target = targetMap.get(staffId) || 0;
       const achievedPercent = target > 0 ? Math.round((item.achieved / target) * 100) : 0;
 
       return {
@@ -294,8 +324,12 @@ export const getContactsCreatedLeaderboard = async (req, res) => {
       { $unwind: { path: '$staff', preserveNullAndEmptyArrays: true } }
     ]);
 
+    // Fetch enquiry targets for the month (contacts created)
+    const targetMap = await getStaffTargets(req.organizationId, 'appointments', currentMonth, currentYear);
+
     const formattedData = contactsData.map((item, index) => {
-      const target = 0; // TODO: Add target functionality
+      const staffId = item._id.toString();
+      const target = targetMap.get(staffId) || 0;
       const achievedPercent = target > 0 ? Math.round((item.achieved / target) * 100) : 0;
 
       return {
@@ -413,8 +447,12 @@ export const getCallLeaderboard = async (req, res) => {
       { $unwind: { path: '$staff', preserveNullAndEmptyArrays: true } }
     ]);
 
+    // Fetch call targets for the month
+    const targetMap = await getStaffTargets(req.organizationId, 'calls', currentMonth, currentYear);
+
     const formattedData = callData.map((item, index) => {
-      const target = 0; // TODO: Add target functionality
+      const staffId = item._id.toString();
+      const target = targetMap.get(staffId) || 0;
       const achievedPercent = target > 0 ? Math.round((item.attempts / target) * 100) : 0;
 
       return {

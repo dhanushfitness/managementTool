@@ -102,6 +102,20 @@ const invoiceSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  writeOff: {
+    type: Boolean,
+    default: false
+  },
+  writeOffAmount: {
+    type: Number,
+    default: 0
+  },
+  writeOffReason: String,
+  writeOffDate: Date,
+  writeOffBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   discountReason: String,
   customerNotes: String,
   internalNotes: String,

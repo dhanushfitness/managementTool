@@ -4627,9 +4627,41 @@ export const getRefundReport = async (req, res) => {
           const itemTotal = item.total || (baseValue + tax);
           
           // Calculate utilised value (if service was used before cancellation)
-          const utilisedValue = 0; // TODO: Calculate based on service usage
+          let utilisedValue = 0;
+          
+          // If item has sessions and dates, calculate usage based on attendance
+          if (item.numberOfSessions && item.startDate && item.expiryDate) {
+            const totalSessions = item.numberOfSessions;
+            
+            // Count attendance records for this member during the service period
+            const Attendance = (await import('../models/Attendance.js')).default;
+            const usedSessions = await Attendance.countDocuments({
+              memberId: invoice.memberId._id || invoice.memberId,
+              organizationId: invoice.organizationId,
+              checkInTime: {
+                $gte: new Date(item.startDate),
+                $lte: new Date(item.expiryDate)
+              },
+              status: 'success'
+            });
+            
+            // Calculate proportional value based on usage
+            utilisedValue = (usedSessions / totalSessions) * itemTotal;
+          } else if (item.startDate && item.expiryDate) {
+            // For time-based services without sessions, calculate based on time used
+            const totalDays = Math.ceil((new Date(item.expiryDate) - new Date(item.startDate)) / (1000 * 60 * 60 * 24));
+            const daysUsed = Math.ceil((new Date() - new Date(item.startDate)) / (1000 * 60 * 60 * 24));
+            const daysUsedCapped = Math.min(daysUsed, totalDays);
+            utilisedValue = (daysUsedCapped / totalDays) * itemTotal;
+          }
+          
           const unutilisedValue = itemTotal - utilisedValue;
-          const deduction = 0; // TODO: Calculate cancellation fees
+          
+          // Calculate cancellation fees/deduction (typically a percentage of unutilised value)
+          // Standard practice: 10-20% cancellation fee, but organization may have custom rules
+          const cancellationFeePercent = invoice.organizationId?.cancellationFeePercent || 10;
+          const deduction = (cancellationFeePercent / 100) * unutilisedValue;
+          
           const refundAmount = invoice.status === 'refunded' ? unutilisedValue - deduction : 0;
 
           records.push({
@@ -11630,58 +11662,164 @@ export const getServiceExpiryReport = async (req, res) => {
     const start = new Date(fromDate + 'T00:00:00.000Z');
     const end = new Date(toDate + 'T23:59:59.999Z');
 
-    // Simple query: Get active members with currentPlan.endDate in the date range
-    const memberQuery = {
-      organizationId: req.organizationId,
-      membershipStatus: 'active', // Only active members
-      'currentPlan.endDate': {
-        $gte: start,
-        $lte: end
-      }
-    };
-
-    // Debug logging (can be removed later)
+    // Debug logging
     console.log('Service Expiry Query:', {
       organizationId: req.organizationId,
       fromDate,
       toDate,
       start: start.toISOString(),
-      end: end.toISOString(),
-      query: memberQuery
+      end: end.toISOString()
     });
+
+    // Step 1: Get all members first (with filters)
+    const memberQuery = {
+      organizationId: req.organizationId
+    };
+
+    // Filter by member type
+    if (memberType === 'active') {
+      memberQuery.membershipStatus = 'active';
+      memberQuery.isActive = true;
+    } else if (memberType === 'inactive') {
+      memberQuery.$or = [
+        { membershipStatus: { $ne: 'active' } },
+        { isActive: false }
+      ];
+    }
 
     // Filter by staff
     if (staffId && staffId !== 'all') {
       memberQuery.salesRep = staffId;
     }
 
-    // Get members with expiring plans in the date range
-    const membersWithExpiringPlans = await Member.find(memberQuery)
+    const allMembers = await Member.find(memberQuery)
       .populate('salesRep', 'firstName lastName')
       .populate('generalTrainer', 'firstName lastName')
-      .populate('currentPlan.planId', 'name serviceId variationId serviceName')
       .lean();
 
+    console.log('Service Expiry - Found members:', allMembers.length);
+
+    // Step 2: For each member, get their current active invoice
+    // An active invoice is the latest invoice with status in ['paid', 'partial', 'sent', 'draft']
+    const memberIds = allMembers.map(m => m._id);
+    
+    // Get the latest active invoice for each member
+    const currentActiveInvoices = await Invoice.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          memberId: { $in: memberIds },
+          status: { $in: ['paid', 'partial', 'sent', 'draft'] } // Active invoice statuses
+        }
+      },
+      {
+        $sort: { createdAt: -1 } // Get latest invoice first
+      },
+      {
+        $group: {
+          _id: '$memberId',
+          latestInvoice: { $first: '$$ROOT' } // Get the most recent invoice for each member
+        }
+      }
+    ]);
+
+    console.log('Service Expiry - Found active invoices:', currentActiveInvoices.length);
+
+    // Step 3: Filter invoices that have items with expiry dates in the date range
+    const invoicesWithExpiringItems = [];
+    const invoiceMap = {};
+
+    for (const { _id: memberId, latestInvoice } of currentActiveInvoices) {
+      // Check if any item in this invoice has expiry date in the range
+      const hasExpiringItem = latestInvoice.items?.some(item => {
+        if (!item.expiryDate) return false;
+        const itemExpiry = new Date(item.expiryDate);
+        return itemExpiry >= start && itemExpiry <= end;
+      });
+
+      if (hasExpiringItem) {
+        invoicesWithExpiringItems.push(latestInvoice);
+        invoiceMap[memberId.toString()] = latestInvoice;
+      }
+    }
+
+    console.log('Service Expiry - Found invoices with expiring items:', invoicesWithExpiringItems.length);
+
+    // Get all service IDs to populate service names
+    const serviceIds = [...new Set(
+      invoicesWithExpiringItems
+        .flatMap(inv => inv.items || [])
+        .map(item => item.serviceId)
+        .filter(Boolean)
+    )];
+    
+    const plans = await Plan.find({ _id: { $in: serviceIds } }).lean();
+    const planMap = {};
+    plans.forEach(plan => {
+      planMap[plan._id.toString()] = plan;
+    });
+
+    // Build member map
+    const memberMap = {};
+    allMembers.forEach(m => {
+      memberMap[m._id.toString()] = m;
+    });
+
+    // Step 4: Build records from current active invoice items
+    const membersWithExpiringPlans = [];
+    for (const invoice of invoicesWithExpiringItems) {
+      const memberId = invoice.memberId?.toString() || invoice.memberId;
+      const member = memberMap[memberId];
+      if (!member) continue;
+
+      // Filter by staff if specified (double check)
+      if (staffId && staffId !== 'all') {
+        const memberStaffId = member.salesRep?._id?.toString() || member.salesRep?.toString();
+        if (memberStaffId !== staffId) continue;
+      }
+
+      // Process each item in the invoice
+      for (const item of invoice.items || []) {
+        if (!item.expiryDate) continue;
+        
+        const itemExpiry = new Date(item.expiryDate);
+        if (itemExpiry < start || itemExpiry > end) continue;
+
+        // Filter by service if specified
+        if (serviceId && serviceId !== 'all') {
+          const itemServiceId = item.serviceId?.toString() || item.serviceId;
+          if (itemServiceId !== serviceId) continue;
+        }
+
+        membersWithExpiringPlans.push({
+          member,
+          invoice,
+          item,
+          expiryDate: itemExpiry
+        });
+      }
+    }
+
     // Debug logging
-    console.log('Service Expiry - Found members:', membersWithExpiringPlans.length);
+    console.log('Service Expiry - Found invoice items:', membersWithExpiringPlans.length);
     if (membersWithExpiringPlans.length > 0) {
-      console.log('Sample member:', {
-        memberId: membersWithExpiringPlans[0].memberId,
-        name: `${membersWithExpiringPlans[0].firstName} ${membersWithExpiringPlans[0].lastName}`,
-        endDate: membersWithExpiringPlans[0].currentPlan?.endDate,
-        status: membersWithExpiringPlans[0].membershipStatus
+      console.log('Sample item:', {
+        memberId: membersWithExpiringPlans[0].member?.memberId,
+        name: `${membersWithExpiringPlans[0].member?.firstName} ${membersWithExpiringPlans[0].member?.lastName}`,
+        expiryDate: membersWithExpiringPlans[0].expiryDate,
+        serviceName: membersWithExpiringPlans[0].item?.description
       });
     }
 
-    // Get member IDs for additional data
-    const memberIds = membersWithExpiringPlans.map(m => m._id);
+    // Get member IDs for additional data (use the unique member IDs from the processed items)
+    const uniqueMemberIds = [...new Set(membersWithExpiringPlans.map(m => m.member?._id).filter(Boolean))];
 
     // Get last check-in dates
     const lastCheckIns = await Attendance.aggregate([
       {
         $match: {
           organizationId: req.organizationId,
-          memberId: { $in: memberIds }
+          memberId: { $in: uniqueMemberIds }
         }
       },
       {
@@ -11705,7 +11843,7 @@ export const getServiceExpiryReport = async (req, res) => {
         $match: {
           organizationId: req.organizationId,
           'relatedTo.entityType': 'member',
-          'relatedTo.entityId': { $in: memberIds }
+          'relatedTo.entityId': { $in: uniqueMemberIds }
         }
       },
       {
@@ -11734,7 +11872,7 @@ export const getServiceExpiryReport = async (req, res) => {
       {
         $match: {
           organizationId: req.organizationId,
-          memberId: { $in: memberIds },
+          memberId: { $in: uniqueMemberIds },
           status: { $in: ['paid', 'partial'] }
         }
       },
@@ -11770,16 +11908,18 @@ export const getServiceExpiryReport = async (req, res) => {
     const records = [];
     let totalPaidAmount = 0;
 
-    // Process members with expiring current plans
-    for (const member of membersWithExpiringPlans) {
-      if (!member.currentPlan?.endDate) continue;
+    const formatDate = (date) => {
+      if (!date) return '-';
+      const d = new Date(date);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
 
-      // Filter by service
-      if (serviceId && serviceId !== 'all') {
-        const planServiceId = member.currentPlan?.planId?.serviceId?.toString() || 
-                             member.currentPlan?.planId?._id?.toString();
-        if (planServiceId !== serviceId) continue;
-      }
+    // Process invoice items with expiring services
+    for (const { member, invoice, item, expiryDate } of membersWithExpiringPlans) {
+      if (!member || !item || !expiryDate) continue;
 
       // Search filter
       if (search) {
@@ -11795,10 +11935,16 @@ export const getServiceExpiryReport = async (req, res) => {
         }
       }
 
-      const serviceName = member.currentPlan?.planId?.serviceName || 
-                         member.currentPlan?.planId?.name || 
-                         member.currentPlan?.planName || 
-                         'Service';
+      // Get service name from item or plan
+      let serviceName = item.description || 'Service';
+      
+      // Get service details from planMap if serviceId exists
+      if (item.serviceId) {
+        const plan = planMap[item.serviceId.toString()];
+        if (plan) {
+          serviceName = plan.name || plan.serviceName || serviceName;
+        }
+      }
       
       // Exclude PT services
       if (serviceName.toLowerCase().includes('pt') || 
@@ -11823,37 +11969,26 @@ export const getServiceExpiryReport = async (req, res) => {
         ? `${member.generalTrainer.firstName || ''} ${member.generalTrainer.lastName || ''}`.trim()
         : '-';
 
-      const serviceVariationName = member.currentPlan?.planId?.name || 
-                                   member.currentPlan?.planName || 
-                                   serviceName;
+      const serviceVariationName = serviceName;
       
-      // Get amount from last invoice
-      const lastInvoiceData = lastInvoiceMap[member._id.toString()];
-      const amount = lastInvoiceData?.amount || 0;
+      // Get amount from invoice item
+      const amount = item.total || item.amount || 0;
       totalPaidAmount += amount;
 
-      const formatDate = (date) => {
-        if (!date) return '-';
-        const d = new Date(date);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}-${month}-${year}`;
-      };
-
-      const startDate = member.currentPlan?.startDate ? formatDate(member.currentPlan.startDate) : '-';
-      const expiryDateStr = formatDate(member.currentPlan.endDate);
-      const serviceDuration = member.currentPlan?.startDate && member.currentPlan?.endDate 
-        ? `${formatDate(member.currentPlan.startDate)} To ${formatDate(member.currentPlan.endDate)}`
+      const startDate = item.startDate ? formatDate(item.startDate) : '-';
+      const expiryDateStr = formatDate(expiryDate);
+      const serviceDuration = item.startDate && item.expiryDate 
+        ? `${formatDate(item.startDate)} To ${formatDate(item.expiryDate)}`
         : '-';
 
       // Get last invoice date
+      const lastInvoiceData = lastInvoiceMap[member._id.toString()];
       const lastInvoiceDate = lastInvoiceData?.date 
         ? formatDate(lastInvoiceData.date) 
-        : '-';
+        : formatDate(invoice.createdAt);
 
-      const totalSessions = member.currentPlan?.sessions?.total || 'Not Applicable';
-      const utilized = member.currentPlan?.sessions?.used || 0;
+      const totalSessions = item.numberOfSessions || 'Not Applicable';
+      const utilized = 0; // This would need to be calculated from attendance
       const balance = totalSessions === 'Not Applicable' 
         ? '-' 
         : (totalSessions - utilized);
@@ -11862,7 +11997,7 @@ export const getServiceExpiryReport = async (req, res) => {
       const followUpData = followUpMap[member._id.toString()];
 
       records.push({
-        _id: `member-${member._id}-${member.currentPlan.endDate.getTime()}`,
+        _id: `invoice-${invoice._id}-item-${item._id || Math.random()}`,
         memberId,
         memberName,
         mobile,
@@ -11883,7 +12018,7 @@ export const getServiceExpiryReport = async (req, res) => {
         lastCheckInDate: checkInData ? formatDate(checkInData) : '-',
         lastStatus: followUpData?.lastStatus || '-',
         lastCallStatus: followUpData?.lastCallStatus || '-',
-        invoiceId: null,
+        invoiceId: invoice._id,
         memberMongoId: member._id
       });
     }

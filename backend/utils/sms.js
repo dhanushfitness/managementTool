@@ -83,22 +83,54 @@ const sendViaTwilio = async (to, message) => {
 
 /**
  * Send SMS via AWS SNS
+ * 
+ * IMPLEMENTATION NOTE:
+ * AWS SNS SMS requires the AWS SDK to be installed and configured.
+ * 
+ * To implement AWS SNS SMS:
+ * 1. Install AWS SDK: npm install @aws-sdk/client-sns
+ * 2. Configure AWS credentials in .env:
+ *    AWS_REGION=your-region
+ *    AWS_ACCESS_KEY_ID=your-access-key
+ *    AWS_SECRET_ACCESS_KEY=your-secret-key
+ * 3. Implement the sendViaAWS function below
+ * 
+ * Example implementation:
+ * ```javascript
+ * import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+ * 
+ * const snsClient = new SNSClient({
+ *   region: process.env.AWS_REGION,
+ *   credentials: {
+ *     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+ *     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+ *   }
+ * });
+ * 
+ * const params = {
+ *   Message: message,
+ *   PhoneNumber: to,
+ *   MessageAttributes: {
+ *     'AWS.SNS.SMS.SMSType': {
+ *       DataType: 'String',
+ *       StringValue: 'Transactional'
+ *     }
+ *   }
+ * };
+ * 
+ * const command = new PublishCommand(params);
+ * const response = await snsClient.send(command);
+ * ```
  */
 const sendViaAWS = async (to, message) => {
-  try {
-    // This would require AWS SDK
-    // For now, return a placeholder
-    console.log('AWS SNS SMS not implemented yet');
-    return {
-      success: false,
-      error: 'AWS SNS integration not implemented'
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
+  console.warn('⚠️  AWS SNS SMS is not implemented in this version.');
+  console.warn('   To use AWS SNS, implement the sendViaAWS function in backend/utils/sms.js');
+  console.warn('   See function comments for implementation guide.');
+  
+  return {
+    success: false,
+    error: 'AWS SNS SMS is not implemented. Use MSG91 or Twilio instead, or implement AWS SNS following the guide in backend/utils/sms.js'
+  };
 };
 
 /**

@@ -1258,6 +1258,10 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
 
   const displayedServices = activeServiceStatus === 'active' ? activeServices : expiredServices
 
+  // Calculate actual membership status based on active services
+  // If member has active services, status should be "Active", otherwise use member's stored status
+  const actualMembershipStatus = activeServices.length > 0 ? 'active' : (member?.membershipStatus || 'pending')
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -1297,11 +1301,11 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
               <p className="text-xs font-medium text-green-700 mb-2">Current Membership Status</p>
               <p className={`text-xl font-bold ${
-                member?.membershipStatus === 'active' ? 'text-green-700' : 
-                member?.membershipStatus === 'pending' ? 'text-red-600' : 
+                actualMembershipStatus === 'active' ? 'text-green-700' : 
+                actualMembershipStatus === 'pending' ? 'text-red-600' : 
                 'text-gray-900'
               }`}>
-                {member?.membershipStatus ? member.membershipStatus.charAt(0).toUpperCase() + member.membershipStatus.slice(1) : 'Pending'}
+                {actualMembershipStatus ? actualMembershipStatus.charAt(0).toUpperCase() + actualMembershipStatus.slice(1) : 'Pending'}
               </p>
             </div>
 

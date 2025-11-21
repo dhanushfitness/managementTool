@@ -6,6 +6,7 @@ import Enquiry from '../models/Enquiry.js';
 import Appointment from '../models/Appointment.js';
 import MemberCallLog from '../models/MemberCallLog.js';
 import FollowUp from '../models/FollowUp.js';
+import { handleError } from '../utils/errorHandler.js';
 
 const generateStaffAttendanceId = async (organizationId) => {
   const count = await User.countDocuments({
@@ -19,10 +20,10 @@ export const createStaff = async (req, res) => {
   try {
     const {
       email, password, phone, firstName, lastName, role, branchId, permissions,
-      countryCode, gender, dateOfBirth, anniversary, vaccinated, loginAccess,
+      countryCode, gender, dateOfBirth, anniversary, loginAccess,
       resume, employeeType, category, payoutType, grade, salary, jobDesignation,
-      adminRights, dateOfJoining, panCard, gstNumber,
-      bankAccount, hrmsId, profilePicture
+      adminRights, dateOfJoining, panCard,
+      bankAccount, profilePicture
     } = req.body;
 
     // Check if user exists
@@ -67,7 +68,6 @@ export const createStaff = async (req, res) => {
       gender,
       dateOfBirth: dateOfBirth || undefined,
       anniversary: anniversary || undefined,
-      vaccinated,
       loginAccess: loginAccessEnabled,
       resume: resume || undefined,
       employeeType,
@@ -80,9 +80,7 @@ export const createStaff = async (req, res) => {
       dateOfJoining: dateOfJoining || undefined,
       attendanceId: generatedAttendanceId,
       panCard,
-      gstNumber,
       bankAccount: bankAccount || undefined,
-      hrmsId,
       profilePicture: profilePicture || undefined
     };
 
@@ -101,7 +99,7 @@ export const createStaff = async (req, res) => {
 
     res.status(201).json({ success: true, staff: staffResponse });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -155,7 +153,7 @@ export const getStaff = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -174,7 +172,7 @@ export const getStaffMember = async (req, res) => {
 
     res.json({ success: true, staff });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -211,7 +209,7 @@ export const updateStaff = async (req, res) => {
 
     res.json({ success: true, staff: staffResponse });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -241,7 +239,7 @@ export const deleteStaff = async (req, res) => {
 
     res.json({ success: true, message: 'Staff member deleted successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -266,7 +264,7 @@ export const assignShift = async (req, res) => {
 
     res.json({ success: true, staff });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -283,7 +281,7 @@ export const getStaffShifts = async (req, res) => {
 
     res.json({ success: true, shifts: staff.shiftSchedule });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -292,7 +290,7 @@ export const getStaffAttendance = async (req, res) => {
     // Staff attendance tracking would go here
     res.json({ success: true, message: 'Staff attendance tracking to be implemented' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -324,7 +322,7 @@ export const updateStaffPermissions = async (req, res) => {
 
     res.json({ success: true, staff });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -345,7 +343,7 @@ export const getStaffTargets = async (req, res) => {
 
     res.json({ success: true, targets });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -386,7 +384,7 @@ export const createStaffTarget = async (req, res) => {
     const populated = await target.populate('staffId', 'firstName lastName');
     res.status(201).json({ success: true, target: populated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -507,7 +505,7 @@ export const bulkRepChange = async (req, res) => {
 
     res.json({ success: true, results });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 
@@ -529,7 +527,7 @@ export const getRepChangeCounts = async (req, res) => {
 
     res.json({ success: true, counts });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    handleError(error, res, 500);
   }
 };
 

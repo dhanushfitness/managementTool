@@ -5,6 +5,7 @@ import api from '../api/axios'
 import toast from 'react-hot-toast'
 import LoadingSpinner from './LoadingSpinner'
 import DateInput from './DateInput'
+import TimeInput from './TimeInput'
 
 const initialFormState = () => ({
   type: 'enquiry-call',
@@ -256,8 +257,7 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
                 onChange={(e) => setFormData({ ...formData, scheduleDate: e.target.value })}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
               />
-              <input
-                type="time"
+              <TimeInput
                 value={formData.scheduleTime}
                 onChange={(e) => setFormData({ ...formData, scheduleTime: e.target.value })}
                 className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
