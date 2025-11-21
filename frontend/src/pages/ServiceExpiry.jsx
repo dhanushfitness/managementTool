@@ -51,7 +51,8 @@ export default function ServiceExpiry() {
     communicate: 'all'
   })
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(false)
+  // Auto-search if URL params are present, otherwise start with false
+  const [hasSearched, setHasSearched] = useState(!!(urlFromDate || urlToDate))
   const [selectedRows, setSelectedRows] = useState(new Set())
   
   // Update filters when URL params change
