@@ -70,6 +70,23 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
+// put this after morgan
+app.use((req, res, next) => {
+  console.log('REQ', {
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    headers: {
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'user-agent': req.headers['user-agent'],
+      host: req.headers.host
+    },
+    body: req.body && Object.keys(req.body).length ? req.body : undefined
+  });
+  next();
+});
+
+
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
