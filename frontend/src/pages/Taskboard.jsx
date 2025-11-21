@@ -12,7 +12,17 @@ import {
   CreditCard as CreditCardIcon,
   Wallet,
   FileText,
-  UserPlus
+  UserPlus,
+  Calendar,
+  Users,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertCircle,
+  Target,
+  TrendingUp,
+  ArrowRight,
+  Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LoadingTable from '../components/LoadingTable';
@@ -278,12 +288,10 @@ export default function Taskboard() {
       let timeValue = null;
       let dateForGrouping = null;
 
-      // Prefer dateLabel from backend if available (it's already formatted correctly)
+      // Prefer dateLabel from backend if available
       if (followUp.dateLabel) {
-        // Use the dateLabel directly as the grouping key
         const key = followUp.dateLabel;
         
-        // Still calculate timeValue for sorting
         if (followUp.effectiveScheduledTime) {
           const date = new Date(followUp.effectiveScheduledTime);
           timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
@@ -317,7 +325,6 @@ export default function Taskboard() {
         const date = new Date(followUp.effectiveScheduledTime);
         timeValue = !Number.isNaN(date.getTime()) ? date.getTime() : null;
         if (timeValue !== null) {
-          // Extract date components in local timezone to avoid timezone shift issues
           const year = date.getFullYear();
           const month = date.getMonth();
           const day = date.getDate();
@@ -343,7 +350,6 @@ export default function Taskboard() {
         }
       }
 
-      // Format date using local date components to ensure correct grouping
       const formattedScheduledDate =
         dateForGrouping !== null
           ? dateForGrouping.toLocaleDateString('en-GB', {
@@ -383,223 +389,223 @@ export default function Taskboard() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs and Navigation */}
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <Breadcrumbs />
-        <div className="flex border-b border-gray-200 bg-white rounded-lg shadow-sm">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-1">Follow-ups Taskboard</h1>
+          <p className="text-gray-600">Manage and track all your scheduled follow-ups</p>
+        </div>
+        
+        {/* Navigation Tabs */}
+        <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden inline-flex">
           <button
             onClick={() => navigate('/')}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900 text-sm transition-colors"
+            className="px-5 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
           >
             Snapshot
           </button>
-          <button className="px-4 py-2 border-b-2 border-orange-500 text-orange-600 font-medium text-sm bg-orange-50">
+          <button className="px-5 py-3 text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-red-500">
             Follow-ups
           </button>
           <button
             onClick={() => navigate('/leaderboard')}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900 text-sm transition-colors"
+            className="px-5 py-3 text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
           >
             Leaderboards
           </button>
         </div>
       </div>
 
-      {/* Title */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900">Taskboard</h1>
-      </div>
-
       {/* Filter Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-5">
         <div className="flex flex-wrap items-center gap-4">
-          {/* Date From */}
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">Date From:</label>
-            <DateInput
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-              }}
-              className="pl-10 pr-4"
-            />
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-gray-500" />
+            <span className="text-sm font-semibold text-gray-700">Date:</span>
           </div>
+          
+          <DateInput
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="pl-10 pr-4"
+          />
+          
+          <ArrowRight className="w-4 h-4 text-gray-400" />
+          
+          <DateInput
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="pl-10 pr-4"
+          />
 
-          {/* Date To */}
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">To:</label>
-            <DateInput
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-              }}
-              className="pl-10 pr-4"
-            />
-          </div>
+          <select
+            value={selectedStaff}
+            onChange={(e) => setSelectedStaff(e.target.value)}
+            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-medium"
+          >
+            <option value="all">All Staff</option>
+            {staffData?.staff?.map((staff) => (
+              <option key={staff._id} value={staff._id}>
+                {staff.firstName} {staff.lastName}
+              </option>
+            ))}
+          </select>
 
-          {/* Staff Dropdown */}
-          <div className="flex items-center space-x-2">
-            <select
-              value={selectedStaff}
-              onChange={(e) => setSelectedStaff(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-            >
-              <option value="all">All Staffs</option>
-              {staffData?.staff?.map((staff) => (
-                <option key={staff._id} value={staff._id}>
-                  {staff.firstName} {staff.lastName}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedCallType}
+            onChange={(e) => setSelectedCallType(e.target.value)}
+            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-medium"
+          >
+            <option value="all">All Call Types</option>
+            <option value="welcome-call">Welcome Call</option>
+            <option value="assessment-call">Assessment Call</option>
+            <option value="upgrade-call">Upgrade Call</option>
+            <option value="renewal-call">Renewal Call</option>
+            <option value="follow-up-call">Follow-up Call</option>
+            <option value="enquiry-call">Enquiry Call</option>
+            <option value="other">Other</option>
+          </select>
 
-          {/* Call Type Dropdown */}
-          <div className="flex items-center space-x-2">
-            <select
-              value={selectedCallType}
-              onChange={(e) => setSelectedCallType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-            >
-              <option value="all">All Calls Types</option>
-              <option value="welcome-call">Welcome Call</option>
-              <option value="assessment-call">Assessment Call</option>
-              <option value="upgrade-call">Upgrade Call</option>
-              <option value="renewal-call">Renewal Call</option>
-              <option value="follow-up-call">Follow-up Call</option>
-              <option value="enquiry-call">Enquiry Call</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+          <select
+            value={selectedCallStatus}
+            onChange={(e) => setSelectedCallStatus(e.target.value)}
+            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-medium"
+          >
+            <option value="all">All Statuses</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="attempted">Attempted</option>
+            <option value="contacted">Contacted</option>
+            <option value="not-contacted">Not Contacted</option>
+            <option value="missed">Missed</option>
+          </select>
 
-          {/* Call Status Dropdown */}
-          <div className="flex items-center space-x-2">
-            <select
-              value={selectedCallStatus}
-              onChange={(e) => setSelectedCallStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-            >
-              <option value="all">All Calls</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="attempted">Attempted</option>
-              <option value="contacted">Contacted</option>
-              <option value="not-contacted">Not Contacted</option>
-              <option value="missed">Missed</option>
-            </select>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={handleApplyFilters}
-              className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+              className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl"
             >
-              Go
+              Apply Filters
             </button>
             <button
               onClick={handleExportExcel}
-              className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center space-x-2"
+              className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
-              <span>Export Excel</span>
+              <span>Export</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Summary/KPI Bar */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-          <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">OVERALL</p>
-          <p className="text-2xl font-bold text-black">
-            ({stats.total || 0}) {stats.total ? '100%' : '0%'}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-          <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">SCHEDULED</p>
-          <p className="text-2xl font-bold text-orange-600">
-            ({stats.scheduled?.count || 0}) {stats.scheduled?.percent || 0}%
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-          <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">ATTEMPTED</p>
-          <p className="text-2xl font-bold text-blue-600">
-            ({stats.attempted?.count || 0}) {stats.attempted?.percent || 0}%
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-          <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">CONTACTED</p>
-          <p className="text-2xl font-bold text-green-600">
-            ({stats.contacted?.count || 0}) {stats.contacted?.percent || 0}%
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-          <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">NOT CONTACTED</p>
-          <p className="text-2xl font-bold text-gray-600">
-            ({stats.notContacted?.count || 0}) {stats.notContacted?.percent || 0}%
-          </p>
-        </div>
-        <div className={`rounded-lg shadow-sm border p-4 text-center ${
-          (stats.missed?.count || 0) > 0 
-            ? 'bg-red-50 border-red-200' 
-            : 'bg-white border-gray-200'
-        }`}>
-          <p className="text-sm font-semibold text-gray-600 mb-1 uppercase">MISSED</p>
-          <p className={`text-2xl font-bold ${
-            (stats.missed?.count || 0) > 0 ? 'text-red-600' : 'text-gray-600'
-          }`}>
-            ({stats.missed?.count || 0}) {stats.missed?.percent || 0}%
-          </p>
-        </div>
+        <TaskStatCard
+          title="Overall"
+          count={stats.total || 0}
+          percent="100"
+          icon={Target}
+          gradient="from-gray-500 to-gray-600"
+        />
+        <TaskStatCard
+          title="Scheduled"
+          count={stats.scheduled?.count || 0}
+          percent={stats.scheduled?.percent || 0}
+          icon={Clock}
+          gradient="from-orange-500 to-red-500"
+        />
+        <TaskStatCard
+          title="Attempted"
+          count={stats.attempted?.count || 0}
+          percent={stats.attempted?.percent || 0}
+          icon={PhoneCallIcon}
+          gradient="from-blue-500 to-indigo-500"
+        />
+        <TaskStatCard
+          title="Contacted"
+          count={stats.contacted?.count || 0}
+          percent={stats.contacted?.percent || 0}
+          icon={CheckCircle2}
+          gradient="from-green-500 to-emerald-500"
+        />
+        <TaskStatCard
+          title="Not Contacted"
+          count={stats.notContacted?.count || 0}
+          percent={stats.notContacted?.percent || 0}
+          icon={XCircle}
+          gradient="from-gray-400 to-gray-500"
+        />
+        <TaskStatCard
+          title="Missed"
+          count={stats.missed?.count || 0}
+          percent={stats.missed?.percent || 0}
+          icon={AlertCircle}
+          gradient="from-red-500 to-pink-500"
+          alert={(stats.missed?.count || 0) > 0}
+        />
       </div>
 
       {/* Sub-navigation Tabs */}
-      <div className="flex border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('upcoming')}
-          className={`px-6 py-3 font-medium text-sm transition-colors ${
-            activeTab === 'upcoming'
-              ? 'border-b-2 border-orange-500 text-orange-600 bg-orange-50'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Upcoming
-        </button>
-        <button
-          onClick={() => setActiveTab('attempted')}
-          className={`px-6 py-3 font-medium text-sm transition-colors ${
-            activeTab === 'attempted'
-              ? 'border-b-2 border-orange-500 text-orange-600 bg-orange-50'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Attempted
-        </button>
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
+        <div className="flex border-b-2 border-gray-200">
+          <button
+            onClick={() => setActiveTab('upcoming')}
+            className={`flex-1 px-6 py-4 font-bold text-sm transition-all ${
+              activeTab === 'upcoming'
+                ? 'text-white bg-gradient-to-r from-orange-500 to-red-500'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              <span>Upcoming</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('attempted')}
+            className={`flex-1 px-6 py-4 font-bold text-sm transition-all ${
+              activeTab === 'attempted'
+                ? 'text-white bg-gradient-to-r from-orange-500 to-red-500'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Zap className="w-4 h-4" />
+              <span>Attempted</span>
+            </div>
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Follow-ups Table */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">S.No</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Time</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Call Type</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Member Name</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Member Mobile</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Call Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Staff Name</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Info</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Action</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">S.No</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Time</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Call Type</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Member Name</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Mobile</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Staff</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Info</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Action</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-100">
               {isLoading ? (
                 <LoadingTable colSpan={9} message="Loading taskboard..." />
               ) : groupedFollowUps.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
-                    No follow-ups found
+                  <td colSpan="9" className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="p-4 bg-gray-100 rounded-full">
+                        <Calendar className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-gray-500 font-medium">No follow-ups found</p>
+                      <p className="text-sm text-gray-400">Try adjusting your filters</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -608,32 +614,37 @@ export default function Taskboard() {
                     <tr>
                       <td
                         colSpan="9"
-                        className="px-4 py-2 text-sm font-semibold text-orange-600 bg-orange-50 border-b border-orange-100 uppercase tracking-wide"
+                        className="px-5 py-3 text-sm font-bold text-orange-700 bg-gradient-to-r from-orange-50 to-red-50 border-b-2 border-orange-200 uppercase tracking-wide"
                       >
-                        {group.label}
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          <span>{group.label}</span>
+                        </div>
                       </td>
                     </tr>
                     {group.items.map((followUp) => (
-                      <tr key={followUp._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-sm text-gray-900">{followUp.sNo}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{followUp.time || followUp.timeLabel}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {formatCallType(followUp.callType)}
+                      <tr key={followUp._id} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all">
+                        <td className="px-4 py-4 text-sm font-semibold text-gray-900">{followUp.sNo}</td>
+                        <td className="px-4 py-4 text-sm text-gray-700 font-medium">{followUp.time || followUp.timeLabel}</td>
+                        <td className="px-4 py-4 text-sm text-gray-700">
+                          <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold">
+                            {formatCallType(followUp.callType)}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-orange-600 uppercase">
+                        <td className="px-4 py-4 text-sm font-bold text-orange-600 uppercase">
                           {followUp.memberName}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{followUp.memberMobile}</td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-4 py-4 text-sm text-gray-700 font-mono">{followUp.memberMobile}</td>
+                        <td className="px-4 py-4 text-sm">
                           <StatusBadge status={followUp.callStatus} />
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{followUp.staffName}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <button className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800 transition-colors">
-                            <Info className="w-3 h-3" />
+                        <td className="px-4 py-4 text-sm text-gray-700">{followUp.staffName}</td>
+                        <td className="px-4 py-4 text-sm">
+                          <button className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-700 to-gray-900 text-white flex items-center justify-center hover:from-gray-800 hover:to-black transition-all shadow-sm">
+                            <Info className="w-4 h-4" />
                           </button>
                         </td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-4 py-4 text-sm">
                           <ActionDropdown
                             followUp={followUp}
                             onUpdateCall={handleUpdateCallAction}
@@ -653,7 +664,6 @@ export default function Taskboard() {
         </div>
       </div>
 
-
       {invoiceModalState.open && (
         <AddInvoiceModal
           isOpen={invoiceModalState.open}
@@ -667,36 +677,58 @@ export default function Taskboard() {
   );
 }
 
+function TaskStatCard({ title, count, percent, icon: Icon, gradient, alert }) {
+  return (
+    <div className={`group relative rounded-2xl shadow-sm border-2 p-5 transition-all overflow-hidden ${
+      alert 
+        ? 'bg-red-50 border-red-300 animate-pulse' 
+        : 'bg-white border-gray-200 hover:shadow-lg'
+    }`}>
+      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${gradient} opacity-10 rounded-full -mr-12 -mt-12 group-hover:opacity-20 transition-opacity`}></div>
+      
+      <div className="relative">
+        <div className={`p-3 bg-gradient-to-br ${gradient} rounded-xl inline-block mb-3 shadow-lg`}>
+          <Icon className="w-5 h-5 text-white" />
+        </div>
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2">{title}</p>
+        <div className="flex items-baseline gap-2">
+          <p className={`text-3xl font-black ${alert ? 'text-red-600' : 'text-gray-900'}`}>
+            {count}
+          </p>
+          <p className={`text-lg font-bold ${alert ? 'text-red-600' : 'text-gray-600'}`}>
+            ({percent}%)
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({ status }) {
   const statusConfig = {
     scheduled: {
-      bg: 'bg-orange-50',
+      bg: 'bg-orange-100',
       text: 'text-orange-700',
-      border: 'border border-orange-200',
       label: 'Scheduled'
     },
     attempted: {
-      bg: 'bg-blue-50',
+      bg: 'bg-blue-100',
       text: 'text-blue-700',
-      border: 'border border-blue-200',
       label: 'Attempted'
     },
     contacted: {
-      bg: 'bg-green-50',
+      bg: 'bg-green-100',
       text: 'text-green-700',
-      border: 'border border-green-200',
       label: 'Contacted'
     },
     'not-contacted': {
-      bg: 'bg-gray-50',
+      bg: 'bg-gray-100',
       text: 'text-gray-700',
-      border: 'border border-gray-200',
       label: 'Not Contacted'
     },
     missed: {
-      bg: 'bg-red-50',
-      text: 'text-red-600',
-      border: 'border border-red-300',
+      bg: 'bg-red-100',
+      text: 'text-red-700',
       label: 'Missed'
     }
   };
@@ -704,7 +736,7 @@ function StatusBadge({ status }) {
   const config = statusConfig[status] || statusConfig.scheduled;
 
   return (
-    <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-semibold ${config.bg} ${config.text} ${config.border}`}>
+    <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-bold ${config.bg} ${config.text}`}>
       {config.label}
     </span>
   );
@@ -786,7 +818,7 @@ function ActionDropdown({
       <button
         ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="px-4 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+        className="px-4 py-2 bg-white border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 flex items-center gap-2 transition-all"
       >
         <span>Actions</span>
         <ChevronDown className="w-4 h-4" />
@@ -799,19 +831,19 @@ function ActionDropdown({
             <div
               ref={menuRef}
               style={{ top: menuPosition.top, left: menuPosition.left }}
-              className="fixed z-[90] w-56 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden"
+              className="fixed z-[90] w-56 bg-white border-2 border-gray-200 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="py-2 space-y-1">
+              <div className="py-2">
                 {quickActions.map(({ label, icon: Icon, handler }) => (
                   <button
                     key={label}
                     onClick={() => handleActionClick(handler)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 hover:text-orange-600 transition-all"
                   >
-                    <span className="flex items-center space-x-3">
+                    <div className="p-1.5 bg-gray-100 rounded-lg group-hover:bg-orange-100">
                       <Icon className="w-4 h-4" />
-                      <span>{label}</span>
-                    </span>
+                    </div>
+                    <span>{label}</span>
                   </button>
                 ))}
               </div>
@@ -822,4 +854,3 @@ function ActionDropdown({
     </>
   );
 }
-

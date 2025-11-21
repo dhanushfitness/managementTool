@@ -38,7 +38,9 @@ import {
   TrendingUp,
   User,
   Users2,
-  Archive
+  Archive,
+  Dumbbell,
+  Building2
 } from 'lucide-react'
 import { setupSections } from '../data/setupSections'
 import { getOrganizationDetails } from '../api/organization'
@@ -105,6 +107,7 @@ export default function Layout() {
   const [reportsSearchQuery, setReportsSearchQuery] = useState('')
   const [setupSearchQuery, setSetupSearchQuery] = useState('')
   const [isLogoBroken, setIsLogoBroken] = useState(false)
+  const [logoTimestamp, setLogoTimestamp] = useState(Date.now())
   const menuRef = useRef(null)
   const checkInMenuRef = useRef(null)
   const sendMenuRef = useRef(null)
@@ -116,15 +119,28 @@ export default function Layout() {
   const { data: organizationResponse } = useQuery({
     queryKey: ['organization-details'],
     queryFn: getOrganizationDetails,
-    enabled: Boolean(user?.organizationId)
+    enabled: Boolean(user?.organizationId),
+    staleTime: 0, // Always refetch on mount to get latest logo
+    refetchOnWindowFocus: true // Refetch when window regains focus
   })
 
   const organization = organizationResponse?.organization
   const organizationLogoUrl = resolveAssetUrl(organization?.logo)
   const organizationDisplayName = organization?.name || user?.organizationName || 'Indiranagar'
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Organization Logo Debug:', {
+      rawLogoPath: organization?.logo,
+      resolvedLogoUrl: organizationLogoUrl,
+      organizationName: organizationDisplayName
+    })
+  }, [organization?.logo, organizationLogoUrl, organizationDisplayName])
+
   useEffect(() => {
     setIsLogoBroken(false)
+    // Update timestamp only when logo URL actually changes
+    setLogoTimestamp(Date.now())
   }, [organizationLogoUrl])
 
   // Reports categories data
@@ -454,34 +470,50 @@ export default function Layout() {
             )}
           </button>
 
-          <div className={`p-6 ${isSidebarCollapsed ? 'px-4' : ''}`}>
+          <div className={`p-6 ${isSidebarCollapsed ? 'px-3' : 'pb-4'} border-b border-gray-100`}>
             <div
-              className={`rounded mb-2 flex items-center justify-center ${isSidebarCollapsed ? 'h-12' : 'h-16'} ${
-                organizationLogoUrl && !isLogoBroken ? 'bg-white border border-gray-200' : 'bg-red-600 text-white'
+              className={`mb-3 flex items-center justify-center ${
+                isSidebarCollapsed ? 'h-14 w-14' : 'h-24 w-24'
+              } ${
+                organizationLogoUrl && !isLogoBroken 
+                  ? 'rounded-full bg-white border-2 border-orange-100 p-3 mx-auto shadow-md hover:shadow-lg transition-shadow' 
+                  : 'rounded-full bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white shadow-lg hover:shadow-xl transition-all mx-auto ring-4 ring-orange-100'
               }`}
             >
               {organizationLogoUrl && !isLogoBroken ? (
                 <img
-                  src={organizationLogoUrl}
+                  src={`${organizationLogoUrl}?v=${logoTimestamp}`}
                   alt={`${organizationDisplayName} logo`}
-                  className={`${isSidebarCollapsed ? 'h-10 w-10' : 'h-12'} object-contain`}
-                  onError={() => setIsLogoBroken(true)}
+                  className="h-full w-full object-contain rounded-full"
+                  onError={(e) => {
+                    console.error('Logo failed to load:', {
+                      src: e.target.src,
+                      originalPath: organization?.logo,
+                      resolvedUrl: organizationLogoUrl
+                    })
+                    setIsLogoBroken(true)
+                  }}
+                  onLoad={() => {
+                    console.log('✅ Logo loaded successfully:', organizationLogoUrl)
+                  }}
                 />
               ) : (
-                <span
-                  className={`font-bold ${isSidebarCollapsed ? 'text-lg text-center' : 'text-xl'}`}
-                >
-                  {isSidebarCollapsed
-                    ? (organizationDisplayName?.[0] || 'A').toUpperCase()
-                    : organizationDisplayName}
-                </span>
+                <div className="flex items-center justify-center w-full h-full">
+                  <User 
+                    className={`${isSidebarCollapsed ? 'w-7 h-7' : 'w-11 h-11'} text-white drop-shadow-sm`}
+                    strokeWidth={2.5}
+                  />
+                </div>
               )}
             </div>
             {!isSidebarCollapsed && (
-              <p className="text-sm text-gray-600 truncate">{organizationDisplayName}</p>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-800 truncate px-2">{organizationDisplayName}</p>
+                <div className="mt-1 w-12 h-0.5 bg-gradient-to-r from-transparent via-orange-400 to-transparent mx-auto"></div>
+              </div>
             )}
           </div>
-          <nav className={`${isSidebarCollapsed ? 'px-2' : 'px-4'} space-y-1 relative`}>
+          <nav className={`${isSidebarCollapsed ? 'px-2' : 'px-3'} py-4 space-y-1 relative`}>
             {navigation.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
@@ -489,7 +521,7 @@ export default function Layout() {
               const isReportsItem = item.name === 'Reports'
               const isSetupItem = item.name === 'Setup'
               
-              if (isClientItem && !isSidebarCollapsed) {
+              if (isClientItem) {
                 return (
                   <div key={item.name} className="relative" ref={clientMenuRef}>
                     <button
@@ -503,22 +535,23 @@ export default function Layout() {
                         setShowSendMenu(false)
                         setShowProfileMenu(false)
                       }}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${
                         isActive
-                          ? 'bg-orange-100 text-orange-700 font-medium'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
+                          : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
                       }`}
+                      title={isSidebarCollapsed ? item.name : ''}
                     >
                       <div className="flex items-center">
-                        <Icon className="w-5 h-5 mr-3" />
-                        {item.name}
+                        <Icon className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'} ${isActive ? 'text-orange-600' : 'text-gray-500 group-hover:text-orange-500'}`} />
+                        {!isSidebarCollapsed && <span className={isActive ? 'text-orange-700' : ''}>{item.name}</span>}
                       </div>
-                      <ChevronRight className="w-4 h-4" />
+                      {!isSidebarCollapsed && <ChevronRight className="w-4 h-4" />}
                     </button>
                     
                     {/* Client Segments Dropdown */}
                     {showClientMenu && (
-                      <div className="fixed left-64 top-0 ml-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col" style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
+                      <div className={`fixed ${isSidebarCollapsed ? 'left-20' : 'left-64'} top-0 ml-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col`} style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
                         <div className="p-4 border-b border-gray-200 flex-shrink-0 bg-white sticky top-0 z-10">
                           <h3 className="text-lg font-bold text-gray-900 mb-3">Client Segments</h3>
                           <div className="relative">
@@ -597,7 +630,7 @@ export default function Layout() {
                 )
               }
 
-              if (isReportsItem && !isSidebarCollapsed) {
+              if (isReportsItem) {
                 return (
                   <div key={item.name} className="relative" ref={reportsMenuRef}>
                     <button
@@ -611,22 +644,23 @@ export default function Layout() {
                         setShowSendMenu(false)
                         setShowProfileMenu(false)
                       }}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${
                         isActive
-                          ? 'bg-orange-100 text-orange-700 font-medium'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
+                          : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
                       }`}
+                      title={isSidebarCollapsed ? item.name : ''}
                     >
                       <div className="flex items-center">
-                        <Icon className="w-5 h-5 mr-3" />
-                        {item.name}
+                        <Icon className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'} ${isActive ? 'text-orange-600' : 'text-gray-500 group-hover:text-orange-500'}`} />
+                        {!isSidebarCollapsed && <span className={isActive ? 'text-orange-700' : ''}>{item.name}</span>}
                       </div>
-                      <ChevronRight className="w-4 h-4" />
+                      {!isSidebarCollapsed && <ChevronRight className="w-4 h-4" />}
                     </button>
                     
                     {/* Reports Categories Dropdown */}
                     {showReportsMenu && (
-                      <div className="fixed left-64 top-0 ml-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col" style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
+                      <div className={`fixed ${isSidebarCollapsed ? 'left-20' : 'left-64'} top-0 ml-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col`} style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
                         <div className="p-4 border-b border-gray-200 flex-shrink-0 bg-white sticky top-0 z-10">
                           <h3 className="text-lg font-bold text-gray-900 mb-3">Reports</h3>
                           <div className="relative">
@@ -705,7 +739,7 @@ export default function Layout() {
                 )
               }
 
-              if (isSetupItem && !isSidebarCollapsed) {
+              if (isSetupItem) {
                 return (
                   <div key={item.name} className="relative" ref={setupMenuRef}>
                     <button
@@ -719,21 +753,22 @@ export default function Layout() {
                         setShowSendMenu(false)
                         setShowProfileMenu(false)
                       }}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${
                         isActive
-                          ? 'bg-orange-100 text-orange-700 font-medium'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
+                          : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
                       }`}
+                      title={isSidebarCollapsed ? item.name : ''}
                     >
                       <div className="flex items-center">
-                        <Icon className="w-5 h-5 mr-3" />
-                        {item.name}
+                        <Icon className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'} ${isActive ? 'text-orange-600' : 'text-gray-500 group-hover:text-orange-500'}`} />
+                        {!isSidebarCollapsed && <span className={isActive ? 'text-orange-700' : ''}>{item.name}</span>}
                       </div>
-                      <ChevronRight className="w-4 h-4" />
+                      {!isSidebarCollapsed && <ChevronRight className="w-4 h-4" />}
                     </button>
 
                     {showSetupMenu && (
-                      <div className="fixed left-64 top-0 ml-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col" style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
+                      <div className={`fixed ${isSidebarCollapsed ? 'left-20' : 'left-64'} top-0 ml-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col`} style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
                         <div className="p-4 border-b border-gray-200 flex-shrink-0 bg-white sticky top-0 z-10">
                           <h3 className="text-lg font-bold text-gray-900 mb-3">Setup</h3>
                           <div className="relative">
@@ -832,8 +867,26 @@ export default function Layout() {
           {/* Header Bar */}
           <header className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-8 py-4 flex items-center justify-between shadow-lg">
             <div className="flex items-center space-x-6">
-              <div className="bg-red-600 text-white px-4 py-2 rounded-lg shadow-md">
-                <span className="font-bold text-lg">AIRFIT</span>
+              <div 
+                className={`w-10 h-10 rounded-full shadow-md flex items-center justify-center ${
+                  organizationLogoUrl && !isLogoBroken 
+                    ? 'bg-white border-2 border-gray-200' 
+                    : 'bg-gradient-to-br from-orange-500 to-red-600'
+                }`}
+              >
+                {organizationLogoUrl && !isLogoBroken ? (
+                  <img
+                    src={`${organizationLogoUrl}?v=${logoTimestamp}`}
+                    alt={`${organizationDisplayName} logo`}
+                    className="h-8 w-8 object-contain rounded-full"
+                    onError={(e) => {
+                      console.error('❌ Header logo failed to load:', e.target.src)
+                      setIsLogoBroken(true)
+                    }}
+                  />
+                ) : (
+                  <User className="w-5 h-5 text-white" strokeWidth={2} />
+                )}
               </div>
               <span className="text-sm font-medium text-gray-300">{organizationDisplayName}</span>
               <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">

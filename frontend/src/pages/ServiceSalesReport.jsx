@@ -9,7 +9,12 @@ import {
   CalendarRange,
   Filter,
   RefreshCcw,
-  TrendingUp
+  TrendingUp,
+  DollarSign,
+  ShoppingBag,
+  BarChart3,
+  Sparkles,
+  Package
 } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getServiceSalesReport, exportServiceSalesReport } from '../api/reports'
@@ -166,17 +171,26 @@ export default function ServiceSalesReport() {
       {
         label: 'Net Revenue',
         value: `₹${formatCurrency(netSales)}`,
-        helper: `${quantity} total bookings`
+        helper: `${quantity} total bookings`,
+        icon: DollarSign,
+        gradient: 'from-green-500 to-emerald-500',
+        bgGradient: 'from-green-50 to-emerald-50'
       },
       {
         label: 'Gross Sales',
         value: `₹${formatCurrency(grossSales)}`,
-        helper: `Discounts: ₹${formatCurrency(discount)}`
+        helper: `Discounts: ₹${formatCurrency(discount)}`,
+        icon: BarChart3,
+        gradient: 'from-blue-500 to-indigo-500',
+        bgGradient: 'from-blue-50 to-indigo-50'
       },
       {
-        label: 'Average Ticket Size',
+        label: 'Average Ticket',
         value: quantity ? `₹${formatCurrency(avgTicket)}` : '₹0.00',
-        helper: `${discountPct.toFixed(1)}% discount rate`
+        helper: `${discountPct.toFixed(1)}% discount rate`,
+        icon: ShoppingBag,
+        gradient: 'from-purple-500 to-pink-500',
+        bgGradient: 'from-purple-50 to-pink-50'
       }
     ]
   }, [totals])
@@ -192,245 +206,301 @@ export default function ServiceSalesReport() {
   }, [startDate, endDate])
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <nav className="text-sm text-gray-500">
-            <Link to="/dashboard" className="hover:text-orange-600">Home</Link>
-            <span className="mx-2 text-gray-300">/</span>
-            <Link to="/reports" className="hover:text-orange-600">Reports</Link>
-            <span className="mx-2 text-gray-300">/</span>
-            <Link to="/reports/sales" className="hover:text-orange-600">Sales</Link>
-            <span className="mx-2 text-gray-300">/</span>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-3">
+          <nav className="flex items-center gap-2 text-sm">
+            <Link to="/dashboard" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
+            <span className="text-gray-300">/</span>
+            <Link to="/reports" className="text-gray-500 hover:text-orange-600 transition-colors">Reports</Link>
+            <span className="text-gray-300">/</span>
             <span className="text-orange-600 font-semibold">Service Sales</span>
           </nav>
-          <h1 className="mt-3 text-3xl font-bold text-gray-900">Service Sales Performance</h1>
-          <p className="mt-1 flex items-center gap-2 text-sm text-gray-500">
-            <CalendarRange className="h-4 w-4 text-orange-500" />
-            Reporting window: <span className="font-medium text-gray-700">{dateRangeLabel}</span>
-          </p>
+          
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Service Sales Performance</h1>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-200">
+                <CalendarRange className="h-4 w-4 text-orange-500" />
+                <span className="text-sm font-semibold text-gray-700">{dateRangeLabel}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <button
           onClick={handleExportExcel}
           disabled={!hasSearched || bookings.length === 0}
-          className="inline-flex items-center gap-2 rounded-lg border border-orange-500 bg-white px-4 py-2 text-sm font-semibold text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
+          className="group inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
         >
-          <Download className="h-4 w-4" />
+          <Download className="h-4 w-4 group-hover:animate-bounce" />
           Export CSV
         </button>
       </div>
 
+      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        {summaryCards.map(card => (
-          <div key={card.label} className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-orange-50/40 p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-500">{card.label}</p>
-              <TrendingUp className="h-4 w-4 text-orange-500" />
+        {summaryCards.map(card => {
+          const Icon = card.icon
+          return (
+            <div 
+              key={card.label} 
+              className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.bgGradient} border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group`}
+            >
+              {/* Decorative circle */}
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
+              
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm font-bold text-gray-600 uppercase tracking-wider">{card.label}</p>
+                  <div className={`p-2.5 bg-gradient-to-br ${card.gradient} rounded-xl shadow-lg group-hover:scale-110 transition-transform`}>
+                    <Icon className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+                <p className="text-3xl font-black text-gray-900 mb-2">{card.value}</p>
+                <p className="text-xs font-medium text-gray-600">{card.helper}</p>
+              </div>
             </div>
-            <p className="mt-3 text-2xl font-semibold text-gray-900">{card.value}</p>
-            <p className="mt-1 text-xs font-medium text-gray-500">{card.helper}</p>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-            <Filter className="h-4 w-4 text-orange-500" />
-            Refine results
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg shadow-lg">
+              <Filter className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm font-bold text-gray-900">Advanced Filters</span>
           </div>
           <button
             onClick={handleReset}
             type="button"
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all text-sm font-medium"
           >
-            <RefreshCcw className="h-3.5 w-3.5" />
+            <RefreshCcw className="h-4 w-4" />
             Reset
           </button>
         </div>
 
-        <form onSubmit={handleSearch} className="grid gap-4 px-6 py-4 lg:grid-cols-6">
-          <div className="lg:col-span-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sale type</label>
-            <div className="relative mt-2">
-              <select
-                value={filters.saleType}
-                onChange={(e) => handleFilterChange('saleType', e.target.value)}
-                className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 shadow-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-              >
-                {saleTypeOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <form onSubmit={handleSearch} className="p-6">
+          <div className="grid gap-4 lg:grid-cols-6">
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">Sale Type</label>
+              <div className="relative">
+                <select
+                  value={filters.saleType}
+                  onChange={(e) => handleFilterChange('saleType', e.target.value)}
+                  className="w-full appearance-none rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+                >
+                  {saleTypeOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
             </div>
-          </div>
 
-          <div className="lg:col-span-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Date range</label>
-            <div className="relative mt-2">
-              <select
-                value={filters.dateRange}
-                onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-                className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 shadow-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-              >
-                {dateRangeOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">Date Range</label>
+              <div className="relative">
+                <select
+                  value={filters.dateRange}
+                  onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+                  className="w-full appearance-none rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+                >
+                  {dateRangeOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
             </div>
-          </div>
 
-          <div className="lg:col-span-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Service</label>
-            <div className="relative mt-2">
-              <select
-                value={filters.serviceName}
-                onChange={(e) => handleFilterChange('serviceName', e.target.value)}
-                className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 shadow-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-              >
-                <option value="">All services</option>
-                {plans.map(plan => (
-                  <option key={plan._id} value={plan._id}>{plan.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">Service</label>
+              <div className="relative">
+                <select
+                  value={filters.serviceName}
+                  onChange={(e) => handleFilterChange('serviceName', e.target.value)}
+                  className="w-full appearance-none rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+                >
+                  <option value="">All services</option>
+                  {plans.map(plan => (
+                    <option key={plan._id} value={plan._id}>{plan.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
             </div>
-          </div>
 
-          <div className="lg:col-span-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Service variation</label>
-            <div className="relative mt-2">
-              <select
-                value={filters.serviceVariation}
-                onChange={(e) => handleFilterChange('serviceVariation', e.target.value)}
-                className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 shadow-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-              >
-                <option value="">All variations</option>
-                {plans.map(plan => (
-                  <option key={plan._id} value={plan.name}>{plan.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">Service Variation</label>
+              <div className="relative">
+                <select
+                  value={filters.serviceVariation}
+                  onChange={(e) => handleFilterChange('serviceVariation', e.target.value)}
+                  className="w-full appearance-none rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+                >
+                  <option value="">All variations</option>
+                  {plans.map(plan => (
+                    <option key={plan._id} value={plan.name}>{plan.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
             </div>
-          </div>
 
-          <div className="lg:col-span-1">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Gender</label>
-            <div className="relative mt-2">
-              <select
-                value={filters.gender}
-                onChange={(e) => handleFilterChange('gender', e.target.value)}
-                className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 shadow-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-              >
-                {genderOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">Gender</label>
+              <div className="relative">
+                <select
+                  value={filters.gender}
+                  onChange={(e) => handleFilterChange('gender', e.target.value)}
+                  className="w-full appearance-none rounded-xl border-2 border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm font-medium text-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+                >
+                  {genderOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-end justify-end gap-3 lg:col-span-1">
-            <button
-              type="submit"
-              className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md"
-            >
-              Apply
-            </button>
+            <div className="lg:col-span-2 flex items-end">
+              <button
+                type="submit"
+                className="group w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl"
+              >
+                <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                Apply Filters
+              </button>
+            </div>
           </div>
         </form>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      {/* Table */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="p-12">
             <LoadingPage message="Crunching your sales numbers…" fullScreen={false} />
           </div>
         ) : !hasSearched ? (
-          <div className="flex flex-col items-center gap-3 p-16 text-center">
-            <Filter className="h-10 w-10 text-orange-500" />
-            <h3 className="text-lg font-semibold text-gray-800">Refine the view to get started</h3>
-            <p className="max-w-sm text-sm text-gray-500">Choose a date range or service above and click Apply to load detailed service sales.</p>
+          <div className="flex flex-col items-center gap-4 p-16 text-center">
+            <div className="p-4 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg">
+              <Filter className="h-10 w-10 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">Apply Filters to Get Started</h3>
+            <p className="max-w-md text-sm text-gray-600">Choose a date range or service above and click "Apply Filters" to load detailed service sales data.</p>
           </div>
         ) : bookings.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 p-16 text-center">
-            <RefreshCcw className="h-10 w-10 text-orange-500" />
-            <h3 className="text-lg font-semibold text-gray-800">No sales found for this view</h3>
-            <p className="max-w-sm text-sm text-gray-500">Try widening the date range or resetting filters to see more results.</p>
+          <div className="flex flex-col items-center gap-4 p-16 text-center">
+            <div className="p-4 bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl shadow-lg">
+              <Package className="h-10 w-10 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">No Sales Found</h3>
+            <p className="max-w-md text-sm text-gray-600">No sales records match your current filters. Try widening the date range or resetting filters.</p>
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 px-6 py-4">
-              <div className="text-sm font-medium text-gray-600">Showing {bookings.length} of {pagination.total} records</div>
+            {/* Pagination Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+              <div className="text-sm font-semibold text-gray-700">
+                Showing <span className="text-orange-600">{bookings.length}</span> of <span className="text-orange-600">{pagination.total}</span> records
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage(prev => Math.max(1, prev - 1))}
                   disabled={page === 1}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-sm font-semibold text-gray-700">
-                  Page {pagination.page} of {pagination.pages}
+                <span className="px-4 py-2 text-sm font-bold text-gray-900">
+                  {pagination.page} / {pagination.pages}
                 </span>
                 <button
                   onClick={() => setPage(prev => Math.min(pagination.pages, prev + 1))}
                   disabled={page >= pagination.pages}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
+            {/* Table Content */}
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed">
-                <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                   <tr>
-                    <th className="w-16 px-6 py-3">#</th>
-                    <th className="min-w-[160px] px-6 py-3">Booking details</th>
-                    <th className="min-w-[140px] px-6 py-3">Service</th>
-                    <th className="min-w-[120px] px-6 py-3">Quantity</th>
-                    <th className="min-w-[140px] px-6 py-3">List price</th>
-                    <th className="min-w-[140px] px-6 py-3">Discount</th>
-                    <th className="min-w-[160px] px-6 py-3">Total amount</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">#</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider min-w-[180px]">Booking Details</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider min-w-[160px]">Service</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Qty</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">List Price</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Discount</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Total Amount</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 bg-white text-sm text-gray-700">
+                <tbody className="bg-white divide-y divide-gray-100">
                   {bookings.map((booking, index) => (
-                    <tr key={booking._id} className="transition-colors hover:bg-orange-50/40">
-                      <td className="px-6 py-4 font-semibold text-gray-900">{(page - 1) * 20 + index + 1}</td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          <p className="font-semibold text-gray-900">{booking.proFormaInvoiceNo || booking.invoiceNumber || '—'}</p>
+                    <tr key={booking._id} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all">
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold">
+                          {(page - 1) * 20 + index + 1}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="space-y-1.5">
+                          <p className="text-sm font-bold text-gray-900">{booking.proFormaInvoiceNo || booking.invoiceNumber || '—'}</p>
                           <p className="text-xs text-gray-500">{formatDate(booking.createdAt)}</p>
-                          <span className="inline-flex w-fit rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-orange-700">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold uppercase">
                             {booking.saleType || 'Sale'}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-4">
                         <div className="space-y-1">
-                          <p className="font-semibold text-gray-900">{booking.serviceName || '—'}</p>
+                          <p className="text-sm font-bold text-gray-900">{booking.serviceName || '—'}</p>
                           <p className="text-xs text-gray-500">{booking.serviceVariation || 'Standard'}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-semibold text-gray-900">{booking.quantity || 0}</td>
-                      <td className="px-6 py-4 font-medium text-gray-900">₹{formatCurrency(booking.listPrice)}</td>
-                      <td className="px-6 py-4 font-medium text-rose-600">₹{formatCurrency(booking.discountValue)}</td>
-                      <td className="px-6 py-4 font-semibold text-emerald-600">₹{formatCurrency(booking.totalAmount)}</td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm font-bold text-gray-900">{booking.quantity || 0}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm font-semibold text-gray-900">₹{formatCurrency(booking.listPrice)}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm font-semibold text-red-600">₹{formatCurrency(booking.discountValue)}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm font-bold text-green-600">₹{formatCurrency(booking.totalAmount)}</span>
+                      </td>
                     </tr>
                   ))}
 
-                  <tr className="bg-gray-50 text-sm font-semibold text-gray-800">
-                    <td className="px-6 py-4" colSpan={3}>Totals</td>
-                    <td className="px-6 py-4">{totals.quantity}</td>
-                    <td className="px-6 py-4">₹{formatCurrency(totals.listPrice)}</td>
-                    <td className="px-6 py-4 text-rose-600">₹{formatCurrency(totals.discountValue)}</td>
-                    <td className="px-6 py-4 text-emerald-600">₹{formatCurrency(totals.totalAmount)}</td>
+                  {/* Totals Row */}
+                  <tr className="bg-gradient-to-r from-green-50 to-emerald-50 border-t-2 border-green-200">
+                    <td className="px-4 py-4" colSpan={3}>
+                      <span className="text-sm font-black text-gray-900 uppercase">Total</span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm font-black text-gray-900">{totals.quantity}</span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm font-black text-gray-900">₹{formatCurrency(totals.listPrice)}</span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm font-black text-red-600">₹{formatCurrency(totals.discountValue)}</span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm font-black text-green-600">₹{formatCurrency(totals.totalAmount)}</span>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -441,4 +511,3 @@ export default function ServiceSalesReport() {
     </div>
   )
 }
-

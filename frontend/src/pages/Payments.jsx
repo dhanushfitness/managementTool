@@ -1,6 +1,21 @@
 import { useMemo, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Download, Search, Printer } from 'lucide-react'
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Download, 
+  Search, 
+  Printer,
+  DollarSign,
+  TrendingUp,
+  Package,
+  CheckCircle2,
+  AlertCircle,
+  Filter,
+  Sparkles,
+  CreditCard
+} from 'lucide-react'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { getReceipts, exportReceipts } from '../api/payments'
 import LoadingPage from '../components/LoadingPage'
@@ -214,6 +229,7 @@ export default function Payments() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
+      toast.success('Export successful')
     } catch (error) {
       console.error('Export failed:', error)
       toast.error('Unable to export payments right now. Please try again.')
@@ -233,106 +249,166 @@ export default function Payments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <nav className="text-sm text-gray-500">
-          <span className="text-gray-400">Home</span>
-          <span className="mx-2 text-gray-300">/</span>
-          <span className="text-gray-500">Reports</span>
-          <span className="mx-2 text-gray-300">/</span>
-          <span className="text-gray-500">Finance</span>
-          <span className="mx-2 text-gray-300">/</span>
-          <span className="text-orange-500 font-medium">Service Payments Collected</span>
-        </nav>
-        <h1 className="text-2xl font-bold text-gray-900">Service Payments Collected</h1>
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-3">
+          <nav className="flex items-center gap-2 text-sm">
+            <Link to="/dashboard" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
+            <span className="text-gray-300">/</span>
+            <Link to="/reports" className="text-gray-500 hover:text-orange-600 transition-colors">Reports</Link>
+            <span className="text-gray-300">/</span>
+            <span className="text-orange-600 font-semibold">Service Payments Collected</span>
+          </nav>
+          
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Service Payments Collected</h1>
+            <p className="text-gray-600 mt-1">Track and analyze payment collections</p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="group inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download className="h-4 w-4 group-hover:animate-bounce" />
+          {exporting ? 'Exporting...' : 'Export CSV'}
+        </button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-            Service Payments Collected
-          </h2>
-          <div className="space-y-4 text-sm">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">New Non PT Sales</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(summary.nonPt.newSales)}</span>
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* Service Payments Card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
+          
+          <div className="relative">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Service Payments</h2>
+              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                <DollarSign className="h-5 w-5 text-white" />
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Due Recovered</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(summary.nonPt.dueRecovered)}</span>
+            </div>
+            
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 font-medium">New Non PT Sales</span>
+                <span className="font-bold text-gray-900">{formatCurrency(summary.nonPt.newSales)}</span>
               </div>
-              <div className="flex justify-between border-t border-gray-100 pt-2">
-                <span className="font-semibold text-gray-700">Total</span>
-                <span className="font-bold text-orange-600">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 font-medium">Due Recovered</span>
+                <span className="font-bold text-gray-900">{formatCurrency(summary.nonPt.dueRecovered)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 border-t-2 border-gray-200">
+                <span className="font-bold text-gray-700">Total</span>
+                <span className="font-black text-blue-600 text-lg">
                   {formatCurrency(summary.nonPt.total || summary.nonPt.newSales + summary.nonPt.dueRecovered)}
                 </span>
               </div>
+              
+              <div className="pt-3 border-t-2 border-gray-200 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 font-medium">New PT Sales</span>
+                  <span className="font-bold text-gray-900">{formatCurrency(summary.pt.newSales)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 font-medium">Due Recovered</span>
+                  <span className="font-bold text-gray-900">{formatCurrency(summary.pt.dueRecovered)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t-2 border-gray-200">
+                  <span className="font-bold text-gray-700">PT Total</span>
+                  <span className="font-black text-indigo-600 text-lg">
+                    {formatCurrency(summary.pt.total || summary.pt.newSales + summary.pt.dueRecovered)}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2 border-t border-gray-100 pt-4">
-              <div className="flex justify-between">
-                <span className="text-gray-600">New PT Sales</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(summary.pt.newSales)}</span>
+          </div>
+        </div>
+
+        {/* Product Payments Card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
+          
+          <div className="relative">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Product Payments</h2>
+              <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                <Package className="h-5 w-5 text-white" />
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Due Recovered</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(summary.pt.dueRecovered)}</span>
+            </div>
+            
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 font-medium">New Sales</span>
+                <span className="font-bold text-gray-900">{formatCurrency(summary.products.newSales)}</span>
               </div>
-              <div className="flex justify-between border-t border-gray-100 pt-2">
-                <span className="font-semibold text-gray-700">Total</span>
-                <span className="font-bold text-orange-600">
-                  {formatCurrency(summary.pt.total || summary.pt.newSales + summary.pt.dueRecovered)}
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 font-medium">Due Recovered</span>
+                <span className="font-bold text-gray-900">{formatCurrency(summary.products.dueRecovered)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 border-t-2 border-gray-200">
+                <span className="font-bold text-gray-700">Total</span>
+                <span className="font-black text-purple-600 text-lg">
+                  {formatCurrency(summary.products.total || summary.products.newSales + summary.products.dueRecovered)}
                 </span>
               </div>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-            Product Payments Collected
-          </h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">New Sales</span>
-              <span className="font-semibold text-gray-900">{formatCurrency(summary.products.newSales)}</span>
+
+        {/* Overall Summary Card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
+          
+          <div className="relative">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Overall Summary</h2>
+              <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                <TrendingUp className="h-5 w-5 text-white" />
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Due Recovered</span>
-              <span className="font-semibold text-gray-900">{formatCurrency(summary.products.dueRecovered)}</span>
-            </div>
-            <div className="flex justify-between border-t border-gray-100 pt-2">
-              <span className="font-semibold text-gray-700">Total</span>
-              <span className="font-bold text-orange-600">
-                {formatCurrency(summary.products.total || summary.products.newSales + summary.products.dueRecovered)}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-            Overall Summary
-          </h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total Paid</span>
-              <span className="font-semibold text-green-600">{formatCurrency(summary.overall.totalPaid)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total Pending</span>
-              <span className="font-semibold text-red-500">{formatCurrency(summary.overall.totalPending)}</span>
-            </div>
-            <div className="flex justify-between border-t border-gray-100 pt-2">
-              <span className="font-semibold text-gray-700">Receipts</span>
-              <span className="font-bold text-gray-900">{pagination.total || receipts.length}</span>
+            
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                  <span className="text-gray-600 font-medium">Total Paid</span>
+                </div>
+                <span className="font-bold text-green-600">{formatCurrency(summary.overall.totalPaid)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <span className="text-gray-600 font-medium">Total Pending</span>
+                </div>
+                <span className="font-bold text-red-600">{formatCurrency(summary.overall.totalPending)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 border-t-2 border-gray-200">
+                <span className="font-bold text-gray-700">Total Receipts</span>
+                <span className="font-black text-gray-900 text-lg">{pagination.total || receipts.length}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 items-center gap-2">
-            <div className="relative flex-1 max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      {/* Filters & Search */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg shadow-lg">
+              <Filter className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm font-bold text-gray-900">Search & Filter</span>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Search Bar */}
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 value={searchInput}
@@ -342,171 +418,210 @@ export default function Payments() {
                     handleApplyFilters()
                   }
                 }}
-                placeholder="Search by Name / Mobile Number / Bill number"
-                className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                placeholder="Search by Name, Mobile Number, or Bill Number..."
+                className="w-full rounded-xl border-2 border-gray-200 py-3 pl-12 pr-4 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
               />
             </div>
             <button
               type="button"
               onClick={handleApplyFilters}
-              className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-600"
+              className="group inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl lg:w-auto w-full"
             >
-              Go
+              <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+              Search
             </button>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={exporting}
-              className="flex items-center gap-2 rounded-lg border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-60"
+
+          {/* Filter Dropdowns */}
+          <div className="grid gap-3 md:grid-cols-4">
+            <select
+              value={filters.dateRange}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, dateRange: e.target.value }))
+                setPage(1)
+              }}
+              className="rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
             >
-              <Download className="h-4 w-4" />
-              {exporting ? 'Exporting...' : 'Export Excel'}
-            </button>
+              <option value="last-7-days">Last 7 days</option>
+              <option value="last-30-days">Last 30 days</option>
+              <option value="last-90-days">Last 90 days</option>
+              <option value="this-month">This month</option>
+              <option value="last-month">Last month</option>
+            </select>
+
+            <select
+              value={filters.invoiceType}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, invoiceType: e.target.value }))
+                setPage(1)
+              }}
+              className="rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+            >
+              <option value="all">All Types</option>
+              {invoiceTypeOptions.map((type) => (
+                <option key={type} value={type}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.branchId}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, branchId: e.target.value }))
+                setPage(1)
+              }}
+              className="rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+            >
+              <option value="all">All Branches</option>
+              {branchOptions.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.salesRepId}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, salesRepId: e.target.value }))
+                setPage(1)
+              }}
+              className="rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+            >
+              <option value="all">All Sales Reps</option>
+              {salesRepOptions.map((rep) => (
+                <option key={rep.id} value={rep.id}>
+                  {rep.name}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-          <select
-            value={filters.dateRange}
-            onChange={(e) => {
-              setFilters((prev) => ({ ...prev, dateRange: e.target.value }))
-              setPage(1)
-            }}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
-          >
-            <option value="last-7-days">Last 7 days</option>
-            <option value="last-30-days">Last 30 days</option>
-            <option value="last-90-days">Last 90 days</option>
-            <option value="this-month">This month</option>
-            <option value="last-month">Last month</option>
-          </select>
-
-          <select
-            value={filters.invoiceType}
-            onChange={(e) => {
-              setFilters((prev) => ({ ...prev, invoiceType: e.target.value }))
-              setPage(1)
-            }}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
-          >
-            <option value="all">Service payments</option>
-            {invoiceTypeOptions.map((type) => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filters.branchId}
-            onChange={(e) => {
-              setFilters((prev) => ({ ...prev, branchId: e.target.value }))
-              setPage(1)
-            }}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
-          >
-            <option value="all">All branches</option>
-            {branchOptions.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filters.salesRepId}
-            onChange={(e) => {
-              setFilters((prev) => ({ ...prev, salesRepId: e.target.value }))
-              setPage(1)
-            }}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
-          >
-            <option value="all">All sales reps</option>
-            {salesRepOptions.map((rep) => (
-              <option key={rep.id} value={rep.id}>
-                {rep.name}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          {isFetching && (
-            <div className="border-b border-gray-100 bg-orange-50 px-4 py-2 text-sm text-orange-600">
-              Updating results...
+      {/* Table */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
+        {isFetching && (
+          <div className="bg-gradient-to-r from-orange-50 to-red-50 px-6 py-3 border-b-2 border-orange-200">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce"></div>
+              <span className="text-sm font-semibold text-orange-700">Updating results...</span>
             </div>
-          )}
-          <table className="min-w-[1200px] w-full text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
-                <th className="px-4 py-3">S.No</th>
-                <th className="px-4 py-3">Bill No</th>
-                <th className="px-4 py-3">Paid Date</th>
-                <th className="px-4 py-3">Purchase Date</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Branch Location</th>
-                <th className="px-4 py-3">Member ID</th>
-                <th className="px-4 py-3">Member Name</th>
-                <th className="px-4 py-3">Contact Number</th>
-                <th className="px-4 py-3">Service Name</th>
-                <th className="px-4 py-3">Sales Rep Name</th>
-                <th className="px-4 py-3">PT Name</th>
-                <th className="px-4 py-3">Created By</th>
-                <th className="px-4 py-3 text-right">Amount</th>
-                <th className="px-4 py-3 text-right">Tax Amount</th>
-                <th className="px-4 py-3 text-right">Final Amount</th>
-                <th className="px-4 py-3 text-right">Paid</th>
-                <th className="px-4 py-3 text-right">Pending</th>
-                <th className="px-4 py-3">Pay Mode</th>
-                <th className="px-4 py-3">Actions</th>
+          </div>
+        )}
+
+        {/* Pagination Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-b-2 border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+          <div className="text-sm font-semibold text-gray-700">
+            Showing <span className="text-orange-600">{rows.length}</span> of <span className="text-orange-600">{pagination.total || receipts.length}</span> receipts
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page <= 1}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="px-4 py-2 text-sm font-bold text-gray-900">
+              {pagination.page} / {Math.max(pagination.pages, 1)}
+            </span>
+            <button
+              type="button"
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={pagination.page >= pagination.pages}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Table Content */}
+        <div className="overflow-x-auto">
+          <table className="min-w-[1400px] w-full">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+              <tr>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">#</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Bill No</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Paid Date</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Purchase Date</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Branch</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Member ID</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Member Name</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Contact</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Service</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Sales Rep</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">PT Name</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Created By</th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Amount</th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Tax</th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Final</th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Paid</th>
+                <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Pending</th>
+                <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Pay Mode</th>
+                <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-100">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={20} className="py-12 text-center text-gray-500">
-                    No receipts found for the selected filters.
+                  <td colSpan={20} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="p-4 bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl shadow-lg">
+                        <CreditCard className="h-10 w-10 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">No Receipts Found</h3>
+                        <p className="text-sm text-gray-600 mt-1">No payment receipts match your current filters.</p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={`${row.billNo}-${row.sNo}`} className="border-b last:border-b-0 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-600">{row.sNo}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{row.billNo}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(row.paidDate)}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(row.purchaseDate)}</td>
-                    <td className="px-4 py-3 text-gray-600 capitalize">{row.type}</td>
-                    <td className="px-4 py-3 text-gray-700">{row.branch}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.memberId}</td>
-                    <td className="px-4 py-3 text-gray-800">{row.memberName}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.contactNumber}</td>
-                    <td className="px-4 py-3 text-gray-800">{row.serviceName}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.salesRepName}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.ptName}</td>
-                    <td className="px-4 py-3 text-gray-600">{row.createdBy}</td>
-                    <td className="px-4 py-3 text-right text-gray-800">{formatCurrency(row.amount)}</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(row.taxAmount)}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                      {formatCurrency(row.finalAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-green-600">
-                      {formatCurrency(row.paidAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-red-500">
-                      {formatCurrency(row.pendingAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{row.paymentMethod}</td>
+                  <tr key={`${row.billNo}-${row.sNo}`} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all">
                     <td className="px-4 py-3">
+                      <span className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold">
+                        {row.sNo}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-bold text-gray-900">{row.billNo}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(row.paidDate)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(row.purchaseDate)}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold capitalize">
+                        {row.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 font-medium">{row.branch}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 font-mono">{row.memberId}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 font-semibold">{row.memberName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 font-mono">{row.contactNumber}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">{row.serviceName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{row.salesRepName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{row.ptName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{row.createdBy}</td>
+                    <td className="px-4 py-3 text-right text-sm font-semibold text-gray-900">{formatCurrency(row.amount)}</td>
+                    <td className="px-4 py-3 text-right text-sm font-medium text-gray-600">{formatCurrency(row.taxAmount)}</td>
+                    <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">{formatCurrency(row.finalAmount)}</td>
+                    <td className="px-4 py-3 text-right text-sm font-bold text-green-600">{formatCurrency(row.paidAmount)}</td>
+                    <td className="px-4 py-3 text-right text-sm font-bold text-red-600">{formatCurrency(row.pendingAmount)}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex px-2.5 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-bold">
+                        {row.paymentMethod}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       {row.invoiceId && (
                         <button
                           onClick={() => {
                             window.open(`/invoices/${row.invoiceId}/print`, '_blank')
                           }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-sm"
                           title="Print Invoice"
                         >
                           <Printer className="w-4 h-4" />
@@ -519,37 +634,7 @@ export default function Payments() {
             </tbody>
           </table>
         </div>
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 text-sm text-gray-600 md:flex-row">
-          <div className="text-center md:text-left">
-            Showing page {pagination.page} of {Math.max(pagination.pages || 1, 1)} · {rows.length} rows displayed ·{' '}
-            {(pagination.total || receipts.length)} receipts total
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handlePageChange(pagination.page - 1)}
-              disabled={pagination.page <= 1}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Prev
-            </button>
-            <span className="text-sm font-medium text-gray-600">
-              Page {pagination.page} of {Math.max(pagination.pages, 1)}
-            </span>
-            <button
-              type="button"
-              onClick={() => handlePageChange(pagination.page + 1)}
-              disabled={pagination.page >= pagination.pages}
-              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   )
 }
-

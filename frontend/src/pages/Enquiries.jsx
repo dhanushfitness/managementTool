@@ -19,7 +19,17 @@ import {
   Calendar,
   MessageSquare,
   Mail,
-  Activity
+  Activity,
+  X,
+  Search,
+  Users,
+  Target,
+  Archive,
+  UserCheck,
+  UserX,
+  Zap,
+  TrendingUp,
+  ArrowRight
 } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import LoadingTable from '../components/LoadingTable'
@@ -236,41 +246,66 @@ export default function Enquiries() {
     }
   }
 
+  const handleClearFilters = () => {
+    setFilters({
+      enquiryStage: '',
+      leadSource: '',
+      service: '',
+      gender: '',
+      callTag: '',
+      staffId: ''
+    })
+    setPage(1)
+  }
+
   const enquiries = data?.enquiries || []
   const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
   const statsData = stats?.stats || {}
 
+  const activeFilterCount = Object.values(filters).filter(v => v).length
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <nav className="text-sm mb-2">
-          <span className="text-gray-600">Home / </span>
-          <span className="text-orange-600 font-medium">Enquiries</span>
-        </nav>
-        <h1 className="text-3xl font-bold text-gray-900">All Enquiries</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-1">Enquiries</h1>
+          <p className="text-gray-600">Manage and track all your leads in one place</p>
+        </div>
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="px-5 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Add Enquiry</span>
+        </button>
       </div>
 
-      {/* Top Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-wrap items-center gap-3">
+      {/* Date Filter Section */}
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-5">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-gray-500" />
+            <span className="text-sm font-semibold text-gray-700">Period:</span>
+          </div>
+          
           <select
             value={dateFilter}
             onChange={(e) => {
               setDateFilterValue(e.target.value)
               setPage(1)
             }}
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-medium text-gray-700 hover:border-gray-300 transition-colors"
           >
             <option value="today">Today</option>
             <option value="last7days">Last 7 Days</option>
             <option value="last30days">Last 30 Days</option>
-            <option value="custom">Custom Date Range</option>
+            <option value="custom">Custom Range</option>
           </select>
 
           {dateFilter === 'custom' && (
             <>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-700 font-medium">From</label>
                 <DateInput
                   value={fromDate}
@@ -278,7 +313,8 @@ export default function Enquiries() {
                   hideIcon
                 />
               </div>
-              <div className="flex items-center space-x-2">
+              <ArrowRight className="w-4 h-4 text-gray-400" />
+              <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-700 font-medium">To</label>
                 <DateInput
                   value={toDate}
@@ -299,7 +335,7 @@ export default function Enquiries() {
                   setPage(1)
                   refetch()
                 }}
-                className="px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+                className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-medium shadow-lg hover:shadow-xl"
               >
                 Apply
               </button>
@@ -309,417 +345,510 @@ export default function Enquiries() {
           {dateFilter !== 'custom' && (
             <button
               onClick={() => refetch()}
-              className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+              className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-medium shadow-lg hover:shadow-xl"
             >
-              Go
+              Apply Filter
             </button>
           )}
         </div>
-        <div className="flex items-center space-x-2">
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium flex items-center space-x-2"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Import Enquiry</span>
-          </button>
-          <button className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-            Enquiry Archive
-          </button>
-        </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4">
-        {/* Enquiries Summary Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">
-            Enquiries - {statsData.total || 0}
-          </h2>
-          <div className="grid grid-cols-3 gap-6">
-            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
-              <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Open</p>
-              <p className="text-3xl font-bold text-red-600">{statsData.opened || 0}</p>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Converted</p>
-              <p className="text-3xl font-bold text-green-600">{statsData.converted || 0}</p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Archived/Lost</p>
-              <p className="text-3xl font-bold text-gray-600">{statsData.archived || 0}</p>
-            </div>
-          </div>
-        </div>
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <EnquiryStatCard
+          title="Total Enquiries"
+          value={statsData.total || 0}
+          icon={Target}
+          gradient="from-blue-500 to-indigo-500"
+        />
+        <EnquiryStatCard
+          title="Open"
+          value={statsData.opened || 0}
+          icon={Activity}
+          gradient="from-red-500 to-orange-500"
+        />
+        <EnquiryStatCard
+          title="Converted"
+          value={statsData.converted || 0}
+          icon={UserCheck}
+          gradient="from-green-500 to-emerald-500"
+        />
+        <EnquiryStatCard
+          title="Lost/Archived"
+          value={statsData.archived || 0}
+          icon={UserX}
+          gradient="from-gray-500 to-gray-600"
+        />
       </div>
 
-      {/* Filters and Actions Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+      {/* Filters and Actions */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="p-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            title="Filter"
+            className={`group px-4 py-2.5 rounded-xl transition-all font-medium flex items-center gap-2 ${
+              showFilters || activeFilterCount > 0
+                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-gray-300'
+            }`}
           >
             <Filter className="w-5 h-5" />
+            <span>Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="px-2 py-0.5 bg-white text-orange-600 rounded-full text-xs font-bold">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
-          <select
-            onChange={(e) => {
-              if (e.target.value) {
-                handleBulkAction(e.target.value)
-                e.target.value = ''
-              }
-            }}
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-          >
-            <option value="">Action</option>
-            <option value="archive">Move to Archive</option>
-            <option value="staff-change">Staff Change</option>
-          </select>
-          <select
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-          >
-            <option>Communicate</option>
-            <option>Send Email</option>
-            <option>Send SMS</option>
-          </select>
+          
+          {selectedEnquiries.length > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border-2 border-blue-200 rounded-xl">
+              <span className="text-sm font-semibold text-blue-700">
+                {selectedEnquiries.length} selected
+              </span>
+              <button
+                onClick={() => setSelectedEnquiries([])}
+                className="p-1 hover:bg-blue-200 rounded transition-colors"
+              >
+                <X className="w-4 h-4 text-blue-600" />
+              </button>
+            </div>
+          )}
+
+          {selectedEnquiries.length > 0 && (
+            <>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleBulkAction(e.target.value)
+                    e.target.value = ''
+                  }
+                }}
+                className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white font-medium text-gray-700"
+              >
+                <option value="">Bulk Actions</option>
+                <option value="archive">Archive Selected</option>
+                <option value="staff-change">Change Staff</option>
+              </select>
+            </>
+          )}
         </div>
-        <button
-          onClick={handleExport}
-          className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium flex items-center space-x-2"
-        >
-          <Download className="w-4 h-4" />
-          <span>Export Enquiries</span>
-        </button>
+        
+        <div className="flex items-center gap-2">
+          <button className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2">
+            <Upload className="w-4 h-4" />
+            <span>Import</span>
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export</span>
+          </button>
+          <button className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2">
+            <Archive className="w-4 h-4" />
+            <span>Archive</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 grid grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Service</label>
-            <select
-              value={filters.service}
-              onChange={(e) => setFilters({ ...filters, service: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="">All Services</option>
-              {plansData?.data?.plans?.map((plan) => (
-                <option key={plan._id} value={plan._id}>{plan.name}</option>
-              ))}
-            </select>
+        <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Filter Enquiries</h3>
+            <div className="flex items-center gap-2">
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={handleClearFilters}
+                  className="text-sm text-orange-600 hover:text-orange-700 font-semibold"
+                >
+                  Clear all
+                </button>
+              )}
+              <button
+                onClick={() => setShowFilters(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Lead Source</label>
-            <select
-              value={filters.leadSource}
-              onChange={(e) => setFilters({ ...filters, leadSource: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="">All Sources</option>
-              <option value="walk-in">Walk-in</option>
-              <option value="referral">Referral</option>
-              <option value="online">Online</option>
-              <option value="social-media">Social Media</option>
-              <option value="phone-call">Phone Call</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Enquiry Stage</label>
-            <select
-              value={filters.enquiryStage}
-              onChange={(e) => setFilters({ ...filters, enquiryStage: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="">All Stages</option>
-              <option value="opened">Opened</option>
-              <option value="qualified">Qualified</option>
-              <option value="demo">Demo</option>
-              <option value="negotiation">Negotiation</option>
-              <option value="converted">Converted</option>
-              <option value="lost">Lost</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Gender</label>
-            <select
-              value={filters.gender}
-              onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="">All</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Service</label>
+              <select
+                value={filters.service}
+                onChange={(e) => setFilters({ ...filters, service: e.target.value })}
+                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+              >
+                <option value="">All Services</option>
+                {plansData?.data?.plans?.map((plan) => (
+                  <option key={plan._id} value={plan._id}>{plan.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Lead Source</label>
+              <select
+                value={filters.leadSource}
+                onChange={(e) => setFilters({ ...filters, leadSource: e.target.value })}
+                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+              >
+                <option value="">All Sources</option>
+                <option value="walk-in">Walk-in</option>
+                <option value="referral">Referral</option>
+                <option value="online">Online</option>
+                <option value="social-media">Social Media</option>
+                <option value="phone-call">Phone Call</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Enquiry Stage</label>
+              <select
+                value={filters.enquiryStage}
+                onChange={(e) => setFilters({ ...filters, enquiryStage: e.target.value })}
+                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+              >
+                <option value="">All Stages</option>
+                <option value="opened">Opened</option>
+                <option value="qualified">Qualified</option>
+                <option value="demo">Demo</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="converted">Converted</option>
+                <option value="lost">Lost</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Call Tag</label>
+              <select
+                value={filters.callTag}
+                onChange={(e) => setFilters({ ...filters, callTag: e.target.value })}
+                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+              >
+                <option value="">All Tags</option>
+                <option value="hot">Hot</option>
+                <option value="warm">Warm</option>
+                <option value="cold">Cold</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Gender</label>
+              <select
+                value={filters.gender}
+                onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
+                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+              >
+                <option value="">All</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Assigned Staff</label>
+              <select
+                value={filters.staffId}
+                onChange={(e) => setFilters({ ...filters, staffId: e.target.value })}
+                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+              >
+                <option value="">All Staff</option>
+                {staffData?.data?.staff?.map((staff) => (
+                  <option key={staff._id} value={staff._id}>
+                    {staff.firstName} {staff.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Pagination Bar */}
-      <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={page === 1}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="First page"
-          >
-            <ChevronsLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page === 1}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Previous page"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
-        <div className="flex items-center space-x-3">
-          <span className="text-sm text-gray-700">
-            Page {pagination.page} of {pagination.pages}
-          </span>
-          <form onSubmit={handleGoToPage} className="flex items-center space-x-2">
-            <input
-              type="number"
-              name="page"
-              min="1"
-              max={pagination.pages}
-              defaultValue={page}
-              className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
-            />
-            <button
-              type="submit"
-              className="px-4 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors text-sm font-medium"
-            >
-              Go
-            </button>
-          </form>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= pagination.pages}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Next page"
-          >
-            <ChevronRight className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={() => handlePageChange(pagination.pages)}
-            disabled={page >= pagination.pages}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Last page"
-          >
-            <ChevronsRight className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
-      </div>
-
       {/* Enquiries Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="py-12">
             <LoadingPage message="Loading enquiries..." fullScreen={false} />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="text-left py-3 px-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedEnquiries.length === enquiries.length && enquiries.length > 0}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                    />
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">S.No</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Enquiry ID</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Date</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Name</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Service</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Lead Source</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Enquiry Stage</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Last Call Status</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Call Tag</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Call Log</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Convert To Member</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Staff</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Fitness Log</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">Action</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {enquiries.length === 0 ? (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                   <tr>
-                    <td colSpan={15} className="px-4 py-8 text-center text-gray-500">
-                      No enquiries found
-                    </td>
+                    <th className="text-left py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedEnquiries.length === enquiries.length && enquiries.length > 0}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                      />
+                    </th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">S.No</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Enquiry ID</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Date</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Name</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Service</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Lead Source</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Stage</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Call Status</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Call Tag</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Call Log</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Convert</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Staff</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Fitness</th>
+                    <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Action</th>
                   </tr>
-                ) : (
-                  enquiries.map((enquiry, index) => {
-                    const serialNumber = (pagination.page - 1) * limit + index + 1
-                    const lastCallLog = enquiry.callLogs && enquiry.callLogs.length > 0 
-                      ? enquiry.callLogs[enquiry.callLogs.length - 1] 
-                      : null
-                    const hasAppointments = false // TODO: Fetch appointments count
-                    
-                    return (
-                      <tr key={enquiry._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedEnquiries.includes(enquiry._id)}
-                            onChange={(e) => handleSelectEnquiry(enquiry._id, e.target.checked)}
-                            className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                          />
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">{serialNumber}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">{enquiry.enquiryId}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">
-                          {new Date(enquiry.date).toLocaleDateString('en-GB')}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900 font-medium whitespace-nowrap">
-                          {enquiry.name}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">{enquiry.serviceName || 'N/A'}</td>
-                        <td className="py-3 px-4 text-sm text-gray-900 capitalize whitespace-nowrap">
-                          {enquiry.leadSource?.replace('-', ' ') || 'N/A'}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                            enquiry.enquiryStage === 'converted' ? 'bg-green-100 text-green-800' :
-                            enquiry.enquiryStage === 'lost' || enquiry.enquiryStage === 'archived' ? 'bg-red-100 text-red-800' :
-                            enquiry.enquiryStage === 'opened' || enquiry.enquiryStage === 'enquiry' ? 'bg-blue-100 text-blue-800' :
-                            enquiry.enquiryStage === 'future-prospect' ? 'bg-purple-100 text-purple-800' :
-                            enquiry.enquiryStage === 'not-interested' ? 'bg-gray-100 text-gray-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {enquiry.enquiryStage?.split('-').map(word => 
-                              word.charAt(0).toUpperCase() + word.slice(1)
-                            ).join(' ')}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900 capitalize whitespace-nowrap">
-                          {enquiry.lastCallStatus?.replace('-', ' ') || 'N/A'}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          {enquiry.callTag && (
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              enquiry.callTag === 'hot' ? 'bg-red-100 text-red-800' :
-                              enquiry.callTag === 'warm' ? 'bg-orange-100 text-orange-800' :
-                              'bg-blue-100 text-blue-800'
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {enquiries.length === 0 ? (
+                    <tr>
+                      <td colSpan={15} className="px-4 py-12 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="p-4 bg-gray-100 rounded-full">
+                            <Search className="w-8 h-8 text-gray-400" />
+                          </div>
+                          <p className="text-gray-500 font-medium">No enquiries found</p>
+                          <p className="text-sm text-gray-400">Try adjusting your filters or add a new enquiry</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    enquiries.map((enquiry, index) => {
+                      const serialNumber = (pagination.page - 1) * limit + index + 1
+                      const lastCallLog = enquiry.callLogs && enquiry.callLogs.length > 0 
+                        ? enquiry.callLogs[enquiry.callLogs.length - 1] 
+                        : null
+                      
+                      return (
+                        <tr key={enquiry._id} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all">
+                          <td className="py-4 px-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedEnquiries.includes(enquiry._id)}
+                              onChange={(e) => handleSelectEnquiry(enquiry._id, e.target.checked)}
+                              className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                            />
+                          </td>
+                          <td className="py-4 px-4 text-sm font-semibold text-gray-900">{serialNumber}</td>
+                          <td className="py-4 px-4 text-sm text-gray-700 font-mono">{enquiry.enquiryId}</td>
+                          <td className="py-4 px-4 text-sm text-gray-700">
+                            {new Date(enquiry.date).toLocaleDateString('en-GB')}
+                          </td>
+                          <td className="py-4 px-4 text-sm text-gray-900 font-semibold">
+                            {enquiry.name}
+                          </td>
+                          <td className="py-4 px-4 text-sm text-gray-700">{enquiry.serviceName || 'N/A'}</td>
+                          <td className="py-4 px-4 text-sm text-gray-700 capitalize">
+                            {enquiry.leadSource?.replace('-', ' ') || 'N/A'}
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+                              enquiry.enquiryStage === 'converted' ? 'bg-green-100 text-green-700' :
+                              enquiry.enquiryStage === 'lost' || enquiry.enquiryStage === 'archived' ? 'bg-red-100 text-red-700' :
+                              enquiry.enquiryStage === 'opened' || enquiry.enquiryStage === 'enquiry' ? 'bg-blue-100 text-blue-700' :
+                              enquiry.enquiryStage === 'future-prospect' ? 'bg-purple-100 text-purple-700' :
+                              enquiry.enquiryStage === 'not-interested' ? 'bg-gray-100 text-gray-700' :
+                              'bg-yellow-100 text-yellow-700'
                             }`}>
-                              {enquiry.callTag?.charAt(0).toUpperCase() + enquiry.callTag?.slice(1)}
+                              {enquiry.enquiryStage?.split('-').map(word => 
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                              ).join(' ')}
                             </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-1.5">
-                            <button
-                              onClick={() => navigate(`/enquiries/${enquiry._id}/update-call`, { state: { from: location.pathname + location.search } })}
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="Add call log"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                            {lastCallLog && (
-                              <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                                LC
+                          </td>
+                          <td className="py-4 px-4 text-sm text-gray-700 capitalize">
+                            {enquiry.lastCallStatus?.replace('-', ' ') || 'N/A'}
+                          </td>
+                          <td className="py-4 px-4">
+                            {enquiry.callTag && (
+                              <span className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+                                enquiry.callTag === 'hot' ? 'bg-red-100 text-red-700' :
+                                enquiry.callTag === 'warm' ? 'bg-orange-100 text-orange-700' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>
+                                {enquiry.callTag?.charAt(0).toUpperCase() + enquiry.callTag?.slice(1)}
                               </span>
                             )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          {!enquiry.convertedToMember ? (
-                            <button
-                              onClick={() => {
-                                const planId = prompt('Enter plan ID (optional)')
-                                convertToMemberMutation.mutate({ 
-                                  enquiryId: enquiry._id, 
-                                  planId: planId || undefined 
-                                })
-                              }}
-                              className="px-3 py-1 bg-orange-500 text-white rounded-full text-xs font-medium hover:bg-orange-600 transition-colors whitespace-nowrap"
-                            >
-                              Invoice
-                            </button>
-                          ) : (
-                            <span className="text-xs text-gray-500 whitespace-nowrap">Converted</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900 whitespace-nowrap">
-                          {enquiry.assignedStaff ? 
-                            `${enquiry.assignedStaff.firstName} ${enquiry.assignedStaff.lastName}` : 
-                            'N/A'
-                          }
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => setShowFitnessLogModal(enquiry._id)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="Add fitness log"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                            <button
-                              className="p-1.5 text-gray-600 hover:bg-gray-50 rounded transition-colors"
-                              title="View fitness log"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => {
-                                // Navigate to edit or open edit modal
-                                const newName = prompt('Enter new name:', enquiry.name)
-                                if (newName && newName !== enquiry.name) {
-                                  api.put(`/enquiries/${enquiry._id}`, { name: newName })
-                                    .then(() => {
-                                      toast.success('Enquiry updated')
-                                      queryClient.invalidateQueries(['enquiries'])
-                                    })
-                                    .catch(() => toast.error('Failed to update enquiry'))
-                                }
-                              }}
-                              className="p-1.5 text-gray-600 hover:bg-gray-50 rounded transition-colors"
-                              title="Edit"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to delete this enquiry?')) {
-                                  deleteMutation.mutate(enquiry._id)
-                                }
-                              }}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => navigate(`/enquiries/${enquiry._id}/update-call`, { state: { from: location.pathname + location.search } })}
+                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                title="Add call log"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                              {lastCallLog && (
+                                <span className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-lg flex items-center justify-center text-xs font-bold shadow-sm">
+                                  LC
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            {!enquiry.convertedToMember ? (
+                              <button
+                                onClick={() => {
+                                  const planId = prompt('Enter plan ID (optional)')
+                                  convertToMemberMutation.mutate({ 
+                                    enquiryId: enquiry._id, 
+                                    planId: planId || undefined 
+                                  })
+                                }}
+                                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-xs font-bold hover:from-orange-600 hover:to-red-600 transition-all shadow-sm hover:shadow-md"
+                              >
+                                Invoice
+                              </button>
+                            ) : (
+                              <span className="text-xs text-green-600 font-semibold">✓ Converted</span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4 text-sm text-gray-700">
+                            {enquiry.assignedStaff ? 
+                              `${enquiry.assignedStaff.firstName} ${enquiry.assignedStaff.lastName}` : 
+                              'N/A'
+                            }
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setShowFitnessLogModal(enquiry._id)}
+                                className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                                title="Add fitness log"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                              <button
+                                className="p-2 text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="View fitness log"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const newName = prompt('Enter new name:', enquiry.name)
+                                  if (newName && newName !== enquiry.name) {
+                                    api.put(`/enquiries/${enquiry._id}`, { name: newName })
+                                      .then(() => {
+                                        toast.success('Enquiry updated')
+                                        queryClient.invalidateQueries(['enquiries'])
+                                      })
+                                      .catch(() => toast.error('Failed to update enquiry'))
+                                  }
+                                }}
+                                className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to delete this enquiry?')) {
+                                    deleteMutation.mutate(enquiry._id)
+                                  }
+                                }}
+                                className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {enquiries.length > 0 && (
+              <div className="flex items-center justify-between border-t-2 border-gray-200 px-6 py-4 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    disabled={page === 1}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    title="First page"
+                  >
+                    <ChevronsLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(page - 1)}
+                    disabled={page === 1}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    title="Previous page"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-semibold text-gray-700">
+                    Page <span className="text-orange-600">{pagination.page}</span> of <span className="text-orange-600">{pagination.pages}</span>
+                  </span>
+                  <form onSubmit={handleGoToPage} className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      name="page"
+                      min="1"
+                      max={pagination.pages}
+                      defaultValue={page}
+                      className="w-20 px-3 py-2 border-2 border-gray-200 rounded-lg text-center text-sm font-semibold focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      placeholder="Page"
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all text-sm font-semibold shadow-sm"
+                    >
+                      Go
+                    </button>
+                  </form>
+                  <span className="text-sm text-gray-600">
+                    Total: <span className="font-semibold text-gray-900">{pagination.total}</span>
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(page + 1)}
+                    disabled={page >= pagination.pages}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    title="Next page"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(pagination.pages)}
+                    disabled={page >= pagination.pages}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    title="Last page"
+                  >
+                    <ChevronsRight className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Add Enquiry Modal */}
+      {/* Modals */}
       {showAddModal && (
         <AddEnquiryModal
           isOpen={showAddModal}
@@ -727,7 +856,6 @@ export default function Enquiries() {
         />
       )}
 
-      {/* Appointment Modal */}
       {showAppointmentModal && (
         <AppointmentModal
           isOpen={!!showAppointmentModal}
@@ -735,6 +863,22 @@ export default function Enquiries() {
           enquiryId={showAppointmentModal}
         />
       )}
+    </div>
+  )
+}
+
+function EnquiryStatCard({ title, value, icon: Icon, gradient }) {
+  return (
+    <div className="group relative bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-5 hover:shadow-lg transition-all overflow-hidden">
+      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${gradient} opacity-10 rounded-full -mr-12 -mt-12 group-hover:opacity-20 transition-opacity`}></div>
+      
+      <div className="relative">
+        <div className={`p-3 bg-gradient-to-br ${gradient} rounded-xl inline-block mb-3 shadow-lg`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+        <p className="text-sm font-semibold text-gray-600 mb-1">{title}</p>
+        <p className="text-4xl font-black text-gray-900">{value}</p>
+      </div>
     </div>
   )
 }
