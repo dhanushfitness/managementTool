@@ -2,8 +2,10 @@ import axios from 'axios'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 
+// Use environment variable if set, otherwise use full URL with /api prefix
+// In development, you can set VITE_API_BASE_URL=/api to use the Vite proxy
 const api = axios.create({
-  baseURL: '/api'
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://api.airfitluxury.in/api'
 })
 
 api.interceptors.request.use(

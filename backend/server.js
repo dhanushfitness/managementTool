@@ -61,9 +61,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static files for uploads
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// Logging
+// Logging middleware - Morgan
 if (process.env.NODE_ENV === 'development') {
+  // Development: detailed colored output
   app.use(morgan('dev'));
+} else {
+  // Production: Apache combined log format for better analytics
+  app.use(morgan('combined'));
 }
 
 // Health check
