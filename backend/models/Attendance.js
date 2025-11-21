@@ -63,6 +63,7 @@ const attendanceSchema = new mongoose.Schema({
 
 // Indexes
 attendanceSchema.index({ organizationId: 1, checkInTime: -1 });
+attendanceSchema.index({ organizationId: 1, status: 1, checkInTime: -1 });
 attendanceSchema.index({ memberId: 1, checkInTime: -1 });
 attendanceSchema.index({ branchId: 1, checkInTime: -1 });
 attendanceSchema.index({ checkInTime: -1 });

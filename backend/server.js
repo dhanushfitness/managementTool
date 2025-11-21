@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import compression from 'compression';
 import path from 'path';
 
 // Import routes
@@ -34,6 +35,9 @@ import clientManagementRoutes from './routes/clientManagement.routes.js';
 dotenv.config();
 
 const app = express();
+
+// Compression middleware - compress all responses
+app.use(compression());
 
 // Security middleware
 app.use(helmet());
@@ -70,21 +74,23 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
-// put this after morgan
-app.use((req, res, next) => {
-  console.log('REQ', {
-    method: req.method,
-    url: req.originalUrl,
-    ip: req.ip,
-    headers: {
-      'x-forwarded-for': req.headers['x-forwarded-for'],
-      'user-agent': req.headers['user-agent'],
-      host: req.headers.host
-    },
-    body: req.body && Object.keys(req.body).length ? req.body : undefined
+// Request logging - only in development
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log('REQ', {
+      method: req.method,
+      url: req.originalUrl,
+      ip: req.ip,
+      headers: {
+        'x-forwarded-for': req.headers['x-forwarded-for'],
+        'user-agent': req.headers['user-agent'],
+        host: req.headers.host
+      },
+      body: req.body && Object.keys(req.body).length ? req.body : undefined
+    });
+    next();
   });
-  next();
-});
+}
 
 
 // Health check
@@ -131,8 +137,21 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gym_management')
+// Connect to MongoDB with optimized connection pooling
+const mongoOptions = {
+  maxPoolSize: 10, // Maximum number of connections in the pool
+  minPoolSize: 2, // Minimum number of connections in the pool
+  serverSelectionTimeoutMS: 5000, // How long to wait for server selection
+  socketTimeoutMS: 45000, // How long to wait for socket operations
+  connectTimeoutMS: 10000, // How long to wait for initial connection
+  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+  retryWrites: true, // Retry writes on transient errors
+  retryReads: true, // Retry reads on transient errors
+  bufferMaxEntries: 0, // Disable mongoose buffering
+  bufferCommands: false, // Disable mongoose buffering
+};
+
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gym_management', mongoOptions)
 .then(async() => {
   console.log('✅ MongoDB connected successfully');
   

@@ -1234,57 +1234,13 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
     .filter(inv => inv.status === 'partial' || inv.status === 'sent' || inv.status === 'overdue')
     .reduce((sum, inv) => sum + (inv.pending || 0), 0)
 
-  // Add dummy data for visualization if no real data exists
-  const displayInvoices = invoices.length > 0 ? invoices : [
-    {
-      _id: 'dummy1',
-      invoiceNumber: 'INV-001',
-      planId: { name: 'Gym Membership' },
-      items: [{
-        description: 'Gym Membership',
-        duration: '3 Month Membership',
-        startDate: new Date('2025-09-01'),
-        expiryDate: new Date('2025-11-30'),
-        numberOfSessions: null
-      }],
-      status: 'paid',
-      total: 4800,
-      createdAt: new Date('2025-08-29'),
-      payments: [{
-        paymentMethod: 'razorpay',
-        status: 'completed',
-        amount: 4800
-      }]
-    },
-    {
-      _id: 'dummy2',
-      invoiceNumber: 'INV-002',
-      planId: { name: 'Personal Training' },
-      items: [{
-        description: 'Personal Training',
-        duration: '1 Month - 12 Sessions',
-        startDate: new Date('2025-10-01'),
-        expiryDate: new Date('2025-10-31'),
-        numberOfSessions: 12
-      }],
-      status: 'paid',
-      total: 6000,
-      createdAt: new Date('2025-09-15'),
-      payments: [{
-        paymentMethod: 'cash',
-        status: 'completed',
-        amount: 6000
-      }]
-    }
-  ]
-
   // Get relationship since date (with dummy data if missing)
   const relationshipSince = member?.createdAt 
     ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
     : invoices.length === 0 ? '05-11-2025' : '-'
 
-  // Filter active/expired services
-  const activeServices = displayInvoices.filter(inv => {
+  // Filter active/expired services from REAL invoices only (not dummy data)
+  const activeServices = invoices.filter(inv => {
     if (!inv.items || inv.items.length === 0) return false
     const item = inv.items[0]
     if (!item.expiryDate) return inv.status === 'paid' || inv.status === 'partial'
@@ -1292,7 +1248,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
     return expiry >= new Date() && (inv.status === 'paid' || inv.status === 'partial')
   })
 
-  const expiredServices = displayInvoices.filter(inv => {
+  const expiredServices = invoices.filter(inv => {
     if (!inv.items || inv.items.length === 0) return false
     const item = inv.items[0]
     if (!item.expiryDate) return false
@@ -1415,8 +1371,39 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
         {/* Service Cards */}
         <div className="space-y-4">
           {displayedServices.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              No {activeServiceStatus} services found
+            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+              <div className="flex flex-col items-center justify-center space-y-4">
+                {activeServiceStatus === 'active' ? (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
+                      <Calendar className="w-8 h-8 text-orange-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No Active Memberships
+                      </h3>
+                      <p className="text-sm text-gray-500 max-w-md">
+                        This member does not have any active memberships at the moment. 
+                        {expiredServices.length > 0 && ' You can check expired services in the Expired tab.'}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-gray-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        No Expired Services
+                      </h3>
+                      <p className="text-sm text-gray-500 max-w-md">
+                        This member does not have any expired services.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           ) : (
             displayedServices.map((invoice) => {

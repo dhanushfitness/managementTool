@@ -108,7 +108,8 @@ export const getEnquiries = async (req, res) => {
       .populate('callLogs.staffId', 'firstName lastName')
       .sort({ date: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
 
     const total = await Enquiry.countDocuments(query);
 

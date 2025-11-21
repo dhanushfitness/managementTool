@@ -839,41 +839,95 @@ export const getInvoices = async (req, res) => {
 
     const total = await Invoice.countDocuments(query);
 
-    // Calculate summary statistics
-    const summaryQuery = { ...query };
-    const allInvoicesForSummary = await Invoice.find(summaryQuery)
-      .populate('memberId', 'firstName lastName')
-      .populate('items.serviceId', 'name');
-
-    let serviceNonPTSales = 0;
-    let servicePTSales = 0;
-    let productSales = 0;
-
-    allInvoicesForSummary.forEach(invoice => {
-      invoice.items?.forEach(item => {
-        const itemTotal = item.total || 0;
-        // Determine if it's PT, non-PT service, or product based on item description or service type
-        const description = (item.description || '').toLowerCase();
-        if (description.includes('pt') || description.includes('personal trainer')) {
-          servicePTSales += itemTotal;
-        } else if (invoice.invoiceType === 'service') {
-          serviceNonPTSales += itemTotal;
-        } else if (invoice.invoiceType === 'package' || invoice.invoiceType === 'deal') {
-          productSales += itemTotal;
-        } else {
-          serviceNonPTSales += itemTotal;
+    // Calculate summary statistics using aggregation for better performance
+    const summaryAggregation = await Invoice.aggregate([
+      { $match: query },
+      { $unwind: { path: '$items', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: {
+            invoiceType: '$invoiceType',
+            description: '$items.description'
+          },
+          total: { $sum: { $ifNull: ['$items.total', 0] } }
         }
-      });
-    });
+      },
+      {
+        $group: {
+          _id: null,
+          serviceNonPTSales: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ['$_id.invoiceType', 'service'] },
+                    {
+                      $and: [
+                        { $ne: ['$_id.invoiceType', 'package'] },
+                        { $ne: ['$_id.invoiceType', 'deal'] },
+                        {
+                          $not: {
+                            $or: [
+                              { $regexMatch: { input: { $toLower: { $ifNull: ['$_id.description', ''] } }, regex: 'pt' } },
+                              { $regexMatch: { input: { $toLower: { $ifNull: ['$_id.description', ''] } }, regex: 'personal trainer' } }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                '$total',
+                0
+              ]
+            }
+          },
+          servicePTSales: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $regexMatch: { input: { $toLower: { $ifNull: ['$_id.description', ''] } }, regex: 'pt' } },
+                    { $regexMatch: { input: { $toLower: { $ifNull: ['$_id.description', ''] } }, regex: 'personal trainer' } }
+                  ]
+                },
+                '$total',
+                0
+              ]
+            }
+          },
+          productSales: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ['$_id.invoiceType', 'package'] },
+                    { $eq: ['$_id.invoiceType', 'deal'] }
+                  ]
+                },
+                '$total',
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const summary = summaryAggregation[0] || {
+      serviceNonPTSales: 0,
+      servicePTSales: 0,
+      productSales: 0
+    };
 
     res.json({
       success: true,
       data: {
         invoices,
         summary: {
-          serviceNonPTSales,
-          servicePTSales,
-          productSales
+          serviceNonPTSales: summary.serviceNonPTSales || 0,
+          servicePTSales: summary.servicePTSales || 0,
+          productSales: summary.productSales || 0
         },
         pagination: {
           page: parseInt(page),
@@ -1677,13 +1731,14 @@ export const getPendingCollections = async (req, res) => {
       ];
     }
 
-    // Get invoices with populated data
+    // Get invoices with populated data (using lean for better performance)
     let invoicesQuery = Invoice.find(query)
       .populate('memberId', 'firstName lastName phone memberId')
       .populate('planId', 'name')
       .populate('branchId', 'name')
       .populate('createdBy', 'firstName lastName')
-      .sort({ dueDate: 1, createdAt: -1 });
+      .sort({ dueDate: 1, createdAt: -1 })
+      .lean();
 
     if (salesRepId) {
       invoicesQuery = invoicesQuery.where('createdBy').equals(salesRepId);
@@ -1695,33 +1750,108 @@ export const getPendingCollections = async (req, res) => {
 
     const total = await Invoice.countDocuments(query);
 
-    // Calculate pending amounts by category
-    const summaryQuery = { ...query };
-    const allInvoicesForSummary = await Invoice.find(summaryQuery)
-      .populate('memberId', 'firstName lastName')
-      .populate('items.serviceId', 'name');
-
-    let serviceNonPTPending = 0;
-    let servicePTPending = 0;
-    let productPending = 0;
-
-    allInvoicesForSummary.forEach(invoice => {
-      const pendingAmount = invoice.pending || 0;
-      invoice.items?.forEach(item => {
-        const itemPending = (pendingAmount / (invoice.items.length || 1));
-        const description = (item.description || '').toLowerCase();
-        
-        if (description.includes('pt') || description.includes('personal trainer')) {
-          servicePTPending += itemPending;
-        } else if (invoice.invoiceType === 'service') {
-          serviceNonPTPending += itemPending;
-        } else if (invoice.invoiceType === 'package' || invoice.invoiceType === 'deal') {
-          productPending += itemPending;
-        } else {
-          serviceNonPTPending += itemPending;
+    // Calculate pending amounts by category using aggregation for better performance
+    const pendingSummaryAggregation = await Invoice.aggregate([
+      { $match: query },
+      { $unwind: { path: '$items', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          invoiceType: 1,
+          pending: { $ifNull: ['$pending', 0] },
+          itemsCount: { $size: { $ifNull: ['$items', []] } },
+          description: '$items.description'
         }
-      });
-    });
+      },
+      {
+        $addFields: {
+          itemPending: {
+            $divide: [
+              '$pending',
+              { $max: [{ $size: { $ifNull: ['$items', []] } }, 1] }
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            invoiceType: '$invoiceType',
+            description: '$description'
+          },
+          totalPending: { $sum: '$itemPending' }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          serviceNonPTPending: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ['$_id.invoiceType', 'service'] },
+                    {
+                      $and: [
+                        { $ne: ['$_id.invoiceType', 'package'] },
+                        { $ne: ['$_id.invoiceType', 'deal'] },
+                        {
+                          $not: {
+                            $or: [
+                              { $regexMatch: { input: { $toLower: { $ifNull: ['$_id.description', ''] } }, regex: 'pt' } },
+                              { $regexMatch: { input: { $toLower: { $ifNull: ['$_id.description', ''] } }, regex: 'personal trainer' } }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                '$totalPending',
+                0
+              ]
+            }
+          },
+          servicePTPending: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $regexMatch: { input: { $toLower: { $ifNull: ['$_id.description', ''] } }, regex: 'pt' } },
+                    { $regexMatch: { input: { $toLower: { $ifNull: ['$_id.description', ''] } }, regex: 'personal trainer' } }
+                  ]
+                },
+                '$totalPending',
+                0
+              ]
+            }
+          },
+          productPending: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ['$_id.invoiceType', 'package'] },
+                    { $eq: ['$_id.invoiceType', 'deal'] }
+                  ]
+                },
+                '$totalPending',
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const pendingSummary = pendingSummaryAggregation[0] || {
+      serviceNonPTPending: 0,
+      servicePTPending: 0,
+      productPending: 0
+    };
+
+    const serviceNonPTPending = pendingSummary.serviceNonPTPending || 0;
+    const servicePTPending = pendingSummary.servicePTPending || 0;
+    const productPending = pendingSummary.productPending || 0;
 
     // Get payment details for each invoice
     const invoiceIds = invoices.map(inv => inv._id);
@@ -1744,7 +1874,7 @@ export const getPendingCollections = async (req, res) => {
     const invoicesWithPayments = invoices.map(invoice => {
       const paidAmount = paymentsByInvoice[invoice._id.toString()] || 0;
       return {
-        ...invoice.toObject(),
+        ...invoice,
         paidAmount,
         pendingAmount: invoice.pending || 0
       };

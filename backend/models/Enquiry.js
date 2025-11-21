@@ -121,6 +121,8 @@ const enquirySchema = new mongoose.Schema({
 enquirySchema.index({ organizationId: 1, enquiryStage: 1 });
 enquirySchema.index({ organizationId: 1, date: -1 });
 enquirySchema.index({ organizationId: 1, isArchived: 1 });
+enquirySchema.index({ organizationId: 1, enquiryStage: 1, date: -1 });
+enquirySchema.index({ organizationId: 1, date: -1, isArchived: 1 });
 
 const Enquiry = mongoose.model('Enquiry', enquirySchema);
 

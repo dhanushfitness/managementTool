@@ -151,6 +151,10 @@ const invoiceSchema = new mongoose.Schema({
 // Indexes
 invoiceSchema.index({ organizationId: 1, status: 1 });
 invoiceSchema.index({ organizationId: 1, dueDate: 1 });
+invoiceSchema.index({ organizationId: 1, paidDate: -1 });
+invoiceSchema.index({ organizationId: 1, createdAt: -1 });
+invoiceSchema.index({ organizationId: 1, branchId: 1, status: 1 });
+invoiceSchema.index({ organizationId: 1, createdAt: -1, status: 1 });
 invoiceSchema.index({ memberId: 1, status: 1 });
 invoiceSchema.index({ createdAt: -1 });
 

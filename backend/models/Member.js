@@ -229,6 +229,8 @@ const memberSchema = new mongoose.Schema({
 // Indexes
 memberSchema.index({ organizationId: 1, memberId: 1 }, { unique: true });
 memberSchema.index({ organizationId: 1, phone: 1 });
+memberSchema.index({ organizationId: 1, createdAt: -1 });
+memberSchema.index({ organizationId: 1, membershipStatus: 1, isActive: 1 });
 memberSchema.index({ branchId: 1, membershipStatus: 1 });
 memberSchema.index({ 'currentPlan.endDate': 1 });
 

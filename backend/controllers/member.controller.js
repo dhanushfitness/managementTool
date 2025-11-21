@@ -233,7 +233,8 @@ export const getMembers = async (req, res) => {
       .populate('memberManager', 'firstName lastName')
       .populate('salesRep', 'firstName lastName')
       .populate('generalTrainer', 'firstName lastName')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     // Filter by invoice status if provided
     if (invoice) {

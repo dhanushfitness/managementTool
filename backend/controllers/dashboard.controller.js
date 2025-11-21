@@ -163,7 +163,8 @@ export const getRecentActivities = async (req, res) => {
     const recentPayments = await Payment.find({ organizationId: req.organizationId })
       .populate('memberId', 'firstName lastName')
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(10)
+      .lean();
 
     const recentCheckIns = await Attendance.find({ 
       organizationId: req.organizationId,
@@ -171,7 +172,8 @@ export const getRecentActivities = async (req, res) => {
     })
       .populate('memberId', 'firstName lastName')
       .sort({ checkInTime: -1 })
-      .limit(10);
+      .limit(10)
+      .lean();
 
     res.json({
       success: true,
@@ -201,7 +203,8 @@ export const getUpcomingRenewals = async (req, res) => {
     })
       .select('firstName lastName phone currentPlan memberId')
       .sort({ 'currentPlan.endDate': 1 })
-      .limit(20);
+      .limit(20)
+      .lean();
 
     res.json({ success: true, renewals });
   } catch (error) {
@@ -217,7 +220,8 @@ export const getPendingPayments = async (req, res) => {
     })
       .populate('memberId', 'firstName lastName phone')
       .sort({ dueDate: 1 })
-      .limit(20);
+      .limit(20)
+      .lean();
 
     res.json({ success: true, pending });
   } catch (error) {
@@ -238,7 +242,8 @@ export const getAttendanceToday = async (req, res) => {
     })
       .populate('memberId', 'firstName lastName memberId profilePicture')
       .populate('branchId', 'name')
-      .sort({ checkInTime: -1 });
+      .sort({ checkInTime: -1 })
+      .lean();
 
     res.json({ success: true, attendance });
   } catch (error) {
@@ -325,40 +330,63 @@ export const getDashboardSummary = async (req, res) => {
       membershipStatus: 'active'
     });
 
-    // Client birthdays (today only - checking month and day, ignoring year)
+    // Client birthdays (today only - using MongoDB aggregation for better performance)
     const todayMonth = today.getMonth();
     const todayDate = today.getDate();
-    const currentYear = today.getFullYear();
     
-    // Get all members with birthdays
-    const allMembers = await Member.find({
-      organizationId: req.organizationId,
-      dateOfBirth: { $exists: true, $ne: null }
-    }).select('dateOfBirth').lean();
-    
-    let clientBirthdays = 0;
-    for (const member of allMembers) {
-      if (!member.dateOfBirth) continue;
-      const dob = new Date(member.dateOfBirth);
-      if (dob.getMonth() === todayMonth && dob.getDate() === todayDate) {
-        clientBirthdays++;
+    // Use aggregation to count birthdays in MongoDB instead of fetching all records
+    const clientBirthdayCount = await Member.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          dateOfBirth: { $exists: true, $ne: null }
+        }
+      },
+      {
+        $project: {
+          birthMonth: { $month: '$dateOfBirth' },
+          birthDay: { $dayOfMonth: '$dateOfBirth' }
+        }
+      },
+      {
+        $match: {
+          birthMonth: todayMonth + 1, // MongoDB month is 1-12, JS month is 0-11
+          birthDay: todayDate
+        }
+      },
+      {
+        $count: 'count'
       }
-    }
+    ]);
 
-    // Staff birthdays (today only - checking month and day, ignoring year)
-    const allUsers = await User.find({
-      organizationId: req.organizationId,
-      dateOfBirth: { $exists: true, $ne: null }
-    }).select('dateOfBirth').lean();
-    
-    let staffBirthdays = 0;
-    for (const user of allUsers) {
-      if (!user.dateOfBirth) continue;
-      const dob = new Date(user.dateOfBirth);
-      if (dob.getMonth() === todayMonth && dob.getDate() === todayDate) {
-        staffBirthdays++;
+    const clientBirthdays = clientBirthdayCount[0]?.count || 0;
+
+    // Staff birthdays (today only - using MongoDB aggregation for better performance)
+    const staffBirthdayCount = await User.aggregate([
+      {
+        $match: {
+          organizationId: req.organizationId,
+          dateOfBirth: { $exists: true, $ne: null }
+        }
+      },
+      {
+        $project: {
+          birthMonth: { $month: '$dateOfBirth' },
+          birthDay: { $dayOfMonth: '$dateOfBirth' }
+        }
+      },
+      {
+        $match: {
+          birthMonth: todayMonth + 1, // MongoDB month is 1-12, JS month is 0-11
+          birthDay: todayDate
+        }
+      },
+      {
+        $count: 'count'
       }
-    }
+    ]);
+
+    const staffBirthdays = staffBirthdayCount[0]?.count || 0;
 
     res.json({
       success: true,

@@ -81,9 +81,11 @@ const paymentSchema = new mongoose.Schema({
 
 // Indexes
 paymentSchema.index({ organizationId: 1, status: 1 });
-paymentSchema.index({ organizationId: 1, paidAt: 1 });
+paymentSchema.index({ organizationId: 1, paidAt: -1 });
+paymentSchema.index({ organizationId: 1, status: 1, paidAt: -1 });
 paymentSchema.index({ razorpayDetails: { paymentId: 1 } });
 paymentSchema.index({ createdAt: -1 });
+paymentSchema.index({ invoiceId: 1, status: 1 });
 
 const Payment = mongoose.model('Payment', paymentSchema);
 

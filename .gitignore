@@ -44,3 +44,4 @@ coverage/
 *.key
 *.md
 
+package-lock.json
