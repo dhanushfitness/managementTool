@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../api/axios'
@@ -29,7 +30,8 @@ import {
   UserX,
   Zap,
   TrendingUp,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import LoadingTable from '../components/LoadingTable'
@@ -59,6 +61,9 @@ export default function Enquiries() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(null)
   const [showFitnessLogModal, setShowFitnessLogModal] = useState(null)
   const [showEditModal, setShowEditModal] = useState(null)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [isDetailsLoading, setIsDetailsLoading] = useState(false)
+  const [selectedEnquiryDetails, setSelectedEnquiryDetails] = useState(null)
   // Filter states
   const [filters, setFilters] = useState({
     enquiryStage: '',
@@ -141,18 +146,70 @@ export default function Enquiries() {
     }
   })
 
+  const initialConvertState = {
+    open: false,
+    enquiry: null,
+    status: 'negotiation',
+    comments: ''
+  }
+  const [convertConfirm, setConvertConfirm] = useState(initialConvertState)
+
   const convertToMemberMutation = useMutation({
-    mutationFn: ({ enquiryId, planId }) => 
-      api.post(`/enquiries/${enquiryId}/convert`, { planId }),
-    onSuccess: () => {
+    mutationFn: ({ enquiryId, status, comments }) => 
+      api.post(`/enquiries/${enquiryId}/convert`, { status, comments }),
+    onSuccess: (response) => {
       toast.success('Enquiry converted to member successfully')
       queryClient.invalidateQueries(['enquiries'])
       queryClient.invalidateQueries(['enquiry-stats'])
+      // Redirect to member profile page
+      const memberId = response?.data?.member?._id
+      if (memberId) {
+        navigate(`/clients/${memberId}`)
+      }
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Failed to convert enquiry')
     }
   })
+
+  const handleConvertClick = (enquiry) => {
+    if (!enquiry || !enquiry._id) {
+      toast.error('Invalid enquiry data')
+      return
+    }
+    // Map 'sale' to 'negotiation' if needed, or use existing stage
+    const statusMap = {
+      'sale': 'negotiation',
+      'opened': 'opened',
+      'qualified': 'qualified',
+      'demo': 'demo',
+      'negotiation': 'negotiation',
+      'converted': 'converted',
+      'lost': 'lost',
+      'enquiry': 'enquiry',
+      'future-prospect': 'future-prospect',
+      'not-interested': 'not-interested'
+    }
+    const defaultStatus = enquiry.enquiryStage || 'negotiation'
+    const newState = { 
+      open: true, 
+      enquiry,
+      status: statusMap[defaultStatus] || defaultStatus,
+      comments: ''
+    }
+    setConvertConfirm(newState)
+  }
+
+  const handleConvertConfirm = () => {
+    if (convertConfirm.enquiry) {
+      convertToMemberMutation.mutate({ 
+        enquiryId: convertConfirm.enquiry._id, 
+        status: convertConfirm.status,
+        comments: convertConfirm.comments
+      })
+      setConvertConfirm(initialConvertState)
+    }
+  }
 
   const bulkArchiveMutation = useMutation({
     mutationFn: (enquiryIds) => api.post('/enquiries/bulk/archive', { enquiryIds }),
@@ -261,6 +318,26 @@ export default function Enquiries() {
   const enquiries = data?.enquiries || []
   const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
   const statsData = stats?.stats || {}
+
+  const handleShowDetails = async (enquiryId) => {
+    try {
+      setShowDetailsModal(true)
+      setIsDetailsLoading(true)
+      const response = await api.get(`/enquiries/${enquiryId}`)
+      setSelectedEnquiryDetails(response.data?.enquiry || null)
+    } catch (error) {
+      setSelectedEnquiryDetails(null)
+      setShowDetailsModal(false)
+      toast.error(error.response?.data?.message || 'Unable to load enquiry details')
+    } finally {
+      setIsDetailsLoading(false)
+    }
+  }
+
+  const closeDetailsModal = () => {
+    setShowDetailsModal(false)
+    setSelectedEnquiryDetails(null)
+  }
 
   const activeFilterCount = Object.values(filters).filter(v => v).length
 
@@ -645,9 +722,15 @@ export default function Enquiries() {
                             {new Date(enquiry.date).toLocaleDateString('en-GB')}
                           </td>
                           <td className="py-4 px-4 text-sm text-gray-900 font-semibold">
-                            {enquiry.name}
+                            <button
+                              type="button"
+                              className="text-orange-600 hover:text-orange-700 hover:underline"
+                              onClick={() => handleShowDetails(enquiry._id)}
+                            >
+                              {enquiry.name}
+                            </button>
                           </td>
-                          <td className="py-4 px-4 text-sm text-gray-700">{enquiry.serviceName || 'N/A'}</td>
+                          <td className="py-4 px-4 text-sm text-gray-700">{enquiry.serviceName || enquiry.service?.name || 'N/A'}</td>
                           <td className="py-4 px-4 text-sm text-gray-700 capitalize">
                             {enquiry.leadSource?.replace('-', ' ') || 'N/A'}
                           </td>
@@ -698,14 +781,13 @@ export default function Enquiries() {
                           <td className="py-4 px-4">
                             {!enquiry.convertedToMember ? (
                               <button
-                                onClick={() => {
-                                  const planId = prompt('Enter plan ID (optional)')
-                                  convertToMemberMutation.mutate({ 
-                                    enquiryId: enquiry._id, 
-                                    planId: planId || undefined 
-                                  })
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  handleConvertClick(enquiry)
                                 }}
-                                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-xs font-bold hover:from-orange-600 hover:to-red-600 transition-all shadow-sm hover:shadow-md"
+                                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg text-xs font-bold hover:from-orange-600 hover:to-red-600 transition-all shadow-sm hover:shadow-md cursor-pointer"
                               >
                                 Invoice
                               </button>
@@ -739,17 +821,7 @@ export default function Enquiries() {
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => {
-                                  const newName = prompt('Enter new name:', enquiry.name)
-                                  if (newName && newName !== enquiry.name) {
-                                    api.put(`/enquiries/${enquiry._id}`, { name: newName })
-                                      .then(() => {
-                                        toast.success('Enquiry updated')
-                                        queryClient.invalidateQueries(['enquiries'])
-                                      })
-                                      .catch(() => toast.error('Failed to update enquiry'))
-                                  }
-                                }}
+                                onClick={() => navigate(`/enquiries/${enquiry._id}/edit`)}
                                 className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                                 title="Edit"
                               >
@@ -863,6 +935,122 @@ export default function Enquiries() {
           enquiryId={showAppointmentModal}
         />
       )}
+
+      {showDetailsModal && (
+        <EnquiryDetailsModal
+          enquiry={selectedEnquiryDetails}
+          isLoading={isDetailsLoading}
+          onClose={closeDetailsModal}
+        />
+      )}
+
+      {/* Convert to Member Confirmation Modal */}
+      {convertConfirm.open && createPortal(
+        <div 
+          id="convert-confirm-modal"
+          className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md" 
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'auto'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setConvertConfirm(initialConvertState)
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-4 border border-gray-200 overflow-hidden" 
+            onClick={(e) => e.stopPropagation()}
+            style={{ position: 'relative', zIndex: 100000, pointerEvents: 'auto' }}
+          >
+            {/* Header with gradient */}
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 px-8 py-6 flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-2xl font-black text-white leading-tight">
+                  Add this person as a member?
+                </h3>
+              </div>
+              <button
+                onClick={() => setConvertConfirm(initialConvertState)}
+                className="text-white hover:bg-white/20 transition-colors rounded-full p-2 flex-shrink-0 ml-4"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-8 space-y-6 bg-gradient-to-br from-gray-50 to-white">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                  Status:
+                </label>
+                <select
+                  value={convertConfirm.status}
+                  onChange={(e) => setConvertConfirm({ ...convertConfirm, status: e.target.value })}
+                  className="w-full px-5 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold shadow-sm hover:border-orange-300 transition-colors"
+                >
+                  <option value="opened">Opened</option>
+                  <option value="qualified">Qualified</option>
+                  <option value="demo">Demo</option>
+                  <option value="negotiation">Sale</option>
+                  <option value="converted">Converted</option>
+                  <option value="lost">Lost</option>
+                  <option value="enquiry">Enquiry</option>
+                  <option value="future-prospect">Future Prospect</option>
+                  <option value="not-interested">Not Interested</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                  Comments:
+                </label>
+                <textarea
+                  value={convertConfirm.comments}
+                  onChange={(e) => setConvertConfirm({ ...convertConfirm, comments: e.target.value })}
+                  rows={5}
+                  maxLength={540}
+                  placeholder="Enter your comments here (maximum 540 characters)..."
+                  className="w-full px-5 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm resize-none font-medium shadow-sm hover:border-orange-300 transition-colors"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-gray-500 italic">(Comments will be saved in call log)</p>
+                  <p className="text-xs font-semibold text-gray-400">{convertConfirm.comments.length}/540</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-6 bg-gray-50 border-t-2 border-gray-200 flex justify-end space-x-4">
+              <button
+                onClick={() => setConvertConfirm(initialConvertState)}
+                className="px-8 py-3 rounded-xl border-2 border-gray-300 text-gray-700 font-bold hover:bg-gray-100 transition-all shadow-sm hover:shadow-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConvertConfirm}
+                disabled={convertToMemberMutation.isLoading}
+                className="px-8 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+              >
+                {convertToMemberMutation.isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
+                <span>Yes</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
@@ -881,4 +1069,144 @@ function EnquiryStatCard({ title, value, icon: Icon, gradient }) {
       </div>
     </div>
   )
+}
+
+function EnquiryDetailsModal({ enquiry, isLoading, onClose }) {
+  const lastCallLog = enquiry?.callLogs?.length
+    ? enquiry.callLogs[enquiry.callLogs.length - 1]
+    : null
+
+  const formatDate = (date) => {
+    if (!date) return '-'
+    return new Date(date).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+  }
+
+  const formatDateTime = (date) => {
+    if (!date) return '-'
+    return new Date(date).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const formatDateWithTime = (date) => {
+    if (!date) return '-'
+    return new Date(date).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  }
+
+  const DetailRow = ({ label, value }) => (
+    <div className="grid grid-cols-[160px_1fr] items-start">
+      <span className="text-sm font-semibold text-gray-500">{label}</span>
+      <span className="text-sm font-bold text-gray-900">{value || '-'}</span>
+    </div>
+  )
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-500">Enquiry Snapshot</p>
+            <h3 className="text-2xl font-black text-gray-900">
+              {enquiry?.name || 'Loading...'}
+            </h3>
+            <p className="text-sm font-semibold text-orange-600 mt-1">
+              {enquiry?.enquiryId || ''}
+            </p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-full border border-gray-200 p-2 text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+            </div>
+          ) : (
+            <>
+              <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+                <div className="grid gap-4">
+                  <DetailRow label="Member/Lead" value={enquiry?.isLead ? 'Lead' : 'Member'} />
+                  <DetailRow label="E-mail" value={enquiry?.email || 'Not provided'} />
+                  <DetailRow label="Customer type" value={enquiry?.customerType || 'Individual'} />
+                  <DetailRow label="Enquiry type" value={(enquiry?.enquiryType || 'New').replace('-', ' ')} />
+                  <DetailRow label="Contact Number" value={enquiry?.phone} />
+                  <DetailRow label="Follow-up date" value={formatDateWithTime(enquiry?.expectedClosureDate)} />
+                  <DetailRow
+                    label="Created by"
+                    value={
+                      enquiry?.createdBy
+                        ? `${enquiry.createdBy.firstName || ''} ${enquiry.createdBy.lastName || ''}`.trim()
+                        : '-'
+                    }
+                  />
+                  <DetailRow
+                    label="Last Call Update"
+                    value={
+                      lastCallLog
+                        ? `${lastCallLog.status || 'Update'} • ${formatDateTime(lastCallLog.date)}`
+                        : 'No call logs yet'
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+                    Lead Details
+                  </p>
+                  <DetailRow label="Service" value={enquiry?.serviceName || enquiry?.service?.name || 'N/A'} />
+                  <DetailRow label="Lead Source" value={enquiry?.leadSource?.replace('-', ' ') || 'N/A'} />
+                  <DetailRow label="Stage" value={enquiry?.enquiryStage?.replace('-', ' ') || 'N/A'} />
+                </div>
+                <div className="rounded-2xl border border-gray-100 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">
+                    Owner
+                  </p>
+                  <DetailRow
+                    label="Assigned Staff"
+                    value={
+                      enquiry?.assignedStaff
+                        ? `${enquiry.assignedStaff.firstName || ''} ${enquiry.assignedStaff.lastName || ''}`.trim()
+                        : 'Not assigned'
+                    }
+                  />
+                  <DetailRow label="Status" value={enquiry?.lastCallStatus?.replace('-', ' ') || 'Not Called'} />
+                  <DetailRow
+                    label="Call Tag"
+                    value={enquiry?.callTag ? enquiry.callTag.charAt(0).toUpperCase() + enquiry.callTag.slice(1) : 'N/A'}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
+  if (!isOpen) return null
+
+  return createPortal(modalContent, document.body)
 }

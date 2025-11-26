@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { isTokenExpired } from '../utils/auth'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 
@@ -8,7 +9,14 @@ export default function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-  const { setAuth } = useAuthStore()
+  const { setAuth, token, user, hydrated } = useAuthStore()
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (hydrated && token && user && !isTokenExpired(token)) {
+      navigate('/', { replace: true })
+    }
+  }, [hydrated, token, user, navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -16,20 +24,103 @@ export default function Login() {
 
     try {
       const response = await api.post('/auth/login', formData)
-      const { token, user } = response.data
+      console.log('Login response:', response.data)
+      
+      // Handle both response structures: { success, token, user } or { token, user }
+      const token = response.data.token || response.data.data?.token
+      const user = response.data.user || response.data.data?.user
+      
+      console.log('Extracted token and user:', { hasToken: !!token, hasUser: !!user })
       
       if (token && user) {
-        // Set auth state first
+        console.log('Login successful, received:', { 
+          hasToken: !!token, 
+          hasUser: !!user,
+          userKeys: Object.keys(user || {}),
+          tokenLength: token?.length
+        })
+        
+        // Clear any member token when admin logs in
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('memberToken')
+          localStorage.removeItem('member')
+          window.axiosLoginTime = Date.now()
+        }
+        
+        // Set auth state - this also sets hydrated to true
+        console.log('Setting auth state...')
         setAuth(token, user)
         
-        // Wait a bit to ensure state is persisted
+        // Also set token directly in localStorage for immediate access
+        try {
+          const authStorage = localStorage.getItem('auth-storage')
+          const authData = authStorage ? JSON.parse(authStorage) : { state: {} }
+          authData.state = { ...authData.state, token, user, hydrated: true }
+          localStorage.setItem('auth-storage', JSON.stringify(authData))
+          console.log('Directly set auth in localStorage')
+        } catch (e) {
+          console.error('Error setting auth in localStorage:', e)
+        }
+        
+        // Wait for state to be persisted and ensure token is available
         await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Verify token was stored correctly - check multiple times
+        let attempts = 0
+        let authState = useAuthStore.getState()
+        let storedToken = authState.token
+        let storedUser = authState.user
+        let isHydrated = authState.hydrated
+        
+        while ((!storedToken || !storedUser || !isHydrated) && attempts < 10) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          authState = useAuthStore.getState()
+          storedToken = authState.token
+          storedUser = authState.user
+          isHydrated = authState.hydrated
+          attempts++
+          console.log(`Verification attempt ${attempts}:`, { 
+            storedToken: !!storedToken, 
+            storedUser: !!storedUser,
+            isHydrated,
+            tokensMatch: storedToken === token
+          })
+        }
+        
+        console.log('Final verification:', { 
+          storedToken: !!storedToken, 
+          storedUser: !!storedUser,
+          isHydrated,
+          tokensMatch: storedToken === token,
+          userMatch: JSON.stringify(storedUser) === JSON.stringify(user)
+        })
+        
+        if (!storedToken || storedToken !== token) {
+          console.error('Token not stored correctly', { storedToken, token })
+          toast.error('Failed to save authentication token. Please try again.')
+          setLoading(false)
+          return
+        }
+        
+        if (!storedUser) {
+          console.error('User not stored correctly', { storedUser, user })
+          toast.error('Failed to save user data. Please try again.')
+          setLoading(false)
+          return
+        }
+        
+        if (!isHydrated) {
+          console.warn('Not hydrated yet, but proceeding anyway')
+          useAuthStore.getState().setHydrated()
+        }
         
         toast.success('Login successful!')
         
         // Use replace to prevent back navigation to login
+        console.log('Navigating to dashboard...')
         navigate('/', { replace: true })
       } else {
+        console.error('Invalid response structure:', response.data)
         toast.error('Invalid response from server')
       }
     } catch (error) {

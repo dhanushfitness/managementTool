@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import { Download, Calendar, ChevronDown } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getUpgradeReport, exportUpgradeReport } from '../api/reports'
@@ -8,13 +9,20 @@ import toast from 'react-hot-toast'
 import DateInput from '../components/DateInput'
 
 export default function UpgradeReport() {
+  const location = useLocation()
+  const searchParams = new URLSearchParams(location.search)
+  const urlFromDate = searchParams.get('fromDate')
+  const urlToDate = searchParams.get('toDate')
+
   const getDefaultFromDate = () => {
+    if (urlFromDate) return urlFromDate
     const date = new Date()
     date.setMonth(date.getMonth() - 1)
     return date.toISOString().split('T')[0]
   }
 
   const getDefaultToDate = () => {
+    if (urlToDate) return urlToDate
     return new Date().toISOString().split('T')[0]
   }
 
@@ -24,7 +32,17 @@ export default function UpgradeReport() {
     staffId: 'all'
   })
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [hasSearched, setHasSearched] = useState(!!(urlFromDate || urlToDate || true))
+
+  useEffect(() => {
+    if (urlFromDate || urlToDate) {
+      setFilters(prev => ({
+        ...prev,
+        fromDate: urlFromDate || prev.fromDate,
+        toDate: urlToDate || prev.toDate
+      }))
+    }
+  }, [urlFromDate, urlToDate])
 
   const { data: staffData } = useQuery({
     queryKey: ['staff-list'],

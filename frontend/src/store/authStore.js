@@ -3,12 +3,12 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 
 export const useAuthStore = create(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: null,
       user: null,
       hydrated: false,
-      setAuth: (token, user) => set({ token, user }),
-      logout: () => set({ token: null, user: null }),
+      setAuth: (token, user) => set({ token, user, hydrated: true }),
+      logout: () => set({ token: null, user: null, hydrated: true }),
       setHydrated: () => set({ hydrated: true })
     }),
     {
@@ -18,11 +18,18 @@ export const useAuthStore = create(
         token: state.token,
         user: state.user
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.setHydrated) {
-          state.setHydrated()
-        } else {
-          set({ hydrated: true })
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          if (error) {
+            console.error('Error rehydrating auth store:', error)
+          }
+          // Set hydrated after rehydration completes
+          if (state) {
+            // Use setTimeout to ensure this runs after the store is fully rehydrated
+            setTimeout(() => {
+              useAuthStore.getState().setHydrated()
+            }, 0)
+          }
         }
       }
     }

@@ -3,6 +3,7 @@ import api from './axios'
 // Marketing & Communication API
 
 // Communication
+export const getFilteredRecipients = (data) => api.post('/marketing/communication/recipients', data)
 export const sendEmail = (data) => api.post('/marketing/communication/email', data)
 export const sendSMS = (data) => api.post('/marketing/communication/sms', data)
 export const sendWhatsApp = (data) => api.post('/marketing/communication/whatsapp', data)

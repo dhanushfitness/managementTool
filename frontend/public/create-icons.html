@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create PWA Icons</title>
+</head>
+<body>
+  <h1>PWA Icon Generator</h1>
+  <p>This page helps create the required icon files. For production, use proper icon design tools.</p>
+  
+  <canvas id="icon192" width="192" height="192" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+  <canvas id="icon512" width="512" height="512" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+  
+  <br>
+  <button onclick="downloadIcons()">Download Icons</button>
+  
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      
+      // Background
+      ctx.fillStyle = '#8BC34A';
+      ctx.fillRect(0, 0, size, size);
+      
+      // Inner background
+      ctx.fillStyle = '#1a2332';
+      const padding = size * 0.125;
+      ctx.fillRect(padding, padding, size - padding * 2, size - padding * 2);
+      
+      // Draw dumbbell icon
+      ctx.strokeStyle = '#8BC34A';
+      ctx.lineWidth = size * 0.04;
+      ctx.lineCap = 'round';
+      
+      // Horizontal bar
+      const centerY = size / 2;
+      const barWidth = size * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(size * 0.3, centerY);
+      ctx.lineTo(size * 0.7, centerY);
+      ctx.stroke();
+      
+      // Left weight
+      ctx.beginPath();
+      ctx.arc(size * 0.25, centerY, size * 0.1, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Right weight
+      ctx.beginPath();
+      ctx.arc(size * 0.75, centerY, size * 0.1, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+    function downloadIcons() {
+      const canvas192 = document.getElementById('icon192');
+      const canvas512 = document.getElementById('icon512');
+      
+      // Download 192x192
+      canvas192.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'icon-192x192.png';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+      
+      // Download 512x512
+      setTimeout(() => {
+        canvas512.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'icon-512x512.png';
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      }, 500);
+    }
+    
+    // Draw icons on load
+    window.onload = () => {
+      drawIcon(document.getElementById('icon192'), 192);
+      drawIcon(document.getElementById('icon512'), 512);
+    };
+  </script>
+</body>
+</html>
+

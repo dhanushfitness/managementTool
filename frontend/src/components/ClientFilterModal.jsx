@@ -59,14 +59,9 @@ export default function ClientFilterModal({ isOpen, onClose, filters, onFilterCh
       memberManager: '',
       leadSource: '',
       serviceCategory: '',
-      behaviourBased: '',
-      fitnessGoal: '',
-      serviceVariation: '',
       salesRep: '',
       generalTrainer: '',
       invoice: '',
-      purchaseType: '',
-      customGroups: '',
       gender: []
     }
     setLocalFilters(resetFilters)
@@ -186,66 +181,15 @@ export default function ClientFilterModal({ isOpen, onClose, filters, onFilterCh
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="">Select</option>
-                    <option value="gym">Gym Membership</option>
-                    <option value="personal-training">Personal Training</option>
-                    <option value="group-classes">Group Classes</option>
-                    <option value="yoga">Yoga</option>
-                    <option value="pilates">Pilates</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Behaviour Based
-                  </label>
-                  <select
-                    value={localFilters.behaviourBased || ''}
-                    onChange={(e) => handleChange('behaviourBased', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  >
-                    <option value="">Select</option>
-                    <option value="highly-active">Highly Active</option>
-                    <option value="regular">Regular</option>
-                    <option value="occasional">Occasional</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fitness Goal
-                  </label>
-                  <select
-                    value={localFilters.fitnessGoal || ''}
-                    onChange={(e) => handleChange('fitnessGoal', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  >
-                    <option value="">Select</option>
-                    <option value="weight-loss">Weight Loss</option>
-                    <option value="muscle-gain">Muscle Gain</option>
-                    <option value="general-fitness">General Fitness</option>
-                    <option value="endurance">Endurance</option>
-                    <option value="flexibility">Flexibility</option>
+                    {[...new Set(plansData?.data?.plans?.filter(plan => plan.serviceType).map(plan => plan.serviceType) || [])].map((serviceType) => (
+                      <option key={serviceType} value={serviceType}>{serviceType}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               {/* Right Column */}
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Service Variation
-                  </label>
-                  <select
-                    value={localFilters.serviceVariation || ''}
-                    onChange={(e) => handleChange('serviceVariation', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  >
-                    <option value="">Select</option>
-                    {/* Service variations can be added based on plan variants */}
-                  </select>
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Sales Rep
@@ -284,7 +228,7 @@ export default function ClientFilterModal({ isOpen, onClose, filters, onFilterCh
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Invoice
+                    Invoice Status
                   </label>
                   <select
                     value={localFilters.invoice || ''}
@@ -298,39 +242,6 @@ export default function ClientFilterModal({ isOpen, onClose, filters, onFilterCh
                     <option value="overdue">Overdue</option>
                     <option value="cancelled">Cancelled</option>
                     <option value="draft">Draft</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Purchase Type
-                  </label>
-                  <select
-                    value={localFilters.purchaseType || ''}
-                    onChange={(e) => handleChange('purchaseType', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  >
-                    <option value="">Select</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="annual">Annual</option>
-                    <option value="pay-per-session">Pay Per Session</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Custom Groups
-                  </label>
-                  <select
-                    value={localFilters.customGroups || ''}
-                    onChange={(e) => handleChange('customGroups', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  >
-                    <option value="">Select</option>
-                    <option value="vip">VIP Members</option>
-                    <option value="corporate">Corporate</option>
-                    <option value="referrals">Referrals</option>
                   </select>
                 </div>
 

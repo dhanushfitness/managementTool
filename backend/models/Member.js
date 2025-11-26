@@ -32,7 +32,12 @@ const memberSchema = new mongoose.Schema({
   email: {
     type: String,
     lowercase: true,
-    trim: true
+    trim: true,
+    index: true
+  },
+  password: {
+    type: String,
+    minlength: 6
   },
   phone: {
     type: String,
@@ -225,6 +230,13 @@ const memberSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Don't include password in default queries
+memberSchema.methods.toJSON = function() {
+  const obj = this.toObject();
+  delete obj.password;
+  return obj;
+};
 
 // Indexes
 memberSchema.index({ organizationId: 1, memberId: 1 }, { unique: true });

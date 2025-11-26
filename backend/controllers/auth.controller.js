@@ -237,6 +237,21 @@ export const login = async (req, res) => {
     await user.save();
 
     const token = generateToken(user._id);
+    
+    // Verify token was generated correctly
+    try {
+      const testDecoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('Login - Token generated and verified:', {
+        userId: testDecoded.userId,
+        user_id: testDecoded.user_id,
+        hasUserId: !!testDecoded.userId,
+        hasUser_id: !!testDecoded.user_id,
+        allKeys: Object.keys(testDecoded),
+        userObjectId: user._id.toString()
+      });
+    } catch (e) {
+      console.error('Login - Error verifying generated token:', e);
+    }
 
     res.json({
       success: true,

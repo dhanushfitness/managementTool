@@ -44,6 +44,7 @@ import {
 } from 'lucide-react'
 import { setupSections } from '../data/setupSections'
 import { getOrganizationDetails } from '../api/organization'
+import api from '../api/axios'
 
 const resolveAssetUrl = (path) => {
   if (!path) return null
@@ -106,6 +107,11 @@ export default function Layout() {
   const [searchQuery, setSearchQuery] = useState('')
   const [reportsSearchQuery, setReportsSearchQuery] = useState('')
   const [setupSearchQuery, setSetupSearchQuery] = useState('')
+  const [memberSearchQuery, setMemberSearchQuery] = useState('')
+  const [memberSearchType, setMemberSearchType] = useState('member-name')
+  const [memberSearchResults, setMemberSearchResults] = useState([])
+  const [showMemberSearchResults, setShowMemberSearchResults] = useState(false)
+  const memberSearchRef = useRef(null)
   const [isLogoBroken, setIsLogoBroken] = useState(false)
   const [logoTimestamp, setLogoTimestamp] = useState(Date.now())
   const menuRef = useRef(null)
@@ -392,6 +398,40 @@ export default function Layout() {
     return matchesSection || matchesItem
   })
 
+  // Handle member search
+  const handleMemberSearch = async () => {
+    if (!memberSearchQuery.trim()) {
+      setShowMemberSearchResults(false)
+      setMemberSearchResults([])
+      return
+    }
+
+    try {
+      const response = await api.get('/members/search', {
+        params: { 
+          q: memberSearchQuery.trim(),
+          searchType: memberSearchType
+        }
+      })
+      console.log('Search response:', response.data)
+      setMemberSearchResults(response.data?.members || [])
+      setShowMemberSearchResults(response.data?.members?.length > 0)
+    } catch (error) {
+      console.error('Search error:', error)
+      console.error('Error details:', error.response?.data)
+      setMemberSearchResults([])
+      setShowMemberSearchResults(false)
+      toast.error('Failed to search members')
+    }
+  }
+
+  const handleMemberResultClick = (member) => {
+    navigate(`/clients/${member._id}`)
+    setShowMemberSearchResults(false)
+    setMemberSearchQuery('')
+    setMemberSearchResults([])
+  }
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -416,16 +456,19 @@ export default function Layout() {
       if (setupMenuRef.current && !setupMenuRef.current.contains(event.target)) {
         setShowSetupMenu(false)
       }
+      if (memberSearchRef.current && !memberSearchRef.current.contains(event.target)) {
+        setShowMemberSearchResults(false)
+      }
     }
 
-    if (showAddMenu || showCheckInMenu || showSendMenu || showProfileMenu || showClientMenu || showReportsMenu || showSetupMenu) {
+    if (showAddMenu || showCheckInMenu || showSendMenu || showProfileMenu || showClientMenu || showReportsMenu || showSetupMenu || showMemberSearchResults) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showAddMenu, showCheckInMenu, showSendMenu, showProfileMenu, showClientMenu, showReportsMenu, showSetupMenu])
+  }, [showAddMenu, showCheckInMenu, showSendMenu, showProfileMenu, showClientMenu, showReportsMenu, showSetupMenu, showMemberSearchResults])
 
   const addMenuOptions = [
     { name: 'Enquiry', icon: HelpCircle, path: '/enquiries', action: 'create' },
@@ -454,7 +497,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden max-w-full w-full">
-      <div className="flex h-screen overflow-x-hidden max-w-full w-full">
+        <div className="flex h-screen overflow-x-hidden max-w-full w-full">
         {/* Sidebar */}
         <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-white shadow-lg transition-all duration-300 relative`}>
           {/* Toggle Button */}
@@ -889,28 +932,73 @@ export default function Layout() {
                 )}
               </div>
               <span className="text-sm font-medium text-gray-300">{organizationDisplayName}</span>
-              <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/20">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="bg-transparent text-white placeholder-white/60 text-sm border-none outline-none w-48"
-                />
-                <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg">
-                  Go
-                </button>
+              <div className="relative" ref={memberSearchRef}>
+                <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
+                  <div className="relative">
+                    <select
+                      value={memberSearchType}
+                      onChange={(e) => setMemberSearchType(e.target.value)}
+                      className="bg-transparent text-white text-sm border-none outline-none cursor-pointer appearance-none pr-6 focus:outline-none"
+                    >
+                      <option value="member-name" className="bg-gray-800 text-white">Member Name</option>
+                      <option value="email" className="bg-gray-800 text-white">Email</option>
+                      <option value="phone" className="bg-gray-800 text-white">Phone Number</option>
+                      <option value="member-id" className="bg-gray-800 text-white">Member ID</option>
+                    </select>
+                    <ChevronDown className="absolute right-0 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/80 pointer-events-none" />
+                  </div>
+                  <div className="w-px h-5 bg-white/20"></div>
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={memberSearchQuery}
+                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleMemberSearch()
+                      }
+                    }}
+                    className="bg-transparent text-white placeholder-white/60 text-sm border-none outline-none w-48"
+                  />
+                  <button
+                    onClick={handleMemberSearch}
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg"
+                  >
+                    Go
+                  </button>
+                </div>
+                
+                {/* Search Results Dropdown */}
+                {showMemberSearchResults && memberSearchResults.length > 0 && (
+                  <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                    <div className="bg-blue-50 px-4 py-2 border-b border-gray-200">
+                      <h3 className="text-sm font-semibold text-gray-700">By Member</h3>
+                    </div>
+                    <div className="py-1">
+                      {memberSearchResults.map((member, index) => {
+                        const fullName = `${member.firstName || ''} ${member.lastName || ''}`.trim()
+                        const email = member.email || ''
+                        const phone = member.phone || ''
+                        const displayText = `${fullName}${email ? ` - ${email}` : ''}${phone ? ` - ${phone}` : ''}`
+                        
+                        return (
+                          <button
+                            key={member._id || index}
+                            onClick={() => handleMemberResultClick(member)}
+                            className={`w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors ${
+                              index === 0 ? 'bg-blue-50' : 'bg-white'
+                            }`}
+                          >
+                            {displayText}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              {/* Search Icon */}
-              <div className="relative group">
-                <button className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all backdrop-blur-sm border border-white/20">
-                  <Search className="w-5 h-5" />
-                </button>
-                <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                  Search
-                </span>
-              </div>
-
               {/* Add Menu */}
               <div className="relative group" ref={menuRef}>
                 <button 

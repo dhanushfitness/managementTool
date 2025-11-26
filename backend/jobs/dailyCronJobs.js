@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import FollowUp from '../models/FollowUp.js';
+import Enquiry from '../models/Enquiry.js';
 import Organization from '../models/Organization.js';
 import Invoice from '../models/Invoice.js';
 import Payment from '../models/Payment.js';
@@ -56,6 +57,49 @@ export const markMissedFollowUps = async () => {
     console.log(`[Cron Job] Completed: ${missedCount} follow-ups marked as missed`);
   } catch (error) {
     console.error('[Cron Job] Error marking missed follow-ups:', error);
+  }
+};
+
+/**
+ * Mark missed enquiry call logs
+ * Runs daily at 11 PM (23:00)
+ * Finds call logs scheduled for today or earlier that are still scheduled and marks them as missed
+ */
+export const markMissedEnquiryCallLogs = async () => {
+  try {
+    console.log('[Cron Job] Starting missed enquiry call logs check...');
+    
+    const now = new Date();
+    const todayEnd = new Date(now);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Find all enquiries with call logs that are scheduled for today or earlier
+    const enquiries = await Enquiry.find({
+      'callLogs.status': 'scheduled',
+      'callLogs.date': { $lte: todayEnd }
+    });
+
+    let missedCount = 0;
+
+    for (const enquiry of enquiries) {
+      let updated = false;
+      for (const callLog of enquiry.callLogs) {
+        // Check if call log is scheduled and date has passed
+        if (callLog.status === 'scheduled' && new Date(callLog.date) <= todayEnd) {
+          callLog.status = 'missed';
+          updated = true;
+          missedCount++;
+        }
+      }
+      if (updated) {
+        await enquiry.save();
+        console.log(`[Cron Job] Marked missed call logs for enquiry ${enquiry._id}`);
+      }
+    }
+
+    console.log(`[Cron Job] Completed: ${missedCount} enquiry call logs marked as missed`);
+  } catch (error) {
+    console.error('[Cron Job] Error marking missed enquiry call logs:', error);
   }
 };
 
@@ -303,11 +347,13 @@ export const initializeDailyCronJobs = () => {
   // Mark missed follow-ups - runs daily at 11 PM (23:00)
   cron.schedule('0 23 * * *', async () => {
     await markMissedFollowUps();
+    await markMissedEnquiryCallLogs();
   }, {
     scheduled: true,
     timezone: 'Asia/Kolkata'
   });
   console.log('[Cron Jobs] Missed follow-ups check scheduled (daily at 11 PM)');
+  console.log('[Cron Jobs] Missed enquiry call logs check scheduled (daily at 11 PM)');
 
   // Send daily report to owner - runs daily at 8 AM
   cron.schedule('0 8 * * *', async () => {

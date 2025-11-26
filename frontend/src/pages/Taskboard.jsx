@@ -44,12 +44,22 @@ export default function Taskboard() {
 
   // Set default dates to today or use date from navigation state
   useEffect(() => {
+    const stateFromDate = location.state?.fromDate;
+    const stateToDate = location.state?.toDate;
     const stateDate = location.state?.date;
-    if (stateDate) {
+    
+    if (stateFromDate && stateToDate) {
+      // If both fromDate and toDate are provided (from Dashboard summary)
+      setFromDate(stateFromDate);
+      setToDate(stateToDate);
+      window.history.replaceState({}, document.title);
+    } else if (stateDate) {
+      // If only single date is provided (legacy support)
       setFromDate(stateDate);
       setToDate(stateDate);
       window.history.replaceState({}, document.title);
     } else {
+      // Default to today
       const today = new Date();
       const dateStr = today.toISOString().split('T')[0];
       setFromDate(dateStr);

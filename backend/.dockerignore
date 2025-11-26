@@ -1,0 +1,48 @@
+# Node modules
+node_modules
+npm-debug.log
+package-lock.json
+
+# Environment files (will be mounted or passed separately)
+.env.local
+.env.*.local
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+SETUP.md
+TROUBLESHOOTING.md
+SEEDER_GUIDE.md
+
+# Test files
+coverage
+.nyc_output
+
+# Temporary files
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Docker files
+Dockerfile
+Dockerfile.*
+.dockerignore
+
+# Uploads (will be mounted as volume)
+uploads/*
+!uploads/.gitkeep

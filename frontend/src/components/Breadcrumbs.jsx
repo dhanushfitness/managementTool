@@ -189,6 +189,14 @@ const routeBreadcrumbs = [
     ])
   },
   {
+    path: '/enquiries/:enquiryId/edit',
+    getCrumbs: ({ enquiryId }) => ([
+      { label: 'Home', to: '/' },
+      { label: 'Enquiries', to: '/enquiries' },
+      { label: 'Edit Enquiry' }
+    ])
+  },
+  {
     path: '/expenses',
     getCrumbs: () => ([
       { label: 'Home', to: '/' },

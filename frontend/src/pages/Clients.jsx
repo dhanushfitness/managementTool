@@ -8,6 +8,7 @@ import {
   Search, 
   Download, 
   Mail, 
+  Users,
   Filter, 
   Plus, 
   Eye, 
@@ -131,14 +132,9 @@ export default function Clients() {
     memberManager: '',
     leadSource: '',
     serviceCategory: '',
-    behaviourBased: '',
-    fitnessGoal: '',
-    serviceVariation: '',
     salesRep: '',
     generalTrainer: '',
     invoice: '',
-    purchaseType: '',
-    customGroups: '',
     gender: []
   })
   
@@ -192,14 +188,9 @@ export default function Clients() {
   if (filters.memberManager) queryParams.memberManager = filters.memberManager
   if (filters.leadSource) queryParams.leadSource = filters.leadSource
   if (filters.serviceCategory) queryParams.serviceCategory = filters.serviceCategory
-  if (filters.behaviourBased) queryParams.behaviourBased = filters.behaviourBased
-  if (filters.fitnessGoal) queryParams.fitnessGoal = filters.fitnessGoal
-  if (filters.serviceVariation) queryParams.serviceVariation = filters.serviceVariation
   if (filters.salesRep) queryParams.salesRep = filters.salesRep
   if (filters.generalTrainer) queryParams.generalTrainer = filters.generalTrainer
   if (filters.invoice) queryParams.invoice = filters.invoice
-  if (filters.purchaseType) queryParams.purchaseType = filters.purchaseType
-  if (filters.customGroups) queryParams.customGroups = filters.customGroups
   if (filters.gender && filters.gender.length > 0) {
     queryParams.gender = filters.gender.join(',')
   }
@@ -359,7 +350,7 @@ export default function Clients() {
   return (
     <div className="space-y-6">
       {/* Top Section - Improved Structure */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-6">
         {/* Breadcrumb and Title */}
         <div className="mb-6">
           <Breadcrumbs items={breadcrumbItems} className="mb-2" />
@@ -368,30 +359,54 @@ export default function Clients() {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl border border-orange-200 p-6">
-            <p className="text-sm text-gray-600 mb-2 font-medium">Total Members</p>
-            <p className="text-4xl font-bold text-orange-600">{displayStats.total}</p>
+          <div className="relative overflow-hidden bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl border-2 border-orange-200 p-6 shadow-sm hover:shadow-lg transition-all group">
+            <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Total Members</p>
+                <div className="p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <Users className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <p className="text-4xl font-black text-orange-600">{displayStats.total}</p>
+            </div>
           </div>
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 p-6">
-            <p className="text-sm text-gray-600 mb-2 font-medium">Active Members</p>
-            <p className="text-4xl font-bold text-green-600">{displayStats.active}</p>
+          <div className="relative overflow-hidden bg-gradient-to-br from-green-50 to-green-100 rounded-2xl border-2 border-green-200 p-6 shadow-sm hover:shadow-lg transition-all group">
+            <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Active Members</p>
+                <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <User className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <p className="text-4xl font-black text-green-600">{displayStats.active}</p>
+            </div>
           </div>
-          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 p-6">
-            <p className="text-sm text-gray-600 mb-2 font-medium">Inactive Members</p>
-            <p className="text-4xl font-bold text-red-600">{displayStats.inactive}</p>
+          <div className="relative overflow-hidden bg-gradient-to-br from-red-50 to-red-100 rounded-2xl border-2 border-red-200 p-6 shadow-sm hover:shadow-lg transition-all group">
+            <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-gray-600 uppercase tracking-wider">Inactive Members</p>
+                <div className="p-2 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                  <Archive className="h-4 w-4 text-white" />
+                </div>
+              </div>
+              <p className="text-4xl font-black text-red-600">{displayStats.inactive}</p>
+            </div>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center justify-end">
-          <button className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
+          <button className="px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all font-semibold border-2 border-gray-300 shadow-sm">
             Import Member Details
           </button>
         </div>
       </div>
 
       {/* Filter and Action Bar */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4">
         <div className="flex items-center justify-between">
           {/* Left Side - Filters and Controls */}
           <div className="flex items-center space-x-3">
@@ -402,23 +417,23 @@ export default function Clients() {
                 navigate(`/clients?filter=validity&type=${value}`)
                 setPage(1)
               }}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700"
+              className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all"
             >
               <option value="all-clients">All Clients</option>
               <option value="active">Active Clients</option>
               <option value="inactive">Inactive Clients</option>
             </select>
             
-            <select className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700">
+            <select className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all">
               <option>Mailer list</option>
             </select>
 
             <button 
               onClick={() => setShowFilterModal(true)}
-              className={`p-2.5 rounded-lg transition-colors relative ${
+              className={`p-2.5 rounded-xl transition-all relative ${
                 hasActiveFilters 
-                  ? 'bg-orange-100 text-orange-700 border-2 border-orange-300' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                  ? 'bg-orange-100 text-orange-700 border-2 border-orange-300 shadow-lg' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-200'
               }`}
               title="Filter clients"
             >
@@ -428,7 +443,7 @@ export default function Clients() {
               )}
             </button>
 
-            <select className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700">
+            <select className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all">
               <option>Communicate</option>
               <option>Send Email</option>
               <option>Send SMS</option>
@@ -437,12 +452,13 @@ export default function Clients() {
 
           {/* Right Side - Action Buttons */}
           <div className="flex items-center space-x-3">
-            <button className="px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium text-sm">
+            <button className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl text-sm flex items-center gap-2">
+              <Mail className="w-4 h-4" />
               Add to Mailer
             </button>
             <button
               onClick={handleExport}
-              className="px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center space-x-2 text-sm"
+              className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 text-sm"
             >
               <Download className="w-4 h-4" />
               <span>Export Clients</span>
@@ -452,12 +468,12 @@ export default function Clients() {
       </div>
 
       {/* Pagination Bar - Top */}
-      <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
+      <div className="flex items-center justify-between bg-white rounded-2xl border-2 border-gray-200 px-4 py-3 shadow-sm">
         <div className="flex items-center space-x-2">
           <button
             onClick={() => handlePageChange(1)}
             disabled={page === 1}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
             title="First page"
           >
             <ChevronsLeft className="w-5 h-5 text-gray-600" />
@@ -465,14 +481,14 @@ export default function Clients() {
           <button
             onClick={() => handlePageChange(page - 1)}
             disabled={page === 1}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
             title="Previous page"
           >
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
         </div>
         <div className="flex items-center space-x-3">
-          <span className="text-sm text-gray-700">
+          <span className="text-sm font-semibold text-gray-900">
             Page {pagination.page} of {pagination.pages}
           </span>
           <form onSubmit={handleGoToPage} className="flex items-center space-x-2">
@@ -482,11 +498,11 @@ export default function Clients() {
               min="1"
               max={pagination.pages}
               defaultValue={page}
-              className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
+              className="w-16 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-center text-sm font-semibold focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all"
             />
             <button
               type="submit"
-              className="px-4 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors text-sm font-medium"
+              className="px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all text-sm font-semibold shadow-md"
             >
               Go
             </button>
@@ -496,7 +512,7 @@ export default function Clients() {
           <button
             onClick={() => handlePageChange(page + 1)}
             disabled={page >= pagination.pages}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
             title="Next page"
           >
             <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -504,7 +520,7 @@ export default function Clients() {
           <button
             onClick={() => handlePageChange(pagination.pages)}
             disabled={page >= pagination.pages}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
             title="Last page"
           >
             <ChevronsRight className="w-5 h-5 text-gray-600" />
@@ -513,7 +529,7 @@ export default function Clients() {
       </div>
 
       {/* Members Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="py-12">
             <LoadingPage message="Loading members..." fullScreen={false} />
@@ -521,28 +537,28 @@ export default function Clients() {
         ) : (
           <div className="overflow-x-auto" style={{ overflowY: 'visible' }}>
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                 <tr>
-                  <th className="text-left py-3 px-4">
+                  <th className="text-left py-4 px-4">
                     <input
                       type="checkbox"
                       checked={selectedMembers.length === members.length && members.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                      className="rounded border-2 border-gray-300 text-orange-500 focus:ring-orange-500"
                     />
                   </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Profile</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Billing</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Service Card</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Attendance ID/Checkin</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Call Log</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Info</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Training</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Archive</th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Delete</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Profile</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Billing</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Service Card</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Attendance ID/Checkin</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Call Log</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Info</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Training</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Archive</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-700 uppercase tracking-wider">Delete</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {members.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
@@ -587,91 +603,91 @@ export default function Clients() {
                     return (
                       <tr 
                         key={member._id} 
-                        className={`transition-colors ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}
+                        className={`transition-all ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50'}`}
                       >
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-4">
                           <input
                             type="checkbox"
                             checked={selectedMembers.includes(member._id)}
                             onChange={(e) => handleSelectMember(member._id, e.target.checked)}
-                            className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                            className="rounded border-2 border-gray-300 text-orange-500 focus:ring-orange-500"
                           />
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-4">
                           <div className="flex items-center space-x-3">
                             {member.profilePicture ? (
                               <img 
                                 src={member.profilePicture} 
                                 alt={`${member.firstName} ${member.lastName}`}
-                                className="w-10 h-10 rounded-full object-cover"
+                                className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                <User className="w-6 h-6 text-gray-400" />
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border-2 border-gray-200">
+                                <User className="w-6 h-6 text-gray-500" />
                               </div>
                             )}
                             <Link 
                               to={`/clients/${member._id}`}
-                              className="font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                              className="font-bold text-orange-600 hover:text-orange-700 hover:underline"
                             >
                               {member.firstName?.toUpperCase()} {member.lastName?.toUpperCase()}
                             </Link>
                           </div>
                         </td>
-                        <td className="py-3 px-4">
-                          <button className="text-orange-600 hover:text-orange-700 font-medium">
+                        <td className="py-4 px-4">
+                          <button className="text-orange-600 hover:text-orange-700 font-semibold hover:underline">
                             Payments
                           </button>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-4">
                           <Link
                             to={`/clients/${member._id}?tab=service-card`}
-                            className="text-orange-600 hover:text-orange-700 font-medium hover:underline"
+                            className="text-orange-600 hover:text-orange-700 font-semibold hover:underline"
                           >
                             View
                           </Link>
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-500">
+                        <td className="py-4 px-4 text-sm font-medium text-gray-600">
                           {member.memberId || '-'}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-4">
                           <div className="flex items-center space-x-1.5">
                             <button
-                              className="p-1 text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                              className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-all border border-transparent hover:border-orange-200"
                               title="Add call log"
                             >
                               <Plus className="w-4 h-4" />
                             </button>
                             {hasCallLog && (
-                              <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                              <span className="w-6 h-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
                                 LC
                               </span>
                             )}
                             {hasMeeting && (
-                              <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                              <span className="w-6 h-6 bg-gradient-to-br from-red-500 to-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-md">
                                 M
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-4">
                           <InfoPopup member={member} />
                         </td>
-                        <td className="py-3 px-4">
-                          <button className="text-orange-600 hover:text-orange-700 font-medium">
+                        <td className="py-4 px-4">
+                          <button className="text-orange-600 hover:text-orange-700 font-semibold hover:underline">
                             View
                           </button>
                         </td>
-                        <td className="py-3 px-4">
-                          <button className="text-orange-600 hover:text-orange-700 font-medium">
+                        <td className="py-4 px-4">
+                          <button className="text-orange-600 hover:text-orange-700 font-semibold hover:underline">
                             Archive
                           </button>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-4">
                           <button
                             onClick={() => handleDeleteClick(member)}
                             disabled={memberHasActivePlan(member)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed border border-transparent hover:border-red-200"
                             title={memberHasActivePlan(member) ? 'Active membership in progress. End the plan before deleting.' : 'Delete member and all records'}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -688,12 +704,12 @@ export default function Clients() {
       </div>
 
       {/* Pagination Bar - Bottom */}
-      <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
+      <div className="flex items-center justify-between bg-white rounded-2xl border-2 border-gray-200 px-4 py-3 shadow-sm">
         <div className="flex items-center space-x-2">
           <button
             onClick={() => handlePageChange(1)}
             disabled={page === 1}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
             title="First page"
           >
             <ChevronsLeft className="w-5 h-5 text-gray-600" />
@@ -701,14 +717,14 @@ export default function Clients() {
           <button
             onClick={() => handlePageChange(page - 1)}
             disabled={page === 1}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
             title="Previous page"
           >
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
         </div>
         <div className="flex items-center space-x-3">
-          <span className="text-sm text-gray-700">
+          <span className="text-sm font-semibold text-gray-900">
             Page {pagination.page} of {pagination.pages}
           </span>
           <form onSubmit={handleGoToPage} className="flex items-center space-x-2">
@@ -718,11 +734,11 @@ export default function Clients() {
               min="1"
               max={pagination.pages}
               defaultValue={page}
-              className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
+              className="w-16 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-center text-sm font-semibold focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all"
             />
             <button
               type="submit"
-              className="px-4 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors text-sm font-medium"
+              className="px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all text-sm font-semibold shadow-md"
             >
               Go
             </button>
@@ -732,7 +748,7 @@ export default function Clients() {
           <button
             onClick={() => handlePageChange(page + 1)}
             disabled={page >= pagination.pages}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
             title="Next page"
           >
             <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -740,7 +756,7 @@ export default function Clients() {
           <button
             onClick={() => handlePageChange(pagination.pages)}
             disabled={page >= pagination.pages}
-            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
             title="Last page"
           >
             <ChevronsRight className="w-5 h-5 text-gray-600" />
@@ -760,16 +776,16 @@ export default function Clients() {
       {/* Delete Confirmation Modal */}
       {deleteConfirmModal?.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border-2 border-gray-200">
             <div className="p-6">
               <div className="flex items-start space-x-4 mb-6">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-red-200 rounded-xl flex items-center justify-center border-2 border-red-300">
                     <AlertTriangle className="w-6 h-6 text-red-600" />
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  <h3 className="text-lg font-black text-gray-900 mb-2">
                     Delete Member Permanently?
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
@@ -785,13 +801,13 @@ export default function Clients() {
                     <li>All Referrals</li>
                     <li>And other related data</li>
                   </ul>
-                  <p className="text-sm font-semibold text-red-600">
+                  <p className="text-sm font-bold text-red-600">
                     This action cannot be undone!
                   </p>
                 </div>
                 <button
                   onClick={() => setDeleteConfirmModal(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -800,14 +816,14 @@ export default function Clients() {
                 <button
                   onClick={() => setDeleteConfirmModal(null)}
                   disabled={deleteMemberMutation.isPending}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteConfirm}
                   disabled={deleteMemberMutation.isPending}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 font-semibold shadow-lg"
                 >
                   {deleteMemberMutation.isPending ? (
                     <>

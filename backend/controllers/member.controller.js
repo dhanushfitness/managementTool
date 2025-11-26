@@ -138,14 +138,9 @@ export const getMembers = async (req, res) => {
       memberManager,
       leadSource,
       serviceCategory,
-      behaviourBased,
-      fitnessGoal,
-      serviceVariation,
       salesRep,
       generalTrainer,
       invoice,
-      purchaseType,
-      customGroups,
       gender
     } = req.query;
     const skip = (page - 1) * limit;
@@ -169,7 +164,6 @@ export const getMembers = async (req, res) => {
     if (leadSource) query.source = leadSource;
     if (salesRep) query.salesRep = salesRep;
     if (generalTrainer) query.generalTrainer = generalTrainer;
-    if (fitnessGoal) query['fitnessProfile.name'] = { $regex: fitnessGoal, $options: 'i' };
     if (gender) {
       const genders = gender.split(',').map(g => g.trim());
       query.gender = { $in: genders };
@@ -190,49 +184,19 @@ export const getMembers = async (req, res) => {
       }
     }
     
-    // Service category filter (based on plan name or category)
+    // Service category filter (filter by serviceType from Plan collection)
     if (serviceCategory) {
-      query['currentPlan.planName'] = { $regex: serviceCategory, $options: 'i' };
-    }
-    
-    // Purchase type filter (based on plan billing cycle or duration)
-    if (purchaseType) {
-      // This will need to be handled based on plan type
-      // For now, we'll filter by plan name containing the purchase type
-      query['currentPlan.planName'] = { $regex: purchaseType, $options: 'i' };
-    }
-    
-    // Behaviour based filter (based on attendance stats)
-    if (behaviourBased) {
-      if (behaviourBased === 'highly-active') {
-        query['attendanceStats.averageVisitsPerWeek'] = { $gte: 4 };
-      } else if (behaviourBased === 'regular') {
-        query.$and = [
-          { 'attendanceStats.averageVisitsPerWeek': { $gte: 2 } },
-          { 'attendanceStats.averageVisitsPerWeek': { $lt: 4 } }
-        ];
-      } else if (behaviourBased === 'occasional') {
-        query.$and = [
-          { 'attendanceStats.averageVisitsPerWeek': { $gte: 0.5 } },
-          { 'attendanceStats.averageVisitsPerWeek': { $lt: 2 } }
-        ];
-      } else if (behaviourBased === 'inactive') {
-        query.$or = [
-          { 'attendanceStats.averageVisitsPerWeek': { $lt: 0.5 } },
-          { 'attendanceStats.averageVisitsPerWeek': { $exists: false } },
-          { 'attendanceStats.totalCheckIns': 0 }
-        ];
-      }
-    }
-    
-    // Custom groups filter (based on tags)
-    if (customGroups) {
-      if (customGroups === 'vip') {
-        query.tags = { $in: ['vip', 'VIP'] };
-      } else if (customGroups === 'corporate') {
-        query.customerType = 'corporate';
-      } else if (customGroups === 'referrals') {
-        query.source = 'referral';
+      const Plan = (await import('../models/Plan.js')).default;
+      const plansWithCategory = await Plan.find({ 
+        organizationId: req.organizationId, 
+        serviceType: serviceCategory 
+      }).select('_id');
+      const planIds = plansWithCategory.map(p => p._id);
+      if (planIds.length > 0) {
+        query['currentPlan.planId'] = { $in: planIds };
+      } else {
+        // No plans found with this category, return empty result
+        query['currentPlan.planId'] = null;
       }
     }
     
@@ -296,26 +260,105 @@ export const getMembers = async (req, res) => {
 
 export const searchMembers = async (req, res) => {
   try {
-    const { q } = req.query;
-    if (!q) {
+    const { q, searchType } = req.query;
+    if (!q || !q.trim()) {
       return res.json({ success: true, members: [] });
     }
 
-    const members = await Member.find({
+    const searchTerm = q.trim();
+    const query = {
       organizationId: req.organizationId,
-      isActive: true,
-      $or: [
-        { firstName: { $regex: q, $options: 'i' } },
-        { lastName: { $regex: q, $options: 'i' } },
-        { phone: { $regex: q, $options: 'i' } },
-        { memberId: { $regex: q, $options: 'i' } }
-      ]
-    })
-    .select('firstName lastName phone memberId membershipStatus profilePicture')
-    .limit(10);
+      isActive: true
+    };
 
+    // Build search query based on search type
+    switch (searchType) {
+      case 'email':
+        query.email = { $regex: searchTerm, $options: 'i' };
+        break;
+      case 'phone':
+        query.phone = { $regex: searchTerm, $options: 'i' };
+        break;
+      case 'member-id':
+        query.memberId = { $regex: searchTerm, $options: 'i' };
+        break;
+      case 'member-name':
+      default:
+        // Search by name (first name, last name, or full name combination)
+        query.$or = [
+          { firstName: { $regex: searchTerm, $options: 'i' } },
+          { lastName: { $regex: searchTerm, $options: 'i' } }
+        ];
+        break;
+    }
+
+    let members;
+    
+    // For member-name, use aggregation to also search full name
+    if (searchType === 'member-name' || !searchType) {
+      members = await Member.aggregate([
+        {
+          $match: {
+            organizationId: req.organizationId,
+            isActive: true
+          }
+        },
+        {
+          $addFields: {
+            fullName: { 
+              $concat: [
+                { $ifNull: ['$firstName', ''] }, 
+                ' ', 
+                { $ifNull: ['$lastName', ''] }
+              ] 
+            }
+          }
+        },
+        {
+          $match: {
+            $or: [
+              { firstName: { $regex: searchTerm, $options: 'i' } },
+              { lastName: { $regex: searchTerm, $options: 'i' } },
+              { fullName: { $regex: searchTerm, $options: 'i' } }
+            ]
+          }
+        },
+        {
+          $project: {
+            firstName: 1,
+            lastName: 1,
+            phone: 1,
+            email: 1,
+            memberId: 1,
+            membershipStatus: 1,
+            profilePicture: 1
+          }
+        },
+        { $limit: 10 }
+      ]);
+      
+      // Convert aggregation results to match the format expected by frontend
+      members = members.map(m => ({
+        _id: m._id,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        phone: m.phone,
+        email: m.email,
+        memberId: m.memberId,
+        membershipStatus: m.membershipStatus,
+        profilePicture: m.profilePicture
+      }));
+    } else {
+      members = await Member.find(query)
+        .select('firstName lastName phone email memberId membershipStatus profilePicture')
+        .limit(10)
+        .lean();
+    }
+
+    console.log(`Search for "${searchTerm}" (type: ${searchType || 'member-name'}) found ${members.length} members`);
     res.json({ success: true, members });
   } catch (error) {
+    console.error('Search members error:', error);
     handleError(error, res, 500);
   }
 };

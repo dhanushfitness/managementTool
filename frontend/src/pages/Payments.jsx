@@ -5,10 +5,8 @@ import {
   ChevronRight, 
   Download, 
   Search, 
-  Printer,
   DollarSign,
   TrendingUp,
-  Package,
   CheckCircle2,
   AlertCircle,
   Filter,
@@ -17,8 +15,14 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { getReceipts, exportReceipts } from '../api/payments'
+import { getReceipts, exportReceipts, sendInvoiceEmail } from '../api/payments'
 import LoadingPage from '../components/LoadingPage'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import dayjs from 'dayjs'
+import { IconButton, Tooltip, CircularProgress } from '@mui/material'
+import { Visibility as VisibilityIcon, Print as PrintIcon, Email as EmailIcon } from '@mui/icons-material'
 
 const PAGE_SIZE = 20
 const PAYMENT_METHOD_LABELS = {
@@ -49,18 +53,28 @@ export default function Payments() {
   const [searchInput, setSearchInput] = useState('')
   const [filters, setFilters] = useState({
     dateRange: 'last-7-days',
+    startDate: '',
+    endDate: '',
     invoiceType: 'all',
     branchId: 'all',
     salesRepId: 'all',
     search: ''
   })
   const [exporting, setExporting] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState({})
 
   const queryParams = useMemo(() => {
     const params = {
       page,
-      limit: PAGE_SIZE,
-      dateRange: filters.dateRange
+      limit: PAGE_SIZE
+    }
+
+    // Handle custom date range
+    if (filters.dateRange === 'custom' && filters.startDate && filters.endDate) {
+      params.startDate = filters.startDate
+      params.endDate = filters.endDate
+    } else if (filters.dateRange !== 'custom') {
+      params.dateRange = filters.dateRange
     }
 
     if (filters.search) params.search = filters.search
@@ -243,6 +257,27 @@ export default function Payments() {
     setPage(newPage)
   }
 
+  const handleViewInvoice = (invoiceId) => {
+    window.open(`/invoices/${invoiceId}`, '_blank')
+  }
+
+  const handlePrintInvoice = (invoiceId) => {
+    window.open(`/invoices/${invoiceId}/print`, '_blank')
+  }
+
+  const handleEmailInvoice = async (invoiceId) => {
+    try {
+      setSendingEmail((prev) => ({ ...prev, [invoiceId]: true }))
+      await sendInvoiceEmail(invoiceId)
+      toast.success('Invoice sent successfully via email!')
+    } catch (error) {
+      console.error('Email send failed:', error)
+      toast.error(error.response?.data?.message || 'Failed to send invoice via email')
+    } finally {
+      setSendingEmail((prev) => ({ ...prev, [invoiceId]: false }))
+    }
+  }
+
   if (isLoading) {
     return <LoadingPage message="Loading payments..." />
   }
@@ -277,7 +312,7 @@ export default function Payments() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {/* Service Payments Card */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
@@ -303,54 +338,6 @@ export default function Payments() {
                 <span className="font-bold text-gray-700">Total</span>
                 <span className="font-black text-blue-600 text-lg">
                   {formatCurrency(summary.nonPt.total || summary.nonPt.newSales + summary.nonPt.dueRecovered)}
-                </span>
-              </div>
-              
-              <div className="pt-3 border-t-2 border-gray-200 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">New PT Sales</span>
-                  <span className="font-bold text-gray-900">{formatCurrency(summary.pt.newSales)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">Due Recovered</span>
-                  <span className="font-bold text-gray-900">{formatCurrency(summary.pt.dueRecovered)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t-2 border-gray-200">
-                  <span className="font-bold text-gray-700">PT Total</span>
-                  <span className="font-black text-indigo-600 text-lg">
-                    {formatCurrency(summary.pt.total || summary.pt.newSales + summary.pt.dueRecovered)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Product Payments Card */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
-          
-          <div className="relative">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Product Payments</h2>
-              <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                <Package className="h-5 w-5 text-white" />
-              </div>
-            </div>
-            
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">New Sales</span>
-                <span className="font-bold text-gray-900">{formatCurrency(summary.products.newSales)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Due Recovered</span>
-                <span className="font-bold text-gray-900">{formatCurrency(summary.products.dueRecovered)}</span>
-              </div>
-              <div className="flex justify-between items-center pt-3 border-t-2 border-gray-200">
-                <span className="font-bold text-gray-700">Total</span>
-                <span className="font-black text-purple-600 text-lg">
-                  {formatCurrency(summary.products.total || summary.products.newSales + summary.products.dueRecovered)}
                 </span>
               </div>
             </div>
@@ -447,6 +434,7 @@ export default function Payments() {
               <option value="last-90-days">Last 90 days</option>
               <option value="this-month">This month</option>
               <option value="last-month">Last month</option>
+              <option value="custom">Custom Range</option>
             </select>
 
             <select
@@ -497,6 +485,83 @@ export default function Payments() {
               ))}
             </select>
           </div>
+
+          {/* Custom Date Range Inputs */}
+          {filters.dateRange === 'custom' && (
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <div className="grid gap-3 md:grid-cols-2 pt-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">Start Date</label>
+                  <DatePicker
+                    value={filters.startDate ? dayjs(filters.startDate) : null}
+                    onChange={(newValue) => {
+                      const dateStr = newValue ? newValue.format('YYYY-MM-DD') : ''
+                      setFilters((prev) => ({ ...prev, startDate: dateStr }))
+                      setPage(1)
+                    }}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: "small",
+                        sx: {
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                            '& fieldset': {
+                              borderWidth: '2px',
+                              borderColor: '#E5E7EB',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#F97316',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#F97316',
+                            },
+                          },
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">End Date</label>
+                  <DatePicker
+                    value={filters.endDate ? dayjs(filters.endDate) : null}
+                    onChange={(newValue) => {
+                      const dateStr = newValue ? newValue.format('YYYY-MM-DD') : ''
+                      setFilters((prev) => ({ ...prev, endDate: dateStr }))
+                      setPage(1)
+                    }}
+                    minDate={filters.startDate ? dayjs(filters.startDate) : undefined}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: "small",
+                        sx: {
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                            '& fieldset': {
+                              borderWidth: '2px',
+                              borderColor: '#E5E7EB',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#F97316',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#F97316',
+                            },
+                          },
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </LocalizationProvider>
+          )}
         </div>
       </div>
 
@@ -615,17 +680,74 @@ export default function Payments() {
                         {row.paymentMethod}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      {row.invoiceId && (
-                        <button
-                          onClick={() => {
-                            window.open(`/invoices/${row.invoiceId}/print`, '_blank')
-                          }}
-                          className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-sm"
-                          title="Print Invoice"
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
+                    <td className="px-4 py-3">
+                      {row.invoiceId ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <Tooltip title="View Invoice" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewInvoice(row.invoiceId)}
+                              sx={{
+                                bgcolor: '#3B82F6',
+                                color: 'white',
+                                '&:hover': {
+                                  bgcolor: '#2563EB',
+                                },
+                                width: 32,
+                                height: 32,
+                              }}
+                            >
+                              <VisibilityIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+
+                          <Tooltip title="Print Invoice" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => handlePrintInvoice(row.invoiceId)}
+                              sx={{
+                                bgcolor: '#8B5CF6',
+                                color: 'white',
+                                '&:hover': {
+                                  bgcolor: '#7C3AED',
+                                },
+                                width: 32,
+                                height: 32,
+                              }}
+                            >
+                              <PrintIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+
+                          <Tooltip title="Email Invoice" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEmailInvoice(row.invoiceId)}
+                              disabled={sendingEmail[row.invoiceId]}
+                              sx={{
+                                bgcolor: '#10B981',
+                                color: 'white',
+                                '&:hover': {
+                                  bgcolor: '#059669',
+                                },
+                                '&.Mui-disabled': {
+                                  bgcolor: '#9CA3AF',
+                                  color: 'white',
+                                },
+                                width: 32,
+                                height: 32,
+                              }}
+                            >
+                              {sendingEmail[row.invoiceId] ? (
+                                <CircularProgress size={16} sx={{ color: 'white' }} />
+                              ) : (
+                                <EmailIcon sx={{ fontSize: 16 }} />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        </div>
+                      ) : (
+                        <div className="text-center text-gray-400 text-xs">—</div>
                       )}
                     </td>
                   </tr>

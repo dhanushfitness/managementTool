@@ -1290,6 +1290,61 @@ export const downloadInvoicePDF = async (req, res) => {
   }
 };
 
+export const sendInvoiceViaEmail = async (req, res) => {
+  try {
+    const invoice = await Invoice.findOne({
+      _id: req.params.invoiceId,
+      organizationId: req.organizationId
+    })
+      .populate('memberId')
+      .populate('organizationId')
+      .populate('branchId')
+      .populate('createdBy', 'firstName lastName');
+
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    // Check if member has email
+    if (!invoice.memberId || !invoice.memberId.email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Member email not available. Please update member profile with email address.' 
+      });
+    }
+
+    // Generate PDF using the utility function
+    const { generateInvoicePDF } = await import('../utils/pdf.js');
+    const pdfBuffer = await generateInvoicePDF(invoice);
+
+    // Send email with PDF attachment
+    const { sendInvoiceEmail } = await import('../utils/email.js');
+    const emailResults = await sendInvoiceEmail(
+      invoice,
+      invoice.memberId,
+      invoice.organizationId,
+      pdfBuffer
+    );
+
+    if (emailResults.memberEmail.success) {
+      res.json({ 
+        success: true, 
+        message: `Invoice sent successfully to ${invoice.memberId.email}`,
+        results: emailResults
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: emailResults.memberEmail.error || 'Failed to send invoice email',
+        results: emailResults
+      });
+    }
+  } catch (error) {
+    console.error('Send invoice email error:', error);
+    handleError(error, res, 500);
+  }
+};
+
 export const getPaidInvoices = async (req, res) => {
   try {
     const { 

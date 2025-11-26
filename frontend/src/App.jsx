@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from './store/authStore'
@@ -104,29 +104,103 @@ import BranchManagement from './pages/BranchManagement'
 import Taskboard from './pages/Taskboard'
 import Leaderboard from './pages/Leaderboard'
 import UpdateEnquiryCall from './pages/UpdateEnquiryCall'
+import EditEnquiry from './pages/EditEnquiry'
 import InvoiceDetails from './pages/InvoiceDetails'
+import MemberLogin from './pages/MemberLogin'
+import MemberWorkout from './pages/MemberWorkout'
+import MemberDashboard from './pages/MemberDashboard'
+import MemberProgress from './pages/MemberProgress'
+import MemberProfile from './pages/MemberProfile'
 import InvoicePrint from './pages/InvoicePrint'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
   const location = useLocation()
-  const { token, user, logout, hydrated } = useAuthStore()
+  const { token, user, logout, hydrated, setHydrated } = useAuthStore()
+  const [isChecking, setIsChecking] = useState(true)
+  const [localToken, setLocalToken] = useState(null)
+  const [localUser, setLocalUser] = useState(null)
+
+  // Read from localStorage as fallback
+  useEffect(() => {
+    try {
+      const authStorage = localStorage.getItem('auth-storage')
+      if (authStorage) {
+        const authData = JSON.parse(authStorage)
+        if (authData?.state) {
+          setLocalToken(authData.state.token)
+          setLocalUser(authData.state.user)
+        }
+      }
+    } catch (e) {
+      console.error('Error reading from localStorage:', e)
+    }
+  }, [])
+
+  // Ensure hydration happens
+  useEffect(() => {
+    if (!hydrated) {
+      console.log('PrivateRoute: Setting hydrated')
+      setHydrated()
+    }
+  }, [hydrated, setHydrated])
+
+  // Give it a moment to hydrate
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsChecking(false)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     if (!hydrated) return
-    if (token && isTokenExpired(token)) {
+    const currentToken = token || localToken
+    if (currentToken && isTokenExpired(currentToken)) {
+      console.log('Token expired, logging out')
       logout()
     }
-  }, [hydrated, token, logout])
+  }, [hydrated, token, localToken, logout])
 
-  if (!hydrated) {
-    return null
+  // Use store values or fallback to localStorage values
+  const effectiveToken = token || localToken
+  const effectiveUser = user || localUser
+
+  // Show loading state while hydrating or checking
+  if (!hydrated || isChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    )
   }
 
-  const hasValidAuth = Boolean(token && user && !isTokenExpired(token))
+  // Check token expiration
+  const tokenExpired = effectiveToken ? isTokenExpired(effectiveToken) : true
+  const hasValidAuth = Boolean(effectiveToken && effectiveUser && !tokenExpired)
+  
+  console.log('PrivateRoute check:', {
+    hasToken: !!effectiveToken,
+    hasUser: !!effectiveUser,
+    tokenSource: token ? 'store' : localToken ? 'localStorage' : 'none',
+    userSource: user ? 'store' : localUser ? 'localStorage' : 'none',
+    tokenValue: effectiveToken ? `${effectiveToken.substring(0, 20)}...` : 'no token',
+    userValue: effectiveUser ? JSON.stringify(effectiveUser).substring(0, 100) : 'no user',
+    isExpired: tokenExpired,
+    hasValidAuth,
+    pathname: location.pathname,
+    hydrated
+  })
 
   if (!hasValidAuth) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    // Prevent redirect loop - only redirect if not already on login page
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      console.log('Redirecting to login from:', location.pathname, {
+        reason: !effectiveToken ? 'no token' : !effectiveUser ? 'no user' : 'token expired'
+      })
+      return <Navigate to="/login" state={{ from: location }} replace />
+    }
+    return null
   }
 
   return children
@@ -139,6 +213,13 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="invoices/:invoiceId/print" element={<InvoicePrint />} />
+        {/* Member routes (no admin authentication required) */}
+        <Route path="member/login" element={<MemberLogin />} />
+        <Route path="member/dashboard" element={<MemberDashboard />} />
+        <Route path="member/workouts" element={<MemberWorkout />} />
+        <Route path="member/workout" element={<MemberWorkout />} />
+        <Route path="member/progress" element={<MemberProgress />} />
+        <Route path="member/profile" element={<MemberProfile />} />
         <Route
           path="/"
           element={
@@ -149,6 +230,7 @@ function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="enquiries" element={<Enquiries />} />
+          <Route path="enquiries/:enquiryId/edit" element={<EditEnquiry />} />
           <Route path="enquiries/:enquiryId/update-call" element={<UpdateEnquiryCall />} />
           <Route path="invoices/:invoiceId" element={<InvoiceDetails />} />
           <Route path="marketing" element={<Marketing />} />

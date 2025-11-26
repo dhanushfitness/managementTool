@@ -21,14 +21,12 @@ export default function UpdateEnquiryCall() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
-        <CallLogModal
-          enquiryId={enquiryId}
-          mode="page"
-          isOpen
-          onClose={() => navigate(fallbackPath)}
-        />
-      </div>
+      <CallLogModal
+        enquiryId={enquiryId}
+        mode="page"
+        isOpen
+        onClose={() => navigate(fallbackPath)}
+      />
     </div>
   )
 }

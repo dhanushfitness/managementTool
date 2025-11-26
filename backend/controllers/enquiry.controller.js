@@ -22,15 +22,87 @@ export const createEnquiry = async (req, res) => {
   try {
     const enquiryId = await generateEnquiryId(req.organizationId);
     
+    // If service is provided, fetch its name (could be Service or Plan)
+    let serviceName = req.body.serviceName;
+    let serviceId = req.body.service;
+    
+    if (serviceId && !serviceName) {
+      // Try to find as Plan first
+      const Plan = (await import('../models/Plan.js')).default;
+      const plan = await Plan.findById(serviceId);
+      if (plan) {
+        serviceName = plan.name;
+        serviceId = plan._id; // Use plan ID for reference
+      } else {
+        // If not found as Plan, try to find as Service
+        const Service = (await import('../models/Service.js')).default;
+        const service = await Service.findById(serviceId);
+        if (service) {
+          serviceName = service.name;
+          // For Service, we don't set serviceId reference (as it expects Plan)
+          // Just save the serviceName
+          serviceId = null;
+        }
+      }
+    }
+    
+    // Handle follow-up date (map followUpDate to expectedClosureDate)
+    const followUpDate = req.body.followUpDate ? new Date(req.body.followUpDate) : null;
+    
     const enquiryData = {
       ...req.body,
       organizationId: req.organizationId,
       branchId: req.body.branchId || req.user.branchId,
       enquiryId,
+      serviceName,
+      expectedClosureDate: followUpDate || req.body.expectedClosureDate,
       createdBy: req.user._id
     };
 
+    // Set service reference only if it's a Plan, otherwise null
+    if (serviceId) {
+      enquiryData.service = serviceId;
+    } else {
+      enquiryData.service = null;
+    }
+
+    // Remove followUpDate from enquiryData as it's not in schema
+    delete enquiryData.followUpDate;
+
+    // If follow-up date/time is provided, add to call logs before creating
+    if (followUpDate && req.body.assignedStaff) {
+      enquiryData.callLogs = [{
+        date: followUpDate,
+        status: 'scheduled',
+        notes: 'Follow-up scheduled during enquiry creation',
+        staffId: req.body.assignedStaff
+      }];
+    }
+
     const enquiry = await Enquiry.create(enquiryData);
+
+    // If follow-up date/time is provided, create FollowUp entry
+    if (followUpDate && req.body.assignedStaff) {
+      const FollowUp = (await import('../models/FollowUp.js')).default;
+      await FollowUp.create({
+        organizationId: req.organizationId,
+        branchId: enquiry.branchId,
+        type: 'follow-up',
+        callType: 'enquiry-call',
+        callStatus: 'scheduled',
+        scheduledTime: followUpDate,
+        title: `Follow up with ${enquiry.name}`,
+        description: 'Follow-up scheduled during enquiry creation',
+        relatedTo: {
+          entityType: 'enquiry',
+          entityId: enquiry._id
+        },
+        dueDate: followUpDate,
+        status: 'pending',
+        assignedTo: req.body.assignedStaff,
+        createdBy: req.user._id
+      });
+    }
 
     await AuditLog.create({
       organizationId: req.organizationId,
@@ -145,6 +217,15 @@ export const getEnquiry = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Enquiry not found' });
     }
 
+    // Sort call logs by date descending (most recent first)
+    if (enquiry.callLogs && enquiry.callLogs.length > 0) {
+      enquiry.callLogs.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA; // Highest date (most recent) first
+      });
+    }
+
     res.json({ success: true, enquiry });
   } catch (error) {
     handleError(error, res, 500);
@@ -160,6 +241,33 @@ export const updateEnquiry = async (req, res) => {
 
     if (!enquiry) {
       return res.status(404).json({ success: false, message: 'Enquiry not found' });
+    }
+
+    // If service is being updated, fetch its name from either Plan or Service model
+    if (req.body.service && !req.body.serviceName) {
+      try {
+        const Plan = (await import('../models/Plan.js')).default;
+        const plan = await Plan.findById(req.body.service);
+        if (plan) {
+          req.body.serviceName = plan.name;
+        } else {
+          // Try Service model if Plan not found
+          const Service = (await import('../models/Service.js')).default;
+          const service = await Service.findById(req.body.service);
+          if (service) {
+            req.body.serviceName = service.name;
+          }
+        }
+      } catch (error) {
+        // If both fail, serviceName will remain undefined
+        console.error('Error fetching service name:', error);
+      }
+    }
+
+    // Handle follow-up date (map followUpDate to expectedClosureDate)
+    if (req.body.followUpDate) {
+      req.body.expectedClosureDate = new Date(req.body.followUpDate);
+      delete req.body.followUpDate; // Remove followUpDate as it's not in schema
     }
 
     Object.assign(enquiry, req.body);
@@ -209,7 +317,7 @@ export const deleteEnquiry = async (req, res) => {
 export const convertToMember = async (req, res) => {
   try {
     const { enquiryId } = req.params;
-    const { planId, startDate } = req.body;
+    const { status, comments } = req.body;
 
     const enquiry = await Enquiry.findOne({
       _id: enquiryId,
@@ -249,7 +357,6 @@ export const convertToMember = async (req, res) => {
     }
 
     // Create member from enquiry
-    const Member = (await import('../models/Member.js')).default;
     const generateMemberId = async (organizationId) => {
       const count = await Member.countDocuments({ organizationId });
       return `MEM${String(count + 1).padStart(6, '0')}`;
@@ -271,61 +378,26 @@ export const convertToMember = async (req, res) => {
       createdBy: req.user._id
     });
 
-    // Update enquiry
+    // Add call log entry for conversion
+    const conversionMessage = comments 
+      ? `Enquiry converted to member. Member ID: ${memberId}. ${comments}`
+      : `Enquiry converted to member. Member ID: ${memberId}`;
+    const callLogEntry = {
+      date: new Date(),
+      type: 'enquiry-call',
+      status: 'contacted',
+      notes: conversionMessage,
+      staffId: req.user._id
+    };
+    enquiry.callLogs.push(callLogEntry);
+
+    // Update enquiry - always set stage to 'converted' when converting to member
     enquiry.convertedToMember = member._id;
     enquiry.convertedAt = new Date();
     enquiry.enquiryStage = 'converted';
     enquiry.isMember = true;
     enquiry.isLead = false;
     await enquiry.save();
-
-    // Create invoice if planId provided
-    let invoice = null;
-    if (planId) {
-      const Plan = (await import('../models/Plan.js')).default;
-      const plan = await Plan.findById(planId);
-      
-      if (plan) {
-        const Invoice = (await import('../models/Invoice.js')).default;
-        const Organization = (await import('../models/Organization.js')).default;
-        const org = await Organization.findById(req.organizationId);
-        
-        const invoiceNumber = `${org.invoiceSettings.prefix || 'INV'}-${String(org.invoiceSettings.nextNumber || 1).padStart(6, '0')}`;
-        org.invoiceSettings.nextNumber = (org.invoiceSettings.nextNumber || 1) + 1;
-        await org.save();
-
-        const subtotal = plan.price;
-        const taxAmount = (subtotal * (plan.taxRate || 0)) / 100;
-        const total = subtotal + taxAmount;
-
-        invoice = await Invoice.create({
-          organizationId: req.organizationId,
-          branchId: enquiry.branchId,
-          invoiceNumber,
-          memberId: member._id,
-          planId: plan._id,
-          type: 'membership',
-          items: [{
-            description: `Membership - ${plan.name}`,
-            quantity: 1,
-            unitPrice: plan.price,
-            taxRate: plan.taxRate || 0,
-            amount: subtotal,
-            taxAmount,
-            total
-          }],
-          subtotal,
-          tax: {
-            rate: plan.taxRate || 0,
-            amount: taxAmount
-          },
-          total,
-          status: 'draft',
-          currency: org.currency || 'INR',
-          createdBy: req.user._id
-        });
-      }
-    }
 
     await AuditLog.create({
       organizationId: req.organizationId,
@@ -335,7 +407,7 @@ export const convertToMember = async (req, res) => {
       entityId: enquiry._id
     });
 
-    res.json({ success: true, enquiry, member, invoice });
+    res.json({ success: true, enquiry, member });
   } catch (error) {
     handleError(error, res, 500);
   }
@@ -663,10 +735,12 @@ export const addCallLog = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Enquiry not found' });
     }
 
+    // Always set status as 'scheduled' for new call logs
+    // The cronjob will mark them as 'missed' if the date has passed
     const callLogEntry = {
       date: scheduleAt ? new Date(scheduleAt) : new Date(),
       type: type || 'enquiry-call',
-      status: callStatus || 'scheduled',
+      status: 'scheduled',
       notes,
       staffId: req.user._id,
       calledBy: calledBy || undefined
@@ -674,9 +748,8 @@ export const addCallLog = async (req, res) => {
 
     enquiry.callLogs.push(callLogEntry);
 
-    if (callStatus) {
-      enquiry.lastCallStatus = callStatus;
-    }
+    // Update lastCallStatus to 'scheduled' for new call logs
+    enquiry.lastCallStatus = 'scheduled';
 
     if (scheduleAt) {
       enquiry.followUpDate = new Date(scheduleAt);

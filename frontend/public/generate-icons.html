@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PWA Icon Generator - FitTrack</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1a2332;
+      color: white;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 30px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+    }
+    canvas {
+      border: 2px solid #8BC34A;
+      border-radius: 10px;
+      margin: 20px;
+      background: white;
+    }
+    button {
+      background: linear-gradient(135deg, #8BC34A 0%, #7CB342 100%);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+    }
+    .preview {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .instructions {
+      background: rgba(139, 195, 74, 0.2);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 FitTrack PWA Icon Generator</h1>
+    <div class="instructions">
+      <p><strong>Instructions:</strong></p>
+      <ol>
+        <li>Click "Generate Icons" to create the icons</li>
+        <li>Click "Download 192x192" and "Download 512x512" buttons</li>
+        <li>Save both files in the <code>frontend/public/</code> folder</li>
+        <li>Rebuild your app: <code>npm run build</code></li>
+      </ol>
+    </div>
+    
+    <div style="text-align: center;">
+      <button onclick="generateIcons()">Generate Icons</button>
+    </div>
+    
+    <div class="preview">
+      <div>
+        <h3>192x192 Icon</h3>
+        <canvas id="icon192" width="192" height="192"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon192', 'icon-192x192.png')">Download 192x192</button>
+      </div>
+      <div>
+        <h3>512x512 Icon</h3>
+        <canvas id="icon512" width="512" height="512"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon512', 'icon-512x512.png')">Download 512x512</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    function drawDumbbellIcon(ctx, size) {
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const padding = size * 0.15;
+      
+      // Background circle
+      ctx.fillStyle = '#8BC34A';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, size * 0.1);
+      ctx.fill();
+      
+      // Inner background
+      ctx.fillStyle = '#1a2332';
+      ctx.beginPath();
+      ctx.roundRect(padding, padding, size - padding * 2, size - padding * 2, size * 0.08);
+      ctx.fill();
+      
+      // Dumbbell bar
+      ctx.strokeStyle = '#8BC34A';
+      ctx.lineWidth = size * 0.06;
+      ctx.lineCap = 'round';
+      
+      const barLength = size * 0.5;
+      const barY = centerY;
+      
+      ctx.beginPath();
+      ctx.moveTo(centerX - barLength / 2, barY);
+      ctx.lineTo(centerX + barLength / 2, barY);
+      ctx.stroke();
+      
+      // Left weight
+      ctx.beginPath();
+      ctx.arc(centerX - barLength / 2, barY, size * 0.12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#8BC34A';
+      ctx.fill();
+      
+      // Right weight
+      ctx.beginPath();
+      ctx.arc(centerX + barLength / 2, barY, size * 0.12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fill();
+      
+      // Center circle
+      ctx.fillStyle = '#8BC34A';
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, size * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
+    }
+    
+    // Polyfill for roundRect if not available
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+        this.beginPath();
+        this.moveTo(x + radius, y);
+        this.lineTo(x + width - radius, y);
+        this.quadraticCurveTo(x + width, y, x + width, y + radius);
+        this.lineTo(x + width, y + height - radius);
+        this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        this.lineTo(x + radius, y + height);
+        this.quadraticCurveTo(x, y + height, x, y + height - radius);
+        this.lineTo(x, y + radius);
+        this.quadraticCurveTo(x, y, x + radius, y);
+        this.closePath();
+      };
+    }
+    
+    function generateIcons() {
+      const canvas192 = document.getElementById('icon192');
+      const canvas512 = document.getElementById('icon512');
+      
+      const ctx192 = canvas192.getContext('2d');
+      const ctx512 = canvas512.getContext('2d');
+      
+      drawDumbbellIcon(ctx192, 192);
+      drawDumbbellIcon(ctx512, 512);
+      
+      alert('Icons generated! Click the download buttons to save them.');
+    }
+    
+    function downloadIcon(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    }
+    
+    // Generate on load
+    window.onload = () => {
+      generateIcons();
+    };
+  </script>
+</body>
+</html>
+

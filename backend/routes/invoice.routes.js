@@ -11,6 +11,7 @@ import {
   freezeInvoiceItem,
   deleteInvoice,
   sendInvoice,
+  sendInvoiceViaEmail,
   downloadInvoicePDF,
   getInvoiceStats,
   exportInvoices,
@@ -41,6 +42,7 @@ router.get('/:invoiceId', getInvoice);
 router.put('/:invoiceId', authorize('owner', 'manager', 'staff'), updateInvoice);
 router.delete('/:invoiceId', authorize('owner', 'manager'), deleteInvoice);
 router.post('/:invoiceId/send', authorize('owner', 'manager', 'staff'), sendInvoice);
+router.post('/:invoiceId/send-email', authorize('owner', 'manager', 'staff'), sendInvoiceViaEmail);
 router.get('/:invoiceId/download', downloadInvoicePDF);
 
 export default router;

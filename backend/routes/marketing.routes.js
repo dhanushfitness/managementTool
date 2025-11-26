@@ -4,6 +4,7 @@ import {
   sendSMS,
   sendWhatsApp,
   getCommunications,
+  getFilteredRecipients,
   createOffer,
   getOffers,
   updateOffer,
@@ -17,6 +18,7 @@ const router = express.Router();
 router.use(authenticate);
 
 // Communication routes
+router.post('/communication/recipients', authorize('owner', 'manager', 'staff'), getFilteredRecipients);
 router.post('/communication/email', authorize('owner', 'manager', 'staff'), sendEmail);
 router.post('/communication/sms', authorize('owner', 'manager', 'staff'), sendSMS);
 router.post('/communication/whatsapp', authorize('owner', 'manager', 'staff'), sendWhatsApp);

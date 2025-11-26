@@ -506,46 +506,31 @@ export default function Dashboard() {
                 title="Follow-ups" 
                 count={summaryData?.data?.followUps || 0}
                 icon={Clock}
-                onClick={() => {
-                  const today = new Date();
-                  const dateStr = today.toISOString().split('T')[0];
-                  navigate('/taskboard', { state: { date: dateStr } });
-                }}
+                onClick={() => navigate('/taskboard', { state: { date: summaryDate } })}
               />
               <SummaryItem 
                 title="Service expiry" 
                 count={summaryData?.data?.serviceExpiry || 0}
                 icon={AlertCircle}
-                onClick={() => {
-                  const today = new Date().toISOString().split('T')[0];
-                  navigate(`/reports/client-management/service-expiry?fromDate=${today}&toDate=${today}`);
-                }}
+                onClick={() => navigate(`/reports/client-management/service-expiry?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
               <SummaryItem 
                 title="Upgrades" 
                 count={summaryData?.data?.upgrades || 0}
                 icon={TrendingUp}
-                onClick={() => {
-                  navigate('/reports/client-management/upgrade');
-                }}
+                onClick={() => navigate(`/reports/client-management/upgrade?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
               <SummaryItem 
                 title="Client birthdays" 
                 count={summaryData?.data?.clientBirthdays || 0}
                 icon={Gift}
-                onClick={() => {
-                  const today = new Date().toISOString().split('T')[0];
-                  navigate(`/reports/client-management/birthday?fromDate=${today}&toDate=${today}`);
-                }}
+                onClick={() => navigate(`/reports/client-management/birthday?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
               <SummaryItem 
                 title="Staff birthdays" 
                 count={summaryData?.data?.staffBirthdays || 0}
                 icon={Gift}
-                onClick={() => {
-                  const today = new Date().toISOString().split('T')[0];
-                  navigate(`/reports/staff/birthday?fromDate=${today}&toDate=${today}`);
-                }}
+                onClick={() => navigate(`/reports/staff/birthday?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
             </div>
           </div>

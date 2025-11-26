@@ -77,7 +77,7 @@ const enquirySchema = new mongoose.Schema({
   fitnessGoal: String,
   lastCallStatus: {
     type: String,
-    enum: ['answered', 'missed', 'no-answer', 'busy', 'not-called', 'enquiry', 'future-prospect', 'not-interested']
+    enum: ['answered', 'missed', 'no-answer', 'busy', 'not-called', 'scheduled', 'enquiry', 'future-prospect', 'not-interested']
   },
   callTag: {
     type: String,

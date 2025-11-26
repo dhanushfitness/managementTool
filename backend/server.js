@@ -30,6 +30,8 @@ import centralPanelRoutes from './routes/centralPanel.routes.js';
 import followupRoutes from './routes/followup.routes.js';
 import leaderboardRoutes from './routes/leaderboard.routes.js';
 import clientManagementRoutes from './routes/clientManagement.routes.js';
+import exerciseRoutes, { memberExerciseRoutes } from './routes/exercise.routes.js';
+import memberAuthRoutes from './routes/memberAuth.routes.js';
 import { handleError } from './utils/errorHandler.js';
 
 // Load environment variables
@@ -47,7 +49,7 @@ app.use(compression());
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'http://localhost:8080',
   credentials: true
 }));
 
@@ -80,22 +82,22 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Request logging - only in development
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log('REQ', {
-      method: req.method,
-      url: req.originalUrl,
-      ip: req.ip,
-      headers: {
-        'x-forwarded-for': req.headers['x-forwarded-for'],
-        'user-agent': req.headers['user-agent'],
-        host: req.headers.host
-      },
-      body: req.body && Object.keys(req.body).length ? req.body : undefined
-    });
-    next();
-  });
-}
+// if (process.env.NODE_ENV === 'development') {
+//   app.use((req, res, next) => {
+//     console.log('REQ', {
+//       method: req.method,
+//       url: req.originalUrl,
+//       ip: req.ip,
+//       headers: {
+//         'x-forwarded-for': req.headers['x-forwarded-for'],
+//         'user-agent': req.headers['user-agent'],
+//         host: req.headers.host
+//       },
+//       body: req.body && Object.keys(req.body).length ? req.body : undefined
+//     });
+//     next();
+//   });
+// }
 
 
 // Health check
@@ -126,6 +128,9 @@ app.use('/api/central-panel', centralPanelRoutes);
 app.use('/api/followups', followupRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/client-management', clientManagementRoutes);
+app.use('/api/exercises', exerciseRoutes);
+app.use('/api/member/exercises', memberExerciseRoutes);
+app.use('/api/member-auth', memberAuthRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

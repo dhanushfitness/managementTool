@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { getStaff, deleteStaff, updateStaff } from '../api/staff'
 import LoadingPage from '../components/LoadingPage'
 import toast from 'react-hot-toast'
@@ -15,6 +15,9 @@ import {
   Settings,
   Target,
   UserCheck,
+  Users,
+  Filter,
+  Sparkles
 } from 'lucide-react'
 
 export default function Staff() {
@@ -110,16 +113,30 @@ export default function Staff() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Breadcrumb */}
-      <nav className="text-sm">
-        <span className="text-gray-600">Home</span>
-        <span className="text-gray-400 mx-2">/</span>
-        <span className="text-orange-600 font-medium">Staff Management</span>
-      </nav>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-3">
+        <nav className="flex items-center gap-2 text-sm">
+          <Link to="/dashboard" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
+          <span className="text-gray-300">/</span>
+          <span className="text-orange-600 font-semibold">Staff Management</span>
+        </nav>
+        
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Staff Management</h1>
+          <p className="text-gray-600 mt-1">Manage your team members and staff</p>
+        </div>
+      </div>
 
       {/* Search and Filter Bar */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg shadow-lg">
+            <Filter className="h-4 w-4 text-white" />
+          </div>
+          <span className="text-sm font-bold text-gray-900">Search & Filter Staff</span>
+        </div>
+        
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[200px]">
             <div className="relative">
@@ -132,7 +149,7 @@ export default function Staff() {
                   setSearch(e.target.value)
                   setPage(1)
                 }}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-100 focus:border-orange-500 text-sm font-medium transition-all"
               />
             </div>
           </div>
@@ -143,7 +160,7 @@ export default function Staff() {
               setCommunicateFilter(e.target.value)
               setPage(1)
             }}
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700"
+            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-100 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all"
           >
             <option value="all">Communicate</option>
             <option value="active">Active</option>
@@ -156,7 +173,7 @@ export default function Staff() {
               setDesignationFilter(e.target.value)
               setPage(1)
             }}
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700"
+            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-100 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all"
           >
             <option value="all">Designation</option>
             <option value="trainer">Trainer</option>
@@ -173,7 +190,7 @@ export default function Staff() {
               setAdminRightsFilter(e.target.value)
               setPage(1)
             }}
-            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-sm font-medium text-gray-700"
+            className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-100 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all"
           >
             <option value="all">Admin Rights</option>
             <option value="full">Master Admin</option>
@@ -189,23 +206,24 @@ export default function Staff() {
               setAdminRightsFilter('all')
               setPage(1)
             }}
-            className="px-4 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium text-sm"
+            className="group inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl text-sm"
           >
-            Go
+            <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+            Apply
           </button>
         </div>
       </div>
 
       {/* Staff Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         {/* Pagination - Top */}
         {staff.length > 0 && (
-          <div className="flex items-center justify-between bg-gray-50 border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200 px-4 py-3">
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setPage(1)}
                 disabled={page === 1}
-                className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
                 title="First page"
               >
                 <ChevronsLeft className="w-5 h-5 text-gray-600" />
@@ -213,20 +231,20 @@ export default function Staff() {
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={page === 1}
-                className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
                 title="Previous page"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            <div className="text-sm text-gray-700">
+            <div className="text-sm font-semibold text-gray-900">
               Page {pagination.page} of {pagination.pages}
             </div>
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={page >= pagination.pages}
-                className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
                 title="Next page"
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -234,7 +252,7 @@ export default function Staff() {
               <button
                 onClick={() => setPage(pagination.pages)}
                 disabled={page >= pagination.pages}
-                className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
                 title="Last page"
               >
                 <ChevronsRight className="w-5 h-5 text-gray-600" />
@@ -250,29 +268,29 @@ export default function Staff() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                     <input
                       type="checkbox"
                       checked={selectedStaff.length === staff.length && staff.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                      className="rounded border-2 border-gray-300 text-orange-500 focus:ring-orange-500"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">S.No</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Photo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Staff ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Staff Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Mail</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Active</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Admin Rights</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Target</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Rep Change</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">S.No</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Photo</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Staff ID</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Staff Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Mail</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Active</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Admin Rights</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Target</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Rep Change</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {staff.length === 0 ? (
                   <tr>
                     <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
@@ -281,20 +299,22 @@ export default function Staff() {
                   </tr>
                 ) : (
                   staff.map((member, index) => (
-                    <tr key={member._id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={member._id} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={selectedStaff.includes(member._id)}
                           onChange={(e) => handleSelectStaff(member._id, e.target.checked)}
-                          className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                          className="rounded border-2 border-gray-300 text-orange-500 focus:ring-orange-500"
                         />
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {(page - 1) * 20 + index + 1}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold">
+                          {(page - 1) * 20 + index + 1}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-orange-50 text-orange-600 font-semibold shadow-sm border border-orange-100">
+                        <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-orange-50 to-red-50 text-orange-600 font-bold shadow-sm border-2 border-orange-200">
                           {getAvatarUrl(member) ? (
                             <img
                               src={getAvatarUrl(member)}
@@ -306,18 +326,18 @@ export default function Staff() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-600">
                         {member._id.toString().slice(-5)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => navigate(`/staff/${member._id}`)}
-                          className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                          className="text-sm font-bold text-orange-600 hover:text-orange-700 hover:underline"
                         >
                           {member.firstName} {member.lastName}
                         </button>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-600">
                         {member.email}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -352,7 +372,7 @@ export default function Staff() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => navigate(`/staff/${member._id}/admin-rights`)}
-                          className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                          className="text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline"
                         >
                           {getAdminRightsLabel(member.adminRights)}
                         </button>
@@ -360,7 +380,7 @@ export default function Staff() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => navigate(`/staff/${member._id}/targets`)}
-                          className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline flex items-center space-x-1"
+                          className="text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline flex items-center space-x-1"
                         >
                           <Eye className="w-4 h-4" />
                           <span>View</span>
@@ -369,7 +389,7 @@ export default function Staff() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => navigate(`/staff/${member._id}/rep-change`)}
-                          className="text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
+                          className="text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline"
                         >
                           Change
                         </button>
@@ -377,7 +397,7 @@ export default function Staff() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => handleDelete(member._id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-200"
                           title="Delete staff"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -393,12 +413,12 @@ export default function Staff() {
 
         {/* Pagination - Bottom */}
         {staff.length > 0 && (
-          <div className="flex items-center justify-between bg-gray-50 border-t border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 border-t-2 border-gray-200 px-4 py-3">
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setPage(1)}
                 disabled={page === 1}
-                className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
                 title="First page"
               >
                 <ChevronsLeft className="w-5 h-5 text-gray-600" />
@@ -406,20 +426,20 @@ export default function Staff() {
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={page === 1}
-                className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
                 title="Previous page"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            <div className="text-sm text-gray-700">
+            <div className="text-sm font-semibold text-gray-900">
               Page {pagination.page} of {pagination.pages}
             </div>
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={page >= pagination.pages}
-                className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
                 title="Next page"
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -427,7 +447,7 @@ export default function Staff() {
               <button
                 onClick={() => setPage(pagination.pages)}
                 disabled={page >= pagination.pages}
-                className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
                 title="Last page"
               >
                 <ChevronsRight className="w-5 h-5 text-gray-600" />

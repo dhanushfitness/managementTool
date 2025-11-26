@@ -298,36 +298,37 @@ export const getQuickStats = async (req, res) => {
 
 export const getDashboardSummary = async (req, res) => {
   try {
-    const today = new Date();
+    const today = req.query.date ? new Date(req.query.date) : new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 7);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Follow-ups (pending)
+    // Follow-ups (pending for today)
     const followUps = await FollowUp.countDocuments({
       organizationId: req.organizationId,
       status: 'pending',
-      dueDate: { $lte: tomorrow }
+      dueDate: { $gte: today, $lt: tomorrow }
     });
 
-    // Appointments (today and upcoming 7 days)
+    // Appointments (today only)
     const appointments = await Appointment.countDocuments({
       organizationId: req.organizationId,
-      appointmentDate: { $gte: today, $lte: tomorrow },
+      appointmentDate: { $gte: today, $lt: tomorrow },
       status: { $in: ['scheduled', 'confirmed'] }
     });
 
-    // Service expiry (next 7 days)
+    // Service expiry (expiring today)
     const serviceExpiry = await Member.countDocuments({
       organizationId: req.organizationId,
-      'currentPlan.endDate': { $gte: today, $lte: tomorrow },
+      'currentPlan.endDate': { $gte: today, $lt: tomorrow },
       membershipStatus: 'active'
     });
 
-    // Upgrades (members eligible for upgrade)
+    // Upgrades (eligible for upgrade today)
     const upgrades = await Member.countDocuments({
       organizationId: req.organizationId,
-      membershipStatus: 'active'
+      membershipStatus: 'active',
+      'currentPlan.endDate': { $gte: today, $lt: tomorrow }
     });
 
     // Client birthdays (today only - using MongoDB aggregation for better performance)

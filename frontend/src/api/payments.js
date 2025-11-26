@@ -13,4 +13,5 @@ export const processRazorpayPayment = (data) => api.post('/payments/razorpay', d
 export const createPaymentLink = (invoiceId) => api.post('/payments/payment-link', { invoiceId })
 export const sendPaymentLinkViaSMS = (invoiceId, provider) => api.post('/payments/send-sms', { invoiceId, provider })
 export const refundPayment = (id, data) => api.post(`/payments/${id}/refund`, data)
+export const sendInvoiceEmail = (invoiceId) => api.post(`/invoices/${invoiceId}/send-email`)
 
