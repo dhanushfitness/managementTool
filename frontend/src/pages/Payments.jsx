@@ -1,4 +1,5 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { 
   ChevronLeft, 
@@ -48,7 +49,52 @@ const formatDate = (value) => {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+// Helper function to convert dashboard dateFilter to payments dateRange
+// This matches the dashboard's getDateRange function logic
+const convertDashboardDateFilterToPayments = (dateFilter, fromDate, toDate) => {
+  // Custom range - pass through as-is
+  if (dateFilter === 'custom' && fromDate && toDate) {
+    return {
+      dateRange: 'custom',
+      startDate: fromDate,
+      endDate: toDate
+    }
+  }
+  
+  // Handle "today" - dashboard uses today 00:00:00 to tomorrow 00:00:00
+  // Pass tomorrow as endDate to match dashboard's exact logic
+  if (dateFilter === 'today') {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+    return {
+      dateRange: 'custom',
+      startDate: todayStr,
+      endDate: tomorrowStr
+    }
+  }
+  
+  // Map dashboard dateFilter to payments dateRange
+  // Dashboard's last7days = today - 7 days to end of today
+  // Dashboard's last30days = today - 30 days to end of today
+  // Payments use same calculation for last-7-days and last-30-days
+  const mapping = {
+    'last7days': 'last-7-days',
+    'last30days': 'last-30-days'
+  }
+  
+  return {
+    dateRange: mapping[dateFilter] || 'last-7-days',
+    startDate: '',
+    endDate: ''
+  }
+}
+
 export default function Payments() {
+  const location = useLocation()
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
   const [filters, setFilters] = useState({
@@ -62,6 +108,29 @@ export default function Payments() {
   })
   const [exporting, setExporting] = useState(false)
   const [sendingEmail, setSendingEmail] = useState({})
+  const [initialParamsApplied, setInitialParamsApplied] = useState(false)
+
+  // Apply date filter from URL params on mount
+  useEffect(() => {
+    if (initialParamsApplied) return
+    
+    const params = new URLSearchParams(location.search)
+    const dateFilter = params.get('dateFilter')
+    const fromDate = params.get('fromDate')
+    const toDate = params.get('toDate')
+    
+    if (dateFilter) {
+      const converted = convertDashboardDateFilterToPayments(dateFilter, fromDate, toDate)
+      setFilters(prev => ({
+        ...prev,
+        dateRange: converted.dateRange,
+        startDate: converted.startDate || '',
+        endDate: converted.endDate || ''
+      }))
+    }
+    
+    setInitialParamsApplied(true)
+  }, [location.search, initialParamsApplied])
 
   const queryParams = useMemo(() => {
     const params = {

@@ -77,6 +77,17 @@ export default function ClientFilterModal({ isOpen, onClose, filters, onFilterCh
       <div 
         className="fixed inset-0 bg-black bg-opacity-50 z-40"
         onClick={onClose}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          margin: 0,
+          padding: 0,
+          width: '100vw',
+          height: '100vh'
+        }}
       />
       <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
         <div 

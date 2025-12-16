@@ -163,3 +163,49 @@ export const getMemberProfile = async (req, res) => {
   }
 };
 
+// Update member profile (self-service)
+export const updateMemberProfile = async (req, res) => {
+  try {
+    const member = await Member.findById(req.member._id);
+
+    if (!member) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Member not found' 
+      });
+    }
+
+    // Allow updating specific fields only
+    const allowedFields = ['firstName', 'lastName', 'phone', 'address', 'dateOfBirth', 'communicationPreferences'];
+    const updateData = {};
+
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        if (field === 'communicationPreferences' && typeof req.body[field] === 'object') {
+          // Merge communication preferences
+          member.communicationPreferences = {
+            ...member.communicationPreferences,
+            ...req.body[field]
+          };
+        } else {
+          updateData[field] = req.body[field];
+        }
+      }
+    });
+
+    Object.assign(member, updateData);
+    await member.save();
+
+    const memberResponse = member.toObject();
+    delete memberResponse.password;
+
+    res.json({ 
+      success: true, 
+      message: 'Profile updated successfully',
+      member: memberResponse 
+    });
+  } catch (error) {
+    handleError(error, res, 500);
+  }
+};
+

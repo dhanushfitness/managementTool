@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState, useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   ChevronLeft,
@@ -24,6 +24,8 @@ import toast from 'react-hot-toast'
 const DEFAULT_FILTERS = {
   saleType: 'all',
   dateRange: 'last-30-days',
+  startDate: '',
+  endDate: '',
   serviceName: '',
   serviceVariation: '',
   gender: ''
@@ -50,10 +52,88 @@ const genderOptions = [
   { value: 'other', label: 'Other' }
 ]
 
+// Helper function to convert dashboard dateFilter to report dateRange
+// This matches the dashboard's getDateRange function logic
+const convertDashboardDateFilter = (dateFilter, fromDate, toDate) => {
+  // Custom range - pass through as-is
+  if (dateFilter === 'custom' && fromDate && toDate) {
+    return {
+      dateRange: 'custom',
+      startDate: fromDate,
+      endDate: toDate
+    }
+  }
+  
+  // Handle "today" - dashboard uses today 00:00:00 to tomorrow 00:00:00
+  // To match exactly, we need to pass tomorrow as endDate, but backend will set it to 23:59:59.999
+  // Actually, let's pass today for both and let backend handle the time correctly
+  // But we need to ensure it matches dashboard's logic: today 00:00:00 to tomorrow 00:00:00 (inclusive of all today)
+  if (dateFilter === 'today') {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
+    // For "today", dashboard uses tomorrow 00:00:00 as end, but with $lte it includes all of today
+    // We'll pass today as endDate, and backend sets it to 23:59:59.999 which should be equivalent
+    // But to be safe, let's calculate tomorrow and pass it, then backend will set it correctly
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+    return {
+      dateRange: 'custom',
+      startDate: todayStr,
+      endDate: tomorrowStr // Pass tomorrow, backend will set to 23:59:59.999 of tomorrow, but we want it to be tomorrow 00:00:00
+    }
+  }
+  
+  // Map dashboard dateFilter to report dateRange
+  // Dashboard's last7days = today - 7 days to end of today
+  // Dashboard's last30days = today - 30 days to end of today
+  // Reports use same calculation for last-7-days and last-30-days
+  const mapping = {
+    'last7days': 'last-7-days',
+    'last30days': 'last-30-days'
+  }
+  
+  return {
+    dateRange: mapping[dateFilter] || 'last-30-days',
+    startDate: '',
+    endDate: ''
+  }
+}
+
 export default function ServiceSalesReport() {
+  const location = useLocation()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(true)
+  const [hasSearched, setHasSearched] = useState(false) // Start as false to apply URL params first
+  const [initialParamsApplied, setInitialParamsApplied] = useState(false)
+
+  // Apply date filter from URL params on mount
+  useEffect(() => {
+    if (initialParamsApplied) return
+    
+    const params = new URLSearchParams(location.search)
+    const dateFilter = params.get('dateFilter')
+    const fromDate = params.get('fromDate')
+    const toDate = params.get('toDate')
+    
+    if (dateFilter) {
+      const converted = convertDashboardDateFilter(dateFilter, fromDate, toDate)
+      setFilters(prev => ({
+        ...prev,
+        dateRange: converted.dateRange,
+        ...(converted.startDate && converted.endDate ? {
+          startDate: converted.startDate,
+          endDate: converted.endDate
+        } : {})
+      }))
+      setHasSearched(true)
+    } else {
+      setHasSearched(true)
+    }
+    
+    setInitialParamsApplied(true)
+  }, [location.search, initialParamsApplied])
 
   const { data: plansData } = useQuery({
     queryKey: ['plans-list'],
@@ -130,6 +210,14 @@ export default function ServiceSalesReport() {
   }
 
   const { startDate, endDate } = useMemo(() => {
+    // If custom range with explicit dates, use them
+    if (filters.dateRange === 'custom' && filters.startDate && filters.endDate) {
+      return {
+        startDate: new Date(filters.startDate),
+        endDate: new Date(filters.endDate)
+      }
+    }
+
     const end = new Date()
     const start = new Date()
 
@@ -157,7 +245,7 @@ export default function ServiceSalesReport() {
     }
 
     return { startDate: start, endDate: end }
-  }, [filters.dateRange])
+  }, [filters.dateRange, filters.startDate, filters.endDate])
 
   const summaryCards = useMemo(() => {
     const grossSales = totals.listPrice || 0

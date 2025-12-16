@@ -21,7 +21,9 @@ import {
   createMemberReferral,
   importMembers,
   searchMembers,
-  getMemberStats
+  getMemberStats,
+  setMemberTimeSlots,
+  getMemberTimeSlots
 } from '../controllers/member.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
@@ -56,6 +58,10 @@ router.post('/:memberId/calls', authorize('owner', 'manager', 'staff'), createMe
 router.put('/:memberId/calls/:callId', authorize('owner', 'manager', 'staff'), updateMemberCall);
 router.get('/:memberId/referrals', getMemberReferrals);
 router.post('/:memberId/referrals', authorize('owner', 'manager', 'staff'), createMemberReferral);
+
+// Time slot management
+router.get('/:memberId/time-slots', getMemberTimeSlots);
+router.put('/:memberId/time-slots', authorize('owner', 'manager', 'staff'), setMemberTimeSlots);
 
 // Bulk operations
 router.post('/import', authorize('owner', 'manager'), importMembers);

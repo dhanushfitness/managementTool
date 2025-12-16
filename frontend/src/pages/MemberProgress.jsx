@@ -9,12 +9,15 @@ import {
   Dumbbell,
   Calendar,
   ChevronLeft,
-  Search
+  Search,
+  X
 } from 'lucide-react'
 
 export default function MemberProgress() {
   const navigate = useNavigate()
   const [selectedPeriod, setSelectedPeriod] = useState('week') // week, month, year
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
 
   // Get member from localStorage
   const member = JSON.parse(localStorage.getItem('member') || '{}')
@@ -33,31 +36,51 @@ export default function MemberProgress() {
     }
   }, [token])
 
-  // Get all assignments for progress tracking
-  const { data: assignmentsData, isLoading } = useQuery({
-    queryKey: ['member-all-exercises', member._id],
-    queryFn: () => api.get('/member/exercises/my-exercises').then(res => res.data),
+  // Get progress data from API
+  const { data: progressData, isLoading } = useQuery({
+    queryKey: ['member-progress', member._id, selectedPeriod],
+    queryFn: () => api.get('/member/exercises/progress', {
+      params: { period: selectedPeriod }
+    }).then(res => res.data),
     enabled: !!member._id && !!token,
   })
 
-  const assignments = assignmentsData?.assignments || []
+  const progress = progressData?.progress || {}
   
-  // Calculate stats
-  const completedExercises = assignments.filter(a => a.isCompleted).length
-  const totalExercises = assignments.length
-  const completionRate = totalExercises > 0 ? Math.round((completedExercises / totalExercises) * 100) : 0
-  const estimatedCalories = completedExercises * 50 // Rough estimate
+  // Extract data from API response
+  const totalCalories = progress.totalCalories || 0
+  const completedExercises = progress.totalCompleted || 0
+  const caloriesData = progress.caloriesData || []
+  const muscleGroupsData = progress.muscleGroupDistribution || []
+  const strengthProgress = progress.strengthProgress || []
+  const recentActivity = progress.recentActivity || []
 
-  // Mock data for charts (in real app, this would come from API)
-  const caloriesData = [1200, 1500, 1800, 1400, 2000, 1600, 1900]
-  const muscleGroupsData = [
-    { name: 'Chest', value: 25 },
-    { name: 'Back', value: 20 },
-    { name: 'Legs', value: 30 },
-    { name: 'Arms', value: 15 },
-    { name: 'Shoulders', value: 10 }
-  ]
-  const strengthData = [50, 55, 60, 58, 65, 70, 68]
+  // Filter recent activity by search query
+  const filteredActivity = searchQuery
+    ? recentActivity.filter(activity => 
+        activity.exerciseName.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : recentActivity
+
+  // Format calories data for chart (last 7 days)
+  const caloriesChartData = caloriesData.length > 0 
+    ? caloriesData.map(item => item.calories)
+    : [0, 0, 0, 0, 0, 0, 0]
+
+  // Format strength data for chart
+  const strengthChartData = strengthProgress.length > 0
+    ? strengthProgress.map(item => item.weight)
+    : []
+
+  // Get period label for display
+  const getPeriodLabel = () => {
+    switch (selectedPeriod) {
+      case 'week': return 'this week'
+      case 'month': return 'this month'
+      case 'year': return 'this year'
+      default: return 'this week'
+    }
+  }
 
   if (!token || !member._id) {
     return null
@@ -83,7 +106,10 @@ export default function MemberProgress() {
                 <h1 className="text-lg font-bold text-white">Progress</h1>
               </div>
             </div>
-            <button className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+            <button 
+              onClick={() => setShowSearch(!showSearch)}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
               <Search className="w-5 h-5 text-gray-300" />
             </button>
           </div>
@@ -91,6 +117,33 @@ export default function MemberProgress() {
       </div>
 
       <div className="max-w-md mx-auto px-4 pb-4 space-y-6">
+        {/* Search Bar */}
+        {showSearch && (
+          <div className="mt-4 backdrop-blur-xl rounded-xl p-3" style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <div className="flex items-center gap-2">
+              <Search className="w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search exercises..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent text-white placeholder-gray-400 outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="p-1 hover:bg-white/10 rounded"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Period Selector */}
         <div className="flex items-center gap-2 mt-4">
           {['week', 'month', 'year'].map((period) => (
@@ -123,8 +176,8 @@ export default function MemberProgress() {
               <Flame className="w-5 h-5 text-orange-400" />
               <span className="text-sm text-gray-300">Calories</span>
             </div>
-            <div className="text-2xl font-bold text-white">{estimatedCalories}</div>
-            <div className="text-xs text-gray-400 mt-1">Burned this week</div>
+            <div className="text-2xl font-bold text-white">{totalCalories}</div>
+            <div className="text-xs text-gray-400 mt-1">Burned {getPeriodLabel()}</div>
           </div>
           <div className="backdrop-blur-xl rounded-2xl p-4" style={{
             background: 'rgba(255, 255, 255, 0.1)',
@@ -153,28 +206,41 @@ export default function MemberProgress() {
               Week
             </button>
           </div>
-          <div className="h-48 flex items-end justify-between gap-2">
-            {caloriesData.map((value, index) => {
-              const maxValue = Math.max(...caloriesData)
-              const height = (value / maxValue) * 100
-              return (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex flex-col items-center justify-end" style={{ height: '120px' }}>
-                    <div
-                      className="w-full rounded-t-lg transition-all hover:opacity-80"
-                      style={{
-                        height: `${height}%`,
-                        background: 'linear-gradient(180deg, #8BC34A 0%, #7CB342 100%)',
-                        minHeight: '8px'
-                      }}
-                    />
+          {isLoading ? (
+            <div className="h-48 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : caloriesChartData.length > 0 ? (
+            <div className="h-48 flex items-end justify-between gap-2">
+              {caloriesChartData.map((value, index) => {
+                const maxValue = Math.max(...caloriesChartData, 1) // Avoid division by zero
+                const height = maxValue > 0 ? (value / maxValue) * 100 : 0
+                const date = caloriesData[index]?.date 
+                  ? new Date(caloriesData[index].date).toLocaleDateString('en-US', { weekday: 'short' })
+                  : `Day ${index + 1}`
+                return (
+                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                    <div className="w-full flex flex-col items-center justify-end" style={{ height: '120px' }}>
+                      <div
+                        className="w-full rounded-t-lg transition-all hover:opacity-80"
+                        style={{
+                          height: `${height}%`,
+                          background: 'linear-gradient(180deg, #8BC34A 0%, #7CB342 100%)',
+                          minHeight: '8px'
+                        }}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-400">{date}</div>
+                    <div className="text-xs text-white font-semibold">{value}</div>
                   </div>
-                  <div className="text-xs text-gray-400">Day {index + 1}</div>
-                  <div className="text-xs text-white font-semibold">{value}</div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="h-48 flex items-center justify-center text-gray-400">
+              No data available
+            </div>
+          )}
         </div>
 
         {/* Muscle Groups Chart */}
@@ -191,30 +257,40 @@ export default function MemberProgress() {
               Top 5
             </button>
           </div>
-          <div className="space-y-3">
-            {muscleGroupsData.map((group, index) => {
-              const colors = ['#8BC34A', '#7CB342', '#689F38', '#558B2F', '#33691E']
-              return (
-                <div key={index} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-300">{group.name}</span>
-                    <span className="text-white font-semibold">{group.value}%</span>
+          {isLoading ? (
+            <div className="h-32 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : muscleGroupsData.length > 0 ? (
+            <div className="space-y-3">
+              {muscleGroupsData.map((group, index) => {
+                const colors = ['#8BC34A', '#7CB342', '#689F38', '#558B2F', '#33691E']
+                return (
+                  <div key={index} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-300">{group.name}</span>
+                      <span className="text-white font-semibold">{group.value}%</span>
+                    </div>
+                    <div className="h-3 rounded-full overflow-hidden" style={{
+                      background: 'rgba(255, 255, 255, 0.1)'
+                    }}>
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${group.value}%`,
+                          background: colors[index % colors.length]
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-3 rounded-full overflow-hidden" style={{
-                    background: 'rgba(255, 255, 255, 0.1)'
-                  }}>
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${group.value}%`,
-                        background: colors[index % colors.length]
-                      }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              No muscle group data available
+            </div>
+          )}
         </div>
 
         {/* Strength Progress Chart */}
@@ -231,28 +307,41 @@ export default function MemberProgress() {
               Weight (kg)
             </button>
           </div>
-          <div className="h-48 flex items-end justify-between gap-2">
-            {strengthData.map((value, index) => {
-              const maxValue = Math.max(...strengthData)
-              const height = (value / maxValue) * 100
-              return (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex flex-col items-center justify-end" style={{ height: '120px' }}>
-                    <div
-                      className="w-full rounded-t-lg transition-all hover:opacity-80"
-                      style={{
-                        height: `${height}%`,
-                        background: 'linear-gradient(180deg, #8BC34A 0%, #7CB342 100%)',
-                        minHeight: '8px'
-                      }}
-                    />
+          {isLoading ? (
+            <div className="h-48 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : strengthChartData.length > 0 ? (
+            <div className="h-48 flex items-end justify-between gap-2">
+              {strengthChartData.map((value, index) => {
+                const maxValue = Math.max(...strengthChartData, 1)
+                const height = maxValue > 0 ? (value / maxValue) * 100 : 0
+                const weekLabel = strengthProgress[index]?.week
+                  ? new Date(strengthProgress[index].week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  : `W${index + 1}`
+                return (
+                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                    <div className="w-full flex flex-col items-center justify-end" style={{ height: '120px' }}>
+                      <div
+                        className="w-full rounded-t-lg transition-all hover:opacity-80"
+                        style={{
+                          height: `${height}%`,
+                          background: 'linear-gradient(180deg, #8BC34A 0%, #7CB342 100%)',
+                          minHeight: '8px'
+                        }}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-400">{weekLabel}</div>
+                    <div className="text-xs text-white font-semibold">{value}kg</div>
                   </div>
-                  <div className="text-xs text-gray-400">W{index + 1}</div>
-                  <div className="text-xs text-white font-semibold">{value}kg</div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="h-48 flex items-center justify-center text-gray-400">
+              No strength data available
+            </div>
+          )}
         </div>
 
         {/* Recent Activity */}
@@ -261,12 +350,14 @@ export default function MemberProgress() {
           border: '1px solid rgba(255, 255, 255, 0.2)'
         }}>
           <h3 className="text-lg font-bold text-white mb-4">Recent Activity</h3>
-          <div className="space-y-3">
-            {assignments.filter(a => a.isCompleted).slice(0, 5).map((assignment) => {
-              const exercise = assignment.exerciseId
-              if (!exercise) return null
-              return (
-                <div key={assignment._id} className="flex items-center gap-3 p-3 rounded-xl" style={{
+          {isLoading ? (
+            <div className="h-32 flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : filteredActivity.length > 0 ? (
+            <div className="space-y-3">
+              {filteredActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center gap-3 p-3 rounded-xl" style={{
                   background: 'rgba(255, 255, 255, 0.05)'
                 }}>
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
@@ -275,24 +366,23 @@ export default function MemberProgress() {
                     <Dumbbell className="w-5 h-5 text-green-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">{exercise.name}</div>
+                    <div className="text-sm font-semibold text-white truncate">{activity.exerciseName}</div>
                     <div className="text-xs text-gray-400">
-                      {assignment.completedAt 
-                        ? new Date(assignment.completedAt).toLocaleDateString()
+                      {activity.completedAt 
+                        ? new Date(activity.completedAt).toLocaleDateString()
                         : 'Recently completed'}
                     </div>
                   </div>
                   <div className="w-2 h-2 rounded-full bg-green-400"></div>
                 </div>
-              )
-            })}
-            {assignments.filter(a => a.isCompleted).length === 0 && (
-              <div className="text-center py-8 text-gray-400">
-                <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No completed exercises yet</p>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>{searchQuery ? 'No exercises found' : 'No completed exercises yet'}</p>
+            </div>
+          )}
         </div>
       </div>
     </MemberLayout>

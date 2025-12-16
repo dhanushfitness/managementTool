@@ -185,7 +185,20 @@ export default function AddStaffModal({ isOpen, onClose }) {
     <>
       {/* Full-page loading overlay */}
       {createStaffMutation.isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-[10000] flex items-center justify-center">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-60 z-[10000] flex items-center justify-center"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            margin: 0,
+            padding: 0,
+            width: '100vw',
+            height: '100vh'
+          }}
+        >
           <div className="flex flex-col items-center p-6 bg-white rounded-lg shadow-xl">
             <LoadingSpinner size="lg" className="text-orange-500" />
             <p className="mt-4 text-lg font-semibold text-gray-800">Creating staff member...</p>
@@ -214,6 +227,10 @@ export default function AddStaffModal({ isOpen, onClose }) {
           left: 0, 
           right: 0, 
           bottom: 0,
+          margin: 0,
+          padding: 0,
+          width: '100vw',
+          height: '100vh',
           overflow: 'hidden'
         }}
       />

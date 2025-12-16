@@ -1269,3 +1269,98 @@ export const createMemberReferral = async (req, res) => {
   }
 };
 
+// Time slot management for expired members
+export const setMemberTimeSlots = async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    const { timeSlots } = req.body;
+
+    const member = await Member.findOne({
+      _id: memberId,
+      organizationId: req.organizationId
+    });
+
+    if (!member) {
+      return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    // Validate time slots format
+    if (timeSlots && Array.isArray(timeSlots)) {
+      for (const slot of timeSlots) {
+        if (slot.dayOfWeek === undefined || slot.dayOfWeek < 0 || slot.dayOfWeek > 6) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid dayOfWeek. Must be between 0 (Sunday) and 6 (Saturday)' 
+          });
+        }
+        
+        if (!slot.startTime || !/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(slot.startTime)) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid startTime format. Must be HH:MM (24-hour format)' 
+          });
+        }
+        
+        if (!slot.endTime || !/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(slot.endTime)) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Invalid endTime format. Must be HH:MM (24-hour format)' 
+          });
+        }
+
+        // Validate that startTime is before endTime
+        const [startHour, startMin] = slot.startTime.split(':').map(Number);
+        const [endHour, endMin] = slot.endTime.split(':').map(Number);
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        
+        if (startMinutes >= endMinutes) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'startTime must be before endTime' 
+          });
+        }
+      }
+    }
+
+    // Update time slots
+    member.timeSlots = timeSlots || [];
+    await member.save();
+
+    await AuditLog.create({
+      organizationId: req.organizationId,
+      userId: req.user._id,
+      action: 'member.timeslots.updated',
+      entityType: 'Member',
+      entityId: member._id
+    });
+
+    res.json({ success: true, member, message: 'Time slots updated successfully' });
+  } catch (error) {
+    handleError(error, res, 500);
+  }
+};
+
+export const getMemberTimeSlots = async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    const member = await Member.findOne({
+      _id: memberId,
+      organizationId: req.organizationId
+    }).select('timeSlots membershipStatus');
+
+    if (!member) {
+      return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    res.json({ 
+      success: true, 
+      timeSlots: member.timeSlots || [],
+      membershipStatus: member.membershipStatus
+    });
+  } catch (error) {
+    handleError(error, res, 500);
+  }
+};
+

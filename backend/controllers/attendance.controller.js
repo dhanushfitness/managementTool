@@ -4,6 +4,86 @@ import Invoice from '../models/Invoice.js';
 import Plan from '../models/Plan.js';
 import AuditLog from '../models/AuditLog.js';
 
+/**
+ * Validate if member can access at the given time based on time slots
+ * @param {Object} member - Member object
+ * @param {Date} checkInTime - Time to check access for
+ * @returns {Object} - { allowed: boolean, message: string, allowedSlots: array }
+ */
+const validateTimeSlotAccess = (member, checkInTime) => {
+  // Active members have no time restrictions
+  if (member.membershipStatus === 'active') {
+    const now = new Date();
+    if (member.currentPlan && member.currentPlan.endDate) {
+      const endDate = new Date(member.currentPlan.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (endDate >= now) {
+        return { allowed: true, message: 'Access granted' };
+      }
+    } else if (member.membershipStatus === 'active') {
+      return { allowed: true, message: 'Access granted' };
+    }
+  }
+
+  // For expired members, check time slots
+  if (member.membershipStatus === 'expired' && member.timeSlots && member.timeSlots.length > 0) {
+    const checkInDate = new Date(checkInTime);
+    const dayOfWeek = checkInDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentTime = `${String(checkInDate.getHours()).padStart(2, '0')}:${String(checkInDate.getMinutes()).padStart(2, '0')}`;
+    
+    // Find enabled time slots for this day
+    const daySlots = member.timeSlots.filter(slot => 
+      slot.dayOfWeek === dayOfWeek && slot.enabled
+    );
+
+    if (daySlots.length === 0) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return { 
+        allowed: false, 
+        message: `No access allowed on ${dayNames[dayOfWeek]}. Please check your time slots.`,
+        allowedSlots: []
+      };
+    }
+
+    // Check if current time falls within any enabled slot
+    const isWithinSlot = daySlots.some(slot => {
+      const [startHour, startMin] = slot.startTime.split(':').map(Number);
+      const [endHour, endMin] = slot.endTime.split(':').map(Number);
+      const [currentHour, currentMin] = currentTime.split(':').map(Number);
+      
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+      const currentMinutes = currentHour * 60 + currentMin;
+      
+      return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+    });
+
+    if (isWithinSlot) {
+      return { allowed: true, message: 'Access granted within time slot' };
+    } else {
+      // Format allowed slots for the message
+      const allowedSlots = daySlots.map(slot => `${slot.startTime} - ${slot.endTime}`).join(', ');
+      return { 
+        allowed: false, 
+        message: `Access denied. Allowed times for today: ${allowedSlots}`,
+        allowedSlots: daySlots.map(slot => ({ startTime: slot.startTime, endTime: slot.endTime }))
+      };
+    }
+  }
+
+  // If expired but no time slots configured, deny access
+  if (member.membershipStatus === 'expired') {
+    return { 
+      allowed: false, 
+      message: 'Membership has expired. No time slots configured.',
+      allowedSlots: []
+    };
+  }
+
+  // Default: allow access (for other statuses like frozen, cancelled, etc. will be handled separately)
+  return { allowed: true, message: 'Access granted' };
+};
+
 export const checkIn = async (req, res) => {
   try {
     const { 
@@ -44,8 +124,15 @@ export const checkIn = async (req, res) => {
     }
 
     if (member.membershipStatus === 'expired' && !allowManualOverride) {
-      status = 'expired';
-      blockedReason = 'Membership has expired';
+      // Check time slot access for expired members
+      const timeSlotValidation = validateTimeSlotAccess(member, checkInDateTime);
+      if (!timeSlotValidation.allowed) {
+        status = 'expired';
+        blockedReason = timeSlotValidation.message;
+      } else {
+        // Expired member but within time slot - allow access
+        status = 'success';
+      }
     } else if (member.membershipStatus === 'frozen' && !allowManualOverride) {
       status = 'frozen';
       blockedReason = 'Membership is frozen';
@@ -538,8 +625,15 @@ export const fingerprintCheckIn = async (req, res) => {
     }
 
     if (member.membershipStatus === 'expired') {
-      status = 'expired';
-      blockedReason = 'Membership has expired';
+      // Check time slot access for expired members
+      const timeSlotValidation = validateTimeSlotAccess(member, now);
+      if (!timeSlotValidation.allowed) {
+        status = 'expired';
+        blockedReason = timeSlotValidation.message;
+      } else {
+        // Expired member but within time slot - allow access
+        status = 'success';
+      }
     } else if (member.membershipStatus === 'frozen') {
       status = 'frozen';
       blockedReason = 'Membership is frozen';
@@ -642,6 +736,182 @@ export const fingerprintCheckIn = async (req, res) => {
       organizationId: req.organizationId,
       userId: null, // System action
       action: 'attendance.checkin.biometric',
+      entityType: 'Attendance',
+      entityId: attendance._id
+    });
+
+    const populated = await Attendance.findById(attendance._id)
+      .populate('memberId', 'firstName lastName memberId phone profilePicture');
+
+    res.json({
+      success: true,
+      status: 'success',
+      message: 'Check-in successful',
+      attendance: populated,
+      member: {
+        _id: member._id,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        memberId: member.memberId,
+        profilePicture: member.profilePicture
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Face recognition check-in endpoint (for device integration)
+export const faceCheckIn = async (req, res) => {
+  try {
+    const { faceId, deviceId, deviceName } = req.body;
+
+    if (!faceId) {
+      return res.status(400).json({ success: false, message: 'Face ID is required' });
+    }
+
+    // Find member by face ID
+    const member = await Member.findOne({
+      organizationId: req.organizationId,
+      'biometricData.faceId': faceId,
+      isActive: true
+    }).populate('currentPlan.planId');
+
+    if (!member) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Member not found with this face ID',
+        status: 'not_found'
+      });
+    }
+
+    // Check membership status
+    let status = 'success';
+    let blockedReason = null;
+    const now = new Date();
+
+    // Check if membership is expired
+    if (member.currentPlan && member.currentPlan.endDate) {
+      const endDate = new Date(member.currentPlan.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (endDate < now) {
+        status = 'expired';
+        blockedReason = 'Membership has expired';
+      }
+    }
+
+    if (member.membershipStatus === 'expired') {
+      // Check time slot access for expired members
+      const timeSlotValidation = validateTimeSlotAccess(member, now);
+      if (!timeSlotValidation.allowed) {
+        status = 'expired';
+        blockedReason = timeSlotValidation.message;
+      } else {
+        // Expired member but within time slot - allow access
+        status = 'success';
+      }
+    } else if (member.membershipStatus === 'frozen') {
+      status = 'frozen';
+      blockedReason = 'Membership is frozen';
+    } else if (member.membershipStatus === 'cancelled') {
+      status = 'blocked';
+      blockedReason = 'Membership is cancelled';
+    } else if (member.membershipStatus !== 'active') {
+      status = 'blocked';
+      blockedReason = 'Membership is not active';
+    }
+
+    // If expired or blocked, deny access
+    if (status !== 'success') {
+      const attendance = await Attendance.create({
+        organizationId: req.organizationId,
+        branchId: member.branchId,
+        memberId: member._id,
+        checkInTime: now,
+        method: 'biometric',
+        deviceId,
+        deviceName,
+        status,
+        blockedReason,
+        notes: 'Face recognition check-in denied'
+      });
+
+      return res.json({
+        success: false,
+        status,
+        message: blockedReason,
+        attendance,
+        member: {
+          _id: member._id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          memberId: member.memberId
+        }
+      });
+    }
+
+    // Check if already checked in today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const existingCheckIn = await Attendance.findOne({
+      memberId: member._id,
+      checkInTime: { $gte: today },
+      checkOutTime: null
+    });
+
+    if (existingCheckIn) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Member already checked in today',
+        attendance: existingCheckIn
+      });
+    }
+
+    // Create attendance record
+    const attendance = await Attendance.create({
+      organizationId: req.organizationId,
+      branchId: member.branchId,
+      memberId: member._id,
+      checkInTime: now,
+      method: 'biometric',
+      deviceId,
+      deviceName,
+      status: 'success',
+      checkedInBy: null, // System/device check-in
+      notes: 'Face recognition check-in'
+    });
+
+    // Update member stats
+    member.attendanceStats.totalCheckIns += 1;
+    member.attendanceStats.lastCheckIn = now;
+    
+    // Update streak
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    
+    const lastCheckIn = member.attendanceStats.lastCheckIn ? new Date(member.attendanceStats.lastCheckIn) : null;
+    if (lastCheckIn) {
+      lastCheckIn.setHours(0, 0, 0, 0);
+      if (lastCheckIn.getTime() === yesterday.getTime()) {
+        member.attendanceStats.currentStreak += 1;
+      } else if (lastCheckIn.getTime() < yesterday.getTime()) {
+        member.attendanceStats.currentStreak = 1;
+      }
+    } else {
+      member.attendanceStats.currentStreak = 1;
+    }
+
+    if (member.attendanceStats.currentStreak > member.attendanceStats.longestStreak) {
+      member.attendanceStats.longestStreak = member.attendanceStats.currentStreak;
+    }
+
+    await member.save();
+
+    await AuditLog.create({
+      organizationId: req.organizationId,
+      userId: null, // System action
+      action: 'attendance.checkin.biometric.face',
       entityType: 'Attendance',
       entityId: attendance._id
     });

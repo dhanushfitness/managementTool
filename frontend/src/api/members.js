@@ -17,4 +17,6 @@ export const deleteMember = (id) => api.delete(`/members/${id}`)
 export const enrollMember = (id, data) => api.post(`/members/${id}/enroll`, data)
 export const renewMembership = (id, data) => api.post(`/members/${id}/renew`, data)
 export const searchMembers = (query) => api.get('/members/search', { params: { q: query } })
+export const getMemberTimeSlots = (id) => api.get(`/members/${id}/time-slots`)
+export const setMemberTimeSlots = (id, timeSlots) => api.put(`/members/${id}/time-slots`, { timeSlots })
 

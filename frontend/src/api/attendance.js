@@ -36,3 +36,7 @@ export const updateAttendance = (attendanceId, data) =>
 export const fingerprintCheckIn = (data) => 
   api.post('/attendance/fingerprint', data)
 
+// Face recognition check-in (for device integration)
+export const faceCheckIn = (data) => 
+  api.post('/attendance/face', data)
+

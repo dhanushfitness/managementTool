@@ -33,6 +33,9 @@ const getDateRange = (fromDate, toDate, dateFilter) => {
       const last30Days = new Date(today);
       last30Days.setDate(last30Days.getDate() - 30);
       return { start: last30Days, end: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1) };
+    case 'all-time':
+      // Return null to indicate no date filter
+      return null;
     default:
       // Default to today
       const defaultTomorrow = new Date(today);
@@ -47,15 +50,27 @@ export const getDashboardStats = async (req, res) => {
     const { fromDate, toDate, dateFilter = 'today' } = req.query;
     const dateRange = getDateRange(fromDate, toDate, dateFilter);
 
+    // Build date match condition
+    const salesDateMatch = dateRange ? {
+      createdAt: {
+        $gte: dateRange.start,
+        $lte: dateRange.end
+      }
+    } : {};
+
+    const paymentsDateMatch = dateRange ? {
+      paidAt: {
+        $gte: dateRange.start,
+        $lte: dateRange.end
+      }
+    } : {};
+
     // Sales (total invoice amount in date range)
     const sales = await Invoice.aggregate([
       {
         $match: {
           organizationId,
-          createdAt: {
-            $gte: dateRange.start,
-            $lte: dateRange.end
-          }
+          ...salesDateMatch
         }
       },
       {
@@ -67,16 +82,25 @@ export const getDashboardStats = async (req, res) => {
     ]);
 
     // Payments Collected (in date range)
+    // If paidAt is null, use createdAt as fallback
+    const paymentsMatch = {
+      organizationId,
+      status: 'completed'
+    };
+    
+    if (dateRange) {
+      paymentsMatch.$or = [
+        { paidAt: { $gte: dateRange.start, $lte: dateRange.end } },
+        { 
+          paidAt: null,
+          createdAt: { $gte: dateRange.start, $lte: dateRange.end }
+        }
+      ];
+    }
+    
     const paymentsCollected = await Payment.aggregate([
       {
-        $match: {
-          organizationId,
-          status: 'completed',
-          paidAt: {
-            $gte: dateRange.start,
-            $lte: dateRange.end
-          }
-        }
+        $match: paymentsMatch
       },
       {
         $group: {
@@ -104,32 +128,41 @@ export const getDashboardStats = async (req, res) => {
     ]);
 
     // New Clients (created in date range)
-    const newClients = await Member.countDocuments({
-      organizationId,
+    const newClientsDateMatch = dateRange ? {
       createdAt: {
         $gte: dateRange.start,
         $lte: dateRange.end
       }
+    } : {};
+    const newClients = await Member.countDocuments({
+      organizationId,
+      ...newClientsDateMatch
     });
 
     // Renewals (members with subscriptions renewed in date range)
-    const renewals = await Member.countDocuments({
-      organizationId,
-      membershipStatus: 'active',
+    const renewalsDateMatch = dateRange ? {
       'subscriptions.startDate': {
         $gte: dateRange.start,
         $lte: dateRange.end
       }
+    } : {};
+    const renewals = await Member.countDocuments({
+      organizationId,
+      membershipStatus: 'active',
+      ...renewalsDateMatch
     });
 
     // Check-ins (in date range)
-    const checkIns = await Attendance.countDocuments({
-      organizationId,
-      status: 'success',
+    const checkInsDateMatch = dateRange ? {
       checkInTime: {
         $gte: dateRange.start,
         $lte: dateRange.end
       }
+    } : {};
+    const checkIns = await Attendance.countDocuments({
+      organizationId,
+      status: 'success',
+      ...checkInsDateMatch
     });
 
     // Active members count

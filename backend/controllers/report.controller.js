@@ -2685,51 +2685,71 @@ export const getServiceSalesReport = async (req, res) => {
     // Build date query
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    } else {
-      // Handle date range presets
-      const end = new Date();
-      end.setHours(23, 59, 59, 999);
-      const start = new Date();
-      
-      switch (dateRange) {
-        case 'last-7-days':
-          start.setDate(start.getDate() - 7);
-          break;
-        case 'last-30-days':
-          start.setDate(start.getDate() - 30);
-          break;
-        case 'last-90-days':
-          start.setDate(start.getDate() - 90);
-          break;
-        case 'this-month':
-          start.setDate(1);
-          break;
-        case 'last-month':
-          start.setMonth(start.getMonth() - 1);
-          start.setDate(1);
-          end.setDate(0);
-          end.setHours(23, 59, 59, 999);
-          break;
-        default:
-          start.setDate(start.getDate() - 30);
-      }
-      
+      const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      // If endDate is the same as startDate, set to end of that day
+      // If endDate is different (like tomorrow for "today" filter), set to start of that day
+      // This matches dashboard's logic: today 00:00:00 to tomorrow 00:00:00 (inclusive)
+      if (startDate === endDate) {
+        end.setHours(23, 59, 59, 999);
+      } else {
+        end.setHours(0, 0, 0, 0);
+      }
       dateQuery.createdAt = {
         $gte: start,
         $lte: end
       };
+    } else {
+      // Handle date range presets
+      // If "all-time" is selected, don't add date filter
+      if (dateRange === 'all-time') {
+        // No date query - show all invoices
+        dateQuery = {};
+      } else {
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        const start = new Date();
+        
+        switch (dateRange) {
+          case 'last-7-days':
+            start.setDate(start.getDate() - 7);
+            break;
+          case 'last-30-days':
+            start.setDate(start.getDate() - 30);
+            break;
+          case 'last-90-days':
+            start.setDate(start.getDate() - 90);
+            break;
+          case 'this-month':
+            start.setDate(1);
+            break;
+          case 'last-month':
+            start.setMonth(start.getMonth() - 1);
+            start.setDate(1);
+            end.setDate(0);
+            end.setHours(23, 59, 59, 999);
+            break;
+          default:
+            start.setDate(start.getDate() - 30);
+        }
+        
+        start.setHours(0, 0, 0, 0);
+        dateQuery.createdAt = {
+          $gte: start,
+          $lte: end
+        };
+      }
     }
 
     // Build base query
+    // Dashboard shows all invoices regardless of status (no status filter in dashboard query)
+    // To match dashboard behavior, we should include all statuses except cancelled/refunded
+    // But actually, let's match exactly what dashboard does - no status filter at all
     const baseQuery = {
       organizationId: req.organizationId,
-      ...dateQuery,
-      status: { $in: ['paid', 'partial', 'sent', 'draft'] } // Include draft (pro-forma), sent and paid invoices
+      ...dateQuery
+      // No status filter to match dashboard behavior - dashboard includes all invoices
     };
 
     // Filter by sale type (New Bookings vs Rebookings)
@@ -2739,7 +2759,14 @@ export const getServiceSalesReport = async (req, res) => {
       baseQuery.type = { $in: ['renewal', 'upgrade', 'downgrade'] };
     }
 
-    // Get invoices with populated data
+    // Get ALL invoices for totals calculation (before pagination)
+    const allInvoicesForTotals = await Invoice.find(baseQuery)
+      .populate('memberId', 'firstName lastName gender')
+      .populate('planId', 'name')
+      .populate('items.serviceId', 'name')
+      .sort({ createdAt: -1 });
+
+    // Get paginated invoices for display
     const invoices = await Invoice.find(baseQuery)
       .populate('memberId', 'firstName lastName gender')
       .populate('planId', 'name')
@@ -2748,7 +2775,58 @@ export const getServiceSalesReport = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
-    // Process invoices into booking records
+    // Calculate totals from ALL invoices (not just paginated ones)
+    let allTotals = { quantity: 0, listPrice: 0, discountValue: 0, totalAmount: 0 };
+    for (const invoice of allInvoicesForTotals) {
+      // Process each item in the invoice
+      for (const item of invoice.items || []) {
+        // Apply filters for totals calculation
+        if (serviceName) {
+          const serviceId = item.serviceId?._id?.toString() || invoice.planId?._id?.toString();
+          if (serviceId !== serviceName) continue;
+        }
+
+        if (serviceVariation && item.description) {
+          if (!item.description.toLowerCase().includes(serviceVariation.toLowerCase())) continue;
+        }
+
+        if (gender && invoice.memberId?.gender) {
+          if (invoice.memberId.gender !== gender) continue;
+        }
+
+        // Apply sale type filter
+        if (saleType === 'new-bookings' && !['membership', 'other'].includes(invoice.type)) continue;
+        if (saleType === 'rebookings' && !['renewal', 'upgrade', 'downgrade'].includes(invoice.type)) continue;
+
+        const listPrice = (item.unitPrice || 0) * (item.quantity || 1);
+        const discountValue = item.discount?.amount || invoice.discount?.amount || 0;
+        const totalAmount = item.total || (listPrice - discountValue);
+
+        allTotals.quantity += (item.quantity || 1);
+        allTotals.listPrice += listPrice;
+        allTotals.discountValue += discountValue;
+        allTotals.totalAmount += totalAmount;
+      }
+
+      // Handle invoices without items
+      if ((!invoice.items || invoice.items.length === 0) && invoice.planId) {
+        if (serviceName && invoice.planId._id.toString() !== serviceName) continue;
+        if (gender && invoice.memberId?.gender && invoice.memberId.gender !== gender) continue;
+        if (saleType === 'new-bookings' && !['membership', 'other'].includes(invoice.type)) continue;
+        if (saleType === 'rebookings' && !['renewal', 'upgrade', 'downgrade'].includes(invoice.type)) continue;
+
+        const listPrice = invoice.subtotal || 0;
+        const discountValue = invoice.discount?.amount || 0;
+        const totalAmount = invoice.total || 0;
+
+        allTotals.quantity += 1;
+        allTotals.listPrice += listPrice;
+        allTotals.discountValue += discountValue;
+        allTotals.totalAmount += totalAmount;
+      }
+    }
+
+    // Process invoices into booking records (for display)
     const bookings = [];
     for (const invoice of invoices) {
       // Process each item in the invoice
@@ -2838,19 +2916,41 @@ export const getServiceSalesReport = async (req, res) => {
       }
     }
 
-    // Calculate totals
-    const totals = bookings.reduce((acc, booking) => {
-      acc.quantity += booking.quantity;
-      acc.listPrice += booking.listPrice;
-      acc.discountValue += booking.discountValue;
-      acc.totalAmount += booking.totalAmount;
-      return acc;
-    }, { quantity: 0, listPrice: 0, discountValue: 0, totalAmount: 0 });
+    // Use totals calculated from ALL invoices (not just paginated ones)
+    const totals = allTotals;
 
-    // Get total count for pagination
-    const totalInvoices = await Invoice.countDocuments(baseQuery);
-    // Approximate total bookings (this is an estimate)
-    const totalBookings = bookings.length;
+    // Get total count for pagination - count all bookings matching filters
+    let totalBookingsCount = 0;
+    for (const invoice of allInvoicesForTotals) {
+      let invoiceMatches = false;
+      
+      for (const item of invoice.items || []) {
+        if (serviceName) {
+          const serviceId = item.serviceId?._id?.toString() || invoice.planId?._id?.toString();
+          if (serviceId !== serviceName) continue;
+        }
+        if (serviceVariation && item.description) {
+          if (!item.description.toLowerCase().includes(serviceVariation.toLowerCase())) continue;
+        }
+        if (gender && invoice.memberId?.gender) {
+          if (invoice.memberId.gender !== gender) continue;
+        }
+        if (saleType === 'new-bookings' && !['membership', 'other'].includes(invoice.type)) continue;
+        if (saleType === 'rebookings' && !['renewal', 'upgrade', 'downgrade'].includes(invoice.type)) continue;
+        invoiceMatches = true;
+        totalBookingsCount++;
+      }
+
+      if ((!invoice.items || invoice.items.length === 0) && invoice.planId) {
+        if (serviceName && invoice.planId._id.toString() !== serviceName) continue;
+        if (gender && invoice.memberId?.gender && invoice.memberId.gender !== gender) continue;
+        if (saleType === 'new-bookings' && !['membership', 'other'].includes(invoice.type)) continue;
+        if (saleType === 'rebookings' && !['renewal', 'upgrade', 'downgrade'].includes(invoice.type)) continue;
+        totalBookingsCount++;
+      }
+    }
+    
+    const totalBookings = totalBookingsCount;
 
     res.json({
       success: true,

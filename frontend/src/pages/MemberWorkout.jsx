@@ -12,14 +12,158 @@ import {
   Play, 
   ChevronLeft,
   ChevronRight,
-  Search
+  Search,
+  X
 } from 'lucide-react'
+
+// Helper function to get exercise image URL from frontend public/exercises folder
+const getExerciseImageUrl = (exerciseName) => {
+  if (!exerciseName) return null
+  
+  // Normalize exercise name for matching
+  const normalizeName = (name) => {
+    return name.toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+      .trim()
+  }
+  
+  const normalizedName = normalizeName(exerciseName)
+  
+  // Map exercise names to image files in public/exercises folder
+  const exerciseImageMap = {
+    'PUSH-UPS': 'Push Ups.jpg',
+    'BENCH-PRESS': 'flat dumbell press.jpg',
+    'CHEST-PRESS': 'chest pres.jpg',
+    'FLAT DB-PRESS': 'flat dumbell press.jpg',
+    'INCLINE DB-PRESS': 'Incline Dumbbell Press.jpg',
+    'DECLINE DB-PRESS': 'Dumbbell Decline Fly.jpg',
+    'DB-FLY': 'pec fly.jpg',
+    'CABLE-CROSS': 'Cable Crossover.jpg',
+    'PEC-DECK': 'pec fly.jpg',
+    'BENT-OVER-ROW': 'Bent Over Row.jpg',
+    'DB-BENT-OVER-ROW': 'Dumbbell Bent Over Row.jpg',
+    'ONE-ARM-DB-ROW': 'Dumbbell One Arm Bent Over Row.jpg',
+    'LAT-PULLDOWN': 'Lat pull-down.jpg',
+    'PULL-UPS': 'Lat pull-down.jpg',
+    'T-BAR-ROW': 'Bent Over Row.jpg',
+    'SEATED-ROW': 'seated back row.jpg',
+    'DEAD-LIFT': 'ROMANIAN DEADLIFT.jpg',
+    'ROMANIAN-DEADLIFT': 'ROMANIAN DEADLIFT.jpg',
+    'HYPEREXTENSION': 'Hyperextension.jpg',
+    'BACK-EXTENSION': 'Back Extension.jpg',
+    'SHOULDER-PRESS': 'Overhead Dumbbell Press.jpg',
+    'DB-SHOULDER-PRESS': 'seated dumbell press.jpg',
+    'LATERAL-RAISE': 'Dumbbell Lateral Raise.jpg',
+    'FRONT-RAISE': 'Dumbbell Lateral Raise.jpg',
+    'UPRIGHT-ROW': 'upright row.jpg',
+    'SHRUGS': 'Dumbbell Shrug.jpg',
+    'REAR-DELT-FLY': 'bend over lateral raise.jpg',
+    'SQUATS': 'free squats.jpg',
+    'LEG-PRESS': 'leg press.jpg',
+    'LEG-EXTENSION': 'leg press.jpg',
+    'LEG-CURL': 'seated leg curl.jpg',
+    'LUNGES': 'Lunge With.jpg',
+    'BULGARIAN-SPLIT-SQUAT': 'Bulgarian Split Squat.jpg',
+    'CALF-RAISE': 'calf raises.jpg',
+    'STEP-UPS': 'Dumbbell Step Up.jpg',
+    'BICEP-CURL': 'dumbell curl.jpg',
+    'HAMMER-CURL': 'Dumbbell Close Grip Curl.jpg',
+    'PREACHER-CURL': 'Preacher Curl.jpg',
+    'CABLE-CURL': 'Biceps cable curl.jpg',
+    'CONCENTRATION-CURL': 'Dumbbell Incline Biceps Curl.jpg',
+    'TRICEP-EXTENSION': 'Dumbbell Standing Triceps Extension.jpg',
+    'OVERHEAD-TRICEP': 'Dumbbell Seated Triceps Extension.jpg',
+    'TRICEP-PUSHDOWN': 'Cable Tricep Pushdown.jpg',
+    'CLOSE-GRIP-BENCH': 'Barbell Close Grip Bench Press.jpg',
+    'SKULL-CRUSHERS': 'skull crusher.jpg',
+    'CRUNCHES': 'crunches.jpg',
+    'SIT-UPS': 'crunches.jpg',
+    'PLANK': 'plank.jpg',
+    'SIDE-PLANK': 'Side Plank Oblique Crunch.jpg',
+    'RUSSIAN-TWIST': 'Russian Twist.jpg',
+    'MOUNTAIN-CLIMBER': 'Mountain Climber.jpg',
+    'LEG-RAISE': 'abs leg raises.jpg',
+    'TREADMILL': 'Treadmill.jpg',
+    'RUNNING': 'Treadmill.jpg',
+    'BIKE': 'recumbent bike.jpg',
+    'CYCLE': 'recumbent bike.jpg',
+    'ROWING': 'seated rowing.jpg',
+    'ELLIPTICAL': 'elliptical.jpg',
+  }
+  
+  // Try to find exact match first
+  if (exerciseImageMap[normalizedName]) {
+    return `/exercises/${exerciseImageMap[normalizedName]}`
+  }
+  
+  // Try partial matching - check if any key is contained in the normalized name or vice versa
+  for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
+    if (normalizedName.includes(key) || key.includes(normalizedName)) {
+      return `/exercises/${imageFile}`
+    }
+  }
+  
+  // Try word-based matching - check if significant words match
+  const exerciseWords = normalizedName.split('-').filter(w => w.length > 3)
+  for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
+    const keyWords = key.split('-').filter(w => w.length > 3)
+    const matchingWords = exerciseWords.filter(word => 
+      keyWords.some(keyWord => keyWord.includes(word) || word.includes(keyWord))
+    )
+    if (matchingWords.length >= 1) {
+      return `/exercises/${imageFile}`
+    }
+  }
+  
+  // Final fallback: try to match by first significant word in image filename
+  if (exerciseWords.length > 0) {
+    const firstWord = exerciseWords[0]
+    for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
+      const imageNameUpper = imageFile.toUpperCase().replace('.JPG', '').replace(/[^A-Z0-9]/g, '')
+      if (imageNameUpper.includes(firstWord) && firstWord.length > 4) {
+        return `/exercises/${imageFile}`
+      }
+    }
+  }
+  
+  // Ultimate fallback: return a default image that should always exist
+  return `/exercises/Push Ups.jpg`
+}
+
+// Helper function to resolve exercise image with fallback logic
+const resolveExerciseImage = (exercise) => {
+  if (!exercise) return null
+  
+  // Get image from public/exercises folder first
+  let imageUrl = getExerciseImageUrl(exercise.name)
+  
+  // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
+  if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
+    if (exercise.imageUrl.startsWith('http://') || exercise.imageUrl.startsWith('https://')) {
+      imageUrl = exercise.imageUrl
+    } else {
+      // Relative path - prepend backend URL
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+      imageUrl = `${backendUrl}${exercise.imageUrl.startsWith('/') ? '' : '/'}${exercise.imageUrl}`
+    }
+  }
+  
+  // Final fallback to default image
+  if (!imageUrl) {
+    imageUrl = '/exercises/Push Ups.jpg'
+  }
+  
+  return imageUrl
+}
 
 export default function MemberWorkout() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [weekNumber, setWeekNumber] = useState(1)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Get member from localStorage
   const member = JSON.parse(localStorage.getItem('member') || '{}')
@@ -93,7 +237,10 @@ export default function MemberWorkout() {
                 <h1 className="text-lg font-bold text-white">Workouts</h1>
               </div>
             </div>
-            <button className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+            <button 
+              onClick={() => setShowSearch(!showSearch)}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
               <Search className="w-5 h-5 text-gray-300" />
             </button>
           </div>
@@ -140,6 +287,33 @@ export default function MemberWorkout() {
 
       {/* Exercises List */}
       <div className="max-w-md mx-auto px-4 pb-4 space-y-4">
+        {/* Search Bar */}
+        {showSearch && (
+          <div className="backdrop-blur-xl rounded-xl p-3" style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <div className="flex items-center gap-2">
+              <Search className="w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search exercises..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent text-white placeholder-gray-400 outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="p-1 hover:bg-white/10 rounded"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="text-center py-12">
             <div className="inline-block w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div>
@@ -153,11 +327,20 @@ export default function MemberWorkout() {
             <Dumbbell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-white mb-2">No Exercises Today</h3>
             <p className="text-gray-300">
-              You don't have any exercises assigned for {weekDays[weekDay]}
+              {searchQuery 
+                ? 'No exercises found matching your search'
+                : `You don't have any exercises assigned for ${weekDays[weekDay]}`}
             </p>
           </div>
         ) : (
-          assignments.map((assignment, index) => {
+          assignments
+            .filter(assignment => {
+              if (!searchQuery) return true
+              const exercise = assignment.exerciseId
+              if (!exercise) return false
+              return exercise.name.toLowerCase().includes(searchQuery.toLowerCase())
+            })
+            .map((assignment, index) => {
             const exercise = assignment.exerciseId
             if (!exercise) return null
 
@@ -259,65 +442,36 @@ export default function MemberWorkout() {
                     </div>
                   )}
 
-                  {/* Image and Video Section */}
-                  {(exercise.imageUrl || exercise.videoUrl) && (
-                    <div className="grid grid-cols-1 gap-3">
-                      {/* Image */}
-                      {exercise.imageUrl && (
-                        <div className="rounded-xl overflow-hidden" style={{
-                          border: '1px solid rgba(255, 255, 255, 0.2)'
-                        }}>
-                          <img
-                            src={exercise.imageUrl.startsWith('http') ? exercise.imageUrl : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`}
-                            alt={exercise.name}
-                            className="w-full h-64 object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none'
-                            }}
-                          />
+                  {/* Exercise Image Section */}
+                  {(() => {
+                    const imageUrl = resolveExerciseImage(exercise)
+                    if (!imageUrl) return null
+                    
+                    return (
+                      <div className="rounded-xl overflow-hidden" style={{
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: 'rgba(255, 255, 255, 0.05)'
+                      }}>
+                        <img
+                          src={imageUrl}
+                          alt={exercise.name}
+                          className="w-full h-64 object-cover"
+                          onError={(e) => {
+                            // Hide image and show fallback icon
+                            e.target.style.display = 'none'
+                            const fallback = e.target.nextElementSibling
+                            if (fallback) fallback.style.display = 'flex'
+                          }}
+                        />
+                        <div 
+                          className="w-full h-64 flex items-center justify-center" 
+                          style={{ display: 'none' }}
+                        >
+                          <Dumbbell className="w-16 h-16 text-gray-400" />
                         </div>
-                      )}
-                      
-                      {/* Video */}
-                      {exercise.videoUrl && (
-                        <div className="rounded-xl overflow-hidden bg-black" style={{
-                          border: '1px solid rgba(255, 255, 255, 0.2)'
-                        }}>
-                          {exercise.videoUrl.includes('youtube.com') || exercise.videoUrl.includes('youtu.be') ? (
-                            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                              <iframe
-                                className="absolute top-0 left-0 w-full h-full"
-                                src={(() => {
-                                  let videoId = ''
-                                  if (exercise.videoUrl.includes('youtube.com/watch?v=')) {
-                                    videoId = exercise.videoUrl.split('v=')[1]?.split('&')[0]
-                                  } else if (exercise.videoUrl.includes('youtu.be/')) {
-                                    videoId = exercise.videoUrl.split('youtu.be/')[1]?.split('?')[0]
-                                  } else if (exercise.videoUrl.includes('youtube.com/embed/')) {
-                                    videoId = exercise.videoUrl.split('embed/')[1]?.split('?')[0]
-                                  }
-                                  return videoId ? `https://www.youtube.com/embed/${videoId}` : exercise.videoUrl
-                                })()}
-                                title={exercise.name}
-                                frameBorder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                              />
-                            </div>
-                          ) : (
-                            <video
-                              src={exercise.videoUrl.startsWith('http') ? exercise.videoUrl : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.videoUrl}`}
-                              controls
-                              className="w-full h-64 object-contain"
-                              preload="metadata"
-                            >
-                              Your browser does not support the video tag.
-                            </video>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Instructions */}
                   {exercise.instructions && exercise.instructions.length > 0 && (

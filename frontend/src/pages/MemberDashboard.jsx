@@ -17,8 +17,125 @@ import {
   Plus,
   Minus,
   ChevronRight,
-  Filter
+  Filter,
+  X
 } from 'lucide-react'
+
+// Helper function to get exercise image URL from frontend public/exercises folder
+const getExerciseImageUrl = (exerciseName) => {
+  if (!exerciseName) return null
+  
+  // Normalize exercise name for matching
+  const normalizeName = (name) => {
+    return name.toUpperCase()
+      .replace(/[^A-Z0-9\s-]/g, '')  // Keep hyphens in the name
+      .replace(/\s+/g, '-')           // Replace spaces with hyphens
+      .replace(/-+/g, '-')            // Replace multiple hyphens with single hyphen
+      .trim()
+  }
+  
+  const normalizedName = normalizeName(exerciseName)
+  
+  // Map exercise names to image files in public/exercises folder
+  const exerciseImageMap = {
+    'PUSH-UPS': 'Push Ups.jpg',
+    'BENCH-PRESS': 'flat dumbell press.jpg',
+    'CHEST-PRESS': 'chest pres.jpg',
+    'FLAT-DB-PRESS': 'flat dumbell press.jpg',
+    'INCLINE-DB-PRESS': 'Incline Dumbbell Press.jpg',
+    'DECLINE-DB-PRESS': 'Dumbbell Decline Fly.jpg',
+    'DB-FLY': 'pec fly.jpg',
+    'CABLE-CROSS': 'Cable Crossover.jpg',
+    'PEC-DECK': 'pec fly.jpg',
+    'BENT-OVER-ROW': 'Bent Over Row.jpg',
+    'DB-BENT-OVER-ROW': 'Dumbbell Bent Over Row.jpg',
+    'ONE-ARM-DB-ROW': 'Dumbbell One Arm Bent Over Row.jpg',
+    'LAT-PULLDOWN': 'Lat pull-down.jpg',
+    'PULL-UPS': 'Lat pull-down.jpg',
+    'T-BAR-ROW': 'Bent Over Row.jpg',
+    'SEATED-ROW': 'seated back row.jpg',
+    'DEAD-LIFT': 'ROMANIAN DEADLIFT.jpg',
+    'ROMANIAN-DEADLIFT': 'ROMANIAN DEADLIFT.jpg',
+    'HYPEREXTENSION': 'Hyperextension.jpg',
+    'BACK-EXTENSION': 'Back Extension.jpg',
+    'SHOULDER-PRESS': 'Overhead Dumbbell Press.jpg',
+    'DB-SHOULDER-PRESS': 'seated dumbell press.jpg',
+    'LATERAL-RAISE': 'Dumbbell Lateral Raise.jpg',
+    'FRONT-RAISE': 'Dumbbell Lateral Raise.jpg',
+    'UPRIGHT-ROW': 'upright row.jpg',
+    'SHRUGS': 'Dumbbell Shrug.jpg',
+    'REAR-DELT-FLY': 'bend over lateral raise.jpg',
+    'SQUATS': 'free squats.jpg',
+    'LEG-PRESS': 'leg press.jpg',
+    'LEG-EXTENSION': 'leg press.jpg',
+    'LEG-CURL': 'seated leg curl.jpg',
+    'LUNGES': 'Lunge With.jpg',
+    'BULGARIAN-SPLIT-SQUAT': 'Bulgarian Split Squat.jpg',
+    'CALF-RAISE': 'calf raises.jpg',
+    'STEP-UPS': 'Dumbbell Step Up.jpg',
+    'BICEP-CURL': 'dumbell curl.jpg',
+    'HAMMER-CURL': 'Dumbbell Close Grip Curl.jpg',
+    'PREACHER-CURL': 'Preacher Curl.jpg',
+    'CABLE-CURL': 'Biceps cable curl.jpg',
+    'CONCENTRATION-CURL': 'Dumbbell Incline Biceps Curl.jpg',
+    'TRICEP-EXTENSION': 'Dumbbell Standing Triceps Extension.jpg',
+    'OVERHEAD-TRICEP': 'Dumbbell Seated Triceps Extension.jpg',
+    'TRICEP-PUSHDOWN': 'Cable Tricep Pushdown.jpg',
+    'CLOSE-GRIP-BENCH': 'Barbell Close Grip Bench Press.jpg',
+    'SKULL-CRUSHERS': 'skull crusher.jpg',
+    'CRUNCHES': 'crunches.jpg',
+    'SIT-UPS': 'crunches.jpg',
+    'PLANK': 'plank.jpg',
+    'SIDE-PLANK': 'Side Plank Oblique Crunch.jpg',
+    'RUSSIAN-TWIST': 'Russian Twist.jpg',
+    'MOUNTAIN-CLIMBER': 'Mountain Climber.jpg',
+    'LEG-RAISE': 'abs leg raises.jpg',
+    'TREADMILL': 'Treadmill.jpg',
+    'RUNNING': 'Treadmill.jpg',
+    'BIKE': 'uprishtBike.jpg',
+    'CYCLE': 'recumbent bike.jpg',
+    'ROWING': 'seated rowing.jpg',
+    'ELLIPTICAL': 'elliptical.jpg',
+  }
+  
+  // Try to find exact match first
+  if (exerciseImageMap[normalizedName]) {
+    return `/exercises/${exerciseImageMap[normalizedName]}`
+  }
+  
+  // Try partial matching - check if any key is contained in the normalized name or vice versa
+  for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
+    if (normalizedName.includes(key) || key.includes(normalizedName)) {
+      return `/exercises/${imageFile}`
+    }
+  }
+  
+  // Try word-based matching - check if significant words match
+  const exerciseWords = normalizedName.split('-').filter(w => w.length > 3)
+  for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
+    const keyWords = key.split('-').filter(w => w.length > 3)
+    const matchingWords = exerciseWords.filter(word => 
+      keyWords.some(keyWord => keyWord.includes(word) || word.includes(keyWord))
+    )
+    if (matchingWords.length >= 1) {
+      return `/exercises/${imageFile}`
+    }
+  }
+  
+  // Final fallback: try to match by first significant word in image filename
+  if (exerciseWords.length > 0) {
+    const firstWord = exerciseWords[0]
+    for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
+      const imageNameUpper = imageFile.toUpperCase().replace('.JPG', '').replace(/[^A-Z0-9]/g, '')
+      if (imageNameUpper.includes(firstWord) && firstWord.length > 4) {
+        return `/exercises/${imageFile}`
+      }
+    }
+  }
+  
+  // Ultimate fallback: return a default image that should always exist
+  return `/exercises/Push Ups.jpg`
+}
 
 export default function MemberDashboard() {
   const navigate = useNavigate()
@@ -28,6 +145,9 @@ export default function MemberDashboard() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [filter, setFilter] = useState('today') // today, week, all
   const [muscleGroupFilter, setMuscleGroupFilter] = useState('all')
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
 
   // Get member from localStorage
   const member = JSON.parse(localStorage.getItem('member') || '{}')
@@ -104,12 +224,58 @@ export default function MemberDashboard() {
   const allAssignments = allAssignmentsData?.assignments || []
   const assignments = assignmentsData?.assignments || []
   
-  // Calculate stats
+  // Filter assignments based on filter state
+  let filteredAssignments = assignments
+  if (filter === 'week') {
+    const weekStart = new Date(selectedDate)
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+    weekStart.setHours(0, 0, 0, 0)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekEnd.getDate() + 6)
+    weekEnd.setHours(23, 59, 59, 999)
+    // Get all assignments for the week
+    filteredAssignments = allAssignments.filter(a => {
+      const assignmentDate = new Date(a.assignedAt || a.createdAt)
+      return assignmentDate >= weekStart && assignmentDate <= weekEnd
+    })
+  } else if (filter === 'all') {
+    filteredAssignments = allAssignments
+  }
+  
+  // Filter by muscle group
+  if (muscleGroupFilter !== 'all') {
+    filteredAssignments = filteredAssignments.filter(assignment => {
+      const exercise = assignment.exerciseId
+      if (!exercise || !exercise.muscleGroups) return false
+      return exercise.muscleGroups.includes(muscleGroupFilter.toLowerCase())
+    })
+  }
+  
+  // Filter by search query
+  if (searchQuery) {
+    filteredAssignments = filteredAssignments.filter(assignment => {
+      const exercise = assignment.exerciseId
+      if (!exercise) return false
+      return exercise.name.toLowerCase().includes(searchQuery.toLowerCase())
+    })
+  }
+  
+  // Calculate stats from filtered assignments
   const totalAssigned = allAssignments.length
-  const completedToday = assignments.filter(a => a.isCompleted).length
-  const totalToday = assignments.length
+  const completedToday = filteredAssignments.filter(a => a.isCompleted).length
+  const totalToday = filteredAssignments.length
   const completionPercentage = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0
   const estimatedCalories = completedToday * 50 // Rough estimate
+  
+  // Get unique muscle groups from all exercises
+  const allMuscleGroups = new Set()
+  allAssignments.forEach(assignment => {
+    const exercise = assignment.exerciseId
+    if (exercise && exercise.muscleGroups && Array.isArray(exercise.muscleGroups)) {
+      exercise.muscleGroups.forEach(group => allMuscleGroups.add(group))
+    }
+  })
+  const muscleGroupsList = Array.from(allMuscleGroups).sort()
 
   // Get greeting
   const getGreeting = () => {
@@ -167,7 +333,10 @@ export default function MemberDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+              <button 
+                onClick={() => setShowSearch(!showSearch)}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
                 <Search className="w-5 h-5 text-gray-300" />
               </button>
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
@@ -245,14 +414,77 @@ export default function MemberDashboard() {
           </div>
         </div>
 
+        {/* Search Bar */}
+        {showSearch && (
+          <div className="backdrop-blur-xl rounded-xl p-3" style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <div className="flex items-center gap-2">
+              <Search className="w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search exercises..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent text-white placeholder-gray-400 outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="p-1 hover:bg-white/10 rounded"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            {['today', 'week', 'all'].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-all"
+                style={{
+                  background: filter === f 
+                    ? 'rgba(139, 195, 74, 0.3)' 
+                    : 'rgba(255, 255, 255, 0.1)',
+                  color: filter === f ? '#8BC34A' : '#9CA3AF',
+                  border: filter === f 
+                    ? '1px solid rgba(139, 195, 74, 0.5)' 
+                    : '1px solid rgba(255, 255, 255, 0.2)'
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <select
+            value={muscleGroupFilter}
+            onChange={(e) => setMuscleGroupFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/10 border border-white/20 text-white outline-none focus:border-green-400"
+          >
+            <option value="all">All Muscle Groups</option>
+            {muscleGroupsList.map(group => (
+              <option key={group} value={group} className="bg-gray-800">
+                {group.charAt(0).toUpperCase() + group.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Assigned Exercises Section */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-white">Assigned Exercises</h3>
             <div className="flex items-center gap-2">
-              <button className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                <Filter className="w-4 h-4 text-gray-300" />
-              </button>
+              <span className="text-sm text-gray-400">
+                {filteredAssignments.length} {filteredAssignments.length === 1 ? 'exercise' : 'exercises'}
+              </span>
             </div>
           </div>
 
@@ -261,20 +493,26 @@ export default function MemberDashboard() {
               <div className="inline-block w-8 h-8 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div>
               <p className="mt-4 text-gray-300">Loading exercises...</p>
             </div>
-          ) : assignments.length === 0 ? (
+          ) : filteredAssignments.length === 0 ? (
             <div className="backdrop-blur-xl rounded-3xl p-8 text-center" style={{
               background: 'rgba(255, 255, 255, 0.1)',
               border: '1px solid rgba(255, 255, 255, 0.2)'
             }}>
               <Dumbbell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-white mb-2">No Exercises Today</h3>
+              <h3 className="text-xl font-bold text-white mb-2">
+                {searchQuery ? 'No Exercises Found' : filter === 'today' ? 'No Exercises Today' : 'No Exercises'}
+              </h3>
               <p className="text-gray-300">
-                You don't have any exercises assigned for today
+                {searchQuery 
+                  ? 'Try adjusting your search or filters'
+                  : filter === 'today' 
+                    ? 'You don\'t have any exercises assigned for today'
+                    : 'You don\'t have any exercises matching the selected filters'}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {assignments.map((assignment, index) => {
+              {filteredAssignments.map((assignment, index) => {
                 const exercise = assignment.exerciseId
                 if (!exercise) return null
 
@@ -296,20 +534,48 @@ export default function MemberDashboard() {
                       <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0" style={{
                         background: 'rgba(255, 255, 255, 0.1)'
                       }}>
-                        {exercise.imageUrl ? (
-                          <img
-                            src={exercise.imageUrl.startsWith('http') ? exercise.imageUrl : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`}
-                            alt={exercise.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none'
-                              e.target.nextElementSibling.style.display = 'flex'
-                            }}
-                          />
-                        ) : null}
-                        <div className="w-full h-full flex items-center justify-center" style={{ display: exercise.imageUrl ? 'none' : 'flex' }}>
-                          <Dumbbell className="w-8 h-8 text-gray-400" />
-                        </div>
+                        {(() => {
+                          // Get image from public/exercises folder first, then fallback to database imageUrl
+                          let imageUrl = getExerciseImageUrl(exercise.name)
+                          
+                          // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
+                          if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
+                            if (exercise.imageUrl.startsWith('http://') || exercise.imageUrl.startsWith('https://')) {
+                              imageUrl = exercise.imageUrl
+                            } else {
+                              // Relative path - prepend backend URL
+                              const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+                              imageUrl = `${backendUrl}${exercise.imageUrl.startsWith('/') ? '' : '/'}${exercise.imageUrl}`
+                            }
+                          }
+                          
+                          // Final fallback to default image
+                          if (!imageUrl) {
+                            imageUrl = '/exercises/Push Ups.jpg'
+                          }
+                          
+                          return imageUrl ? (
+                            <>
+                              <img
+                                src={imageUrl}
+                                alt={exercise.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none'
+                                  const fallback = e.target.nextElementSibling
+                                  if (fallback) fallback.style.display = 'flex'
+                                }}
+                              />
+                              <div className="w-full h-full flex items-center justify-center" style={{ display: 'none' }}>
+                                <Dumbbell className="w-8 h-8 text-gray-400" />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Dumbbell className="w-8 h-8 text-gray-400" />
+                            </div>
+                          )
+                        })()}
                       </div>
 
                       {/* Exercise Info */}
@@ -428,17 +694,48 @@ function ExerciseDetailModal({ assignment, onClose, onComplete, onProgressUpdate
           <div className="rounded-2xl overflow-hidden" style={{
             background: 'rgba(255, 255, 255, 0.1)'
           }}>
-            {exercise.imageUrl ? (
-              <img
-                src={exercise.imageUrl.startsWith('http') ? exercise.imageUrl : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`}
-                alt={exercise.name}
-                className="w-full h-64 object-cover"
-              />
-            ) : (
-              <div className="w-full h-64 flex items-center justify-center">
-                <Dumbbell className="w-20 h-20 text-gray-400" />
-              </div>
-            )}
+            {(() => {
+              // Get image from public/exercises folder first, then fallback to database imageUrl
+              let imageUrl = getExerciseImageUrl(exercise.name)
+              
+              // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
+              if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
+                if (exercise.imageUrl.startsWith('http://') || exercise.imageUrl.startsWith('https://')) {
+                  imageUrl = exercise.imageUrl
+                } else {
+                  // Relative path - prepend backend URL
+                  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+                  imageUrl = `${backendUrl}${exercise.imageUrl.startsWith('/') ? '' : '/'}${exercise.imageUrl}`
+                }
+              }
+              
+              // Final fallback to default image
+              if (!imageUrl) {
+                imageUrl = '/exercises/Push Ups.jpg'
+              }
+              
+              return imageUrl ? (
+                <>
+                  <img
+                    src={imageUrl}
+                    alt={exercise.name}
+                    className="w-full h-64 object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                      const fallback = e.target.nextElementSibling
+                      if (fallback) fallback.style.display = 'flex'
+                    }}
+                  />
+                  <div className="w-full h-64 flex items-center justify-center" style={{ display: 'none' }}>
+                    <Dumbbell className="w-20 h-20 text-gray-400" />
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-64 flex items-center justify-center">
+                  <Dumbbell className="w-20 h-20 text-gray-400" />
+                </div>
+              )
+            })()}
           </div>
 
           {/* Exercise Name */}

@@ -72,6 +72,9 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Static files for uploads
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// Static files for exercises
+app.use('/exercises', express.static(path.join(process.cwd(), 'exercises')));
+
 // Logging middleware - Morgan
 if (process.env.NODE_ENV === 'development') {
   // Development: detailed colored output
@@ -156,7 +159,7 @@ const mongoOptions = {
   bufferCommands: false, // Disable mongoose buffering
 };
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/gym_management', mongoOptions)
+mongoose.connect(process.env.MONGODB_URI, mongoOptions)
 .then(async() => {
   console.log('✅ MongoDB connected successfully');
   

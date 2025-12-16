@@ -184,6 +184,12 @@ const memberSchema = new mongoose.Schema({
     longestStreak: { type: Number, default: 0 },
     averageVisitsPerWeek: Number
   },
+  timeSlots: [{
+    dayOfWeek: { type: Number, min: 0, max: 6 }, // 0 = Sunday, 1 = Monday, etc.
+    startTime: { type: String, match: /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/ }, // HH:MM format
+    endTime: { type: String, match: /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/ }, // HH:MM format
+    enabled: { type: Boolean, default: true }
+  }],
   notes: [{
     note: String,
     createdBy: {

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import api from '../api/axios'
 import MemberLayout from '../components/MemberLayout'
 import {
   User,
@@ -11,13 +13,23 @@ import {
   Bell,
   Shield,
   HelpCircle,
-  Search
+  Search,
+  X,
+  Lock,
+  Save,
+  Edit
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function MemberProfile() {
   const navigate = useNavigate()
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
+  const queryClient = useQueryClient()
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [showHelpModal, setShowHelpModal] = useState(false)
+  const [showAccountModal, setShowAccountModal] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
 
   // Get member from localStorage
   const member = JSON.parse(localStorage.getItem('member') || '{}')
@@ -29,6 +41,90 @@ export default function MemberProfile() {
     }
   }, [token, member, navigate])
 
+  // Configure API to use member token
+  useEffect(() => {
+    if (token) {
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    }
+  }, [token])
+
+  // Fetch member profile
+  const { data: profileData } = useQuery({
+    queryKey: ['member-profile', member._id],
+    queryFn: () => api.get('/member/profile').then(res => res.data),
+    enabled: !!member._id && !!token,
+  })
+
+  const currentMember = profileData?.member || member
+  const notificationsEnabled = currentMember.communicationPreferences?.pushNotification ?? true
+
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: (data) => api.put('/member/profile', data),
+    onSuccess: (response) => {
+      toast.success('Profile updated successfully')
+      queryClient.invalidateQueries(['member-profile', member._id])
+      // Update localStorage
+      const updatedMember = { ...member, ...response.data.member }
+      localStorage.setItem('member', JSON.stringify(updatedMember))
+      setIsEditing(false)
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update profile')
+    }
+  })
+
+  // Change password mutation
+  const changePasswordMutation = useMutation({
+    mutationFn: (data) => api.post('/member/change-password', data),
+    onSuccess: () => {
+      toast.success('Password changed successfully')
+      setShowPrivacyModal(false)
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to change password')
+    }
+  })
+
+  // Form states
+  const [profileForm, setProfileForm] = useState({
+    firstName: currentMember.firstName || '',
+    lastName: currentMember.lastName || '',
+    phone: currentMember.phone || '',
+    address: currentMember.address || '',
+    dateOfBirth: currentMember.dateOfBirth ? new Date(currentMember.dateOfBirth).toISOString().split('T')[0] : '',
+    communicationPreferences: {
+      sms: currentMember.communicationPreferences?.sms ?? true,
+      mail: currentMember.communicationPreferences?.mail ?? true,
+      pushNotification: currentMember.communicationPreferences?.pushNotification ?? true,
+      whatsapp: currentMember.communicationPreferences?.whatsapp ?? true
+    }
+  })
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+
+  useEffect(() => {
+    if (currentMember) {
+      setProfileForm({
+        firstName: currentMember.firstName || '',
+        lastName: currentMember.lastName || '',
+        phone: currentMember.phone || '',
+        address: currentMember.address || '',
+        dateOfBirth: currentMember.dateOfBirth ? new Date(currentMember.dateOfBirth).toISOString().split('T')[0] : '',
+        communicationPreferences: {
+          sms: currentMember.communicationPreferences?.sms ?? true,
+          mail: currentMember.communicationPreferences?.mail ?? true,
+          pushNotification: currentMember.communicationPreferences?.pushNotification ?? true,
+          whatsapp: currentMember.communicationPreferences?.whatsapp ?? true
+        }
+      })
+    }
+  }, [currentMember])
+
   const handleLogout = () => {
     localStorage.removeItem('memberToken')
     localStorage.removeItem('member')
@@ -36,9 +132,61 @@ export default function MemberProfile() {
     toast.success('Logged out successfully')
   }
 
+  const handleProfileUpdate = () => {
+    updateProfileMutation.mutate(profileForm)
+  }
+
+  const handlePasswordChange = () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+    if (passwordForm.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+    changePasswordMutation.mutate({
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword
+    })
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  }
+
+  const handleNotificationToggle = (key) => {
+    setProfileForm(prev => ({
+      ...prev,
+      communicationPreferences: {
+        ...prev.communicationPreferences,
+        [key]: !prev.communicationPreferences[key]
+      }
+    }))
+    // Auto-save notification preferences
+    updateProfileMutation.mutate({
+      communicationPreferences: {
+        ...profileForm.communicationPreferences,
+        [key]: !profileForm.communicationPreferences[key]
+      }
+    })
+  }
+
   if (!token || !member._id) {
     return null
   }
+
+  // Filter settings for search
+  const settingsItems = [
+    { id: 'notifications', label: 'Notifications', icon: Bell, category: 'Settings' },
+    { id: 'privacy', label: 'Privacy & Security', icon: Shield, category: 'Settings' },
+    { id: 'help', label: 'Help & Support', icon: HelpCircle, category: 'Support' },
+    { id: 'account', label: 'Account Settings', icon: Settings, category: 'Account' }
+  ]
+
+  const filteredSettings = searchQuery
+    ? settingsItems.filter(item => 
+        item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : settingsItems
 
   return (
     <MemberLayout>
@@ -60,7 +208,10 @@ export default function MemberProfile() {
                 <h1 className="text-lg font-bold text-white">Profile</h1>
               </div>
             </div>
-            <button className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+            <button 
+              onClick={() => setShowSearch(!showSearch)}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
               <Search className="w-5 h-5 text-gray-300" />
             </button>
           </div>
@@ -68,6 +219,56 @@ export default function MemberProfile() {
       </div>
 
       <div className="max-w-md mx-auto px-4 pb-4 space-y-6">
+        {/* Search Bar */}
+        {showSearch && (
+          <div className="mt-4 backdrop-blur-xl rounded-xl p-3" style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }}>
+            <div className="flex items-center gap-2">
+              <Search className="w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search settings..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent text-white placeholder-gray-400 outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="p-1 hover:bg-white/10 rounded"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              )}
+            </div>
+            {searchQuery && filteredSettings.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {filteredSettings.map(item => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        if (item.id === 'privacy') setShowPrivacyModal(true)
+                        if (item.id === 'help') setShowHelpModal(true)
+                        if (item.id === 'account') setShowAccountModal(true)
+                        setShowSearch(false)
+                        setSearchQuery('')
+                      }}
+                      className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 text-left"
+                    >
+                      <Icon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-300">{item.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Profile Card */}
         <div className="backdrop-blur-xl rounded-3xl p-6 mt-4" style={{
           background: 'rgba(255, 255, 255, 0.1)',
@@ -83,38 +284,38 @@ export default function MemberProfile() {
             </div>
             <div className="flex-1">
               <h2 className="text-2xl font-bold text-white mb-1">
-                {member.firstName} {member.lastName}
+                {currentMember.firstName} {currentMember.lastName}
               </h2>
-              <p className="text-gray-300 text-sm">{member.email}</p>
+              <p className="text-gray-300 text-sm">{currentMember.email}</p>
             </div>
           </div>
 
           {/* Member Info */}
           <div className="space-y-3">
-            {member.phone && (
+            {currentMember.phone && (
               <div className="flex items-center gap-3 p-3 rounded-xl" style={{
                 background: 'rgba(255, 255, 255, 0.05)'
               }}>
                 <Phone className="w-5 h-5 text-gray-400" />
-                <span className="text-gray-300">{member.phone}</span>
+                <span className="text-gray-300">{currentMember.phone}</span>
               </div>
             )}
-            {member.dateOfBirth && (
+            {currentMember.dateOfBirth && (
               <div className="flex items-center gap-3 p-3 rounded-xl" style={{
                 background: 'rgba(255, 255, 255, 0.05)'
               }}>
                 <Calendar className="w-5 h-5 text-gray-400" />
                 <span className="text-gray-300">
-                  {new Date(member.dateOfBirth).toLocaleDateString()}
+                  {new Date(currentMember.dateOfBirth).toLocaleDateString()}
                 </span>
               </div>
             )}
-            {member.address && (
+            {currentMember.address && (
               <div className="flex items-center gap-3 p-3 rounded-xl" style={{
                 background: 'rgba(255, 255, 255, 0.05)'
               }}>
                 <Mail className="w-5 h-5 text-gray-400" />
-                <span className="text-gray-300">{member.address}</span>
+                <span className="text-gray-300">{currentMember.address}</span>
               </div>
             )}
           </div>
@@ -133,24 +334,27 @@ export default function MemberProfile() {
             }}>
               <div className="flex items-center gap-3">
                 <Bell className="w-5 h-5 text-gray-400" />
-                <span className="text-gray-300">Notifications</span>
+                <span className="text-gray-300">Push Notifications</span>
               </div>
               <button
-                onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                onClick={() => handleNotificationToggle('pushNotification')}
                 className={`w-12 h-6 rounded-full transition-all relative ${
-                  notificationsEnabled ? 'bg-green-400' : 'bg-gray-600'
+                  profileForm.communicationPreferences.pushNotification ? 'bg-green-400' : 'bg-gray-600'
                 }`}
               >
                 <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all ${
-                  notificationsEnabled ? 'left-6' : 'left-0.5'
+                  profileForm.communicationPreferences.pushNotification ? 'left-6' : 'left-0.5'
                 }`} />
               </button>
             </div>
 
             {/* Privacy */}
-            <button className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
-              background: 'rgba(255, 255, 255, 0.05)'
-            }}>
+            <button 
+              onClick={() => setShowPrivacyModal(true)}
+              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
+                background: 'rgba(255, 255, 255, 0.05)'
+              }}
+            >
               <div className="flex items-center gap-3">
                 <Shield className="w-5 h-5 text-gray-400" />
                 <span className="text-gray-300">Privacy & Security</span>
@@ -159,9 +363,12 @@ export default function MemberProfile() {
             </button>
 
             {/* Help */}
-            <button className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
-              background: 'rgba(255, 255, 255, 0.05)'
-            }}>
+            <button 
+              onClick={() => setShowHelpModal(true)}
+              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
+                background: 'rgba(255, 255, 255, 0.05)'
+              }}
+            >
               <div className="flex items-center gap-3">
                 <HelpCircle className="w-5 h-5 text-gray-400" />
                 <span className="text-gray-300">Help & Support</span>
@@ -179,9 +386,12 @@ export default function MemberProfile() {
         }}>
           <h3 className="text-lg font-bold text-white mb-4">Account</h3>
           <div className="space-y-3">
-            <button className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
-              background: 'rgba(255, 255, 255, 0.05)'
-            }}>
+            <button 
+              onClick={() => setShowAccountModal(true)}
+              className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
+                background: 'rgba(255, 255, 255, 0.05)'
+              }}
+            >
               <div className="flex items-center gap-3">
                 <Settings className="w-5 h-5 text-gray-400" />
                 <span className="text-gray-300">Account Settings</span>
@@ -211,7 +421,354 @@ export default function MemberProfile() {
           <p className="text-xs text-gray-500 mt-1">© 2024 All rights reserved</p>
         </div>
       </div>
+
+      {/* Privacy & Security Modal */}
+      {showPrivacyModal && (
+        <PrivacySecurityModal
+          onClose={() => {
+            setShowPrivacyModal(false)
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+          }}
+          passwordForm={passwordForm}
+          setPasswordForm={setPasswordForm}
+          onChangePassword={handlePasswordChange}
+          isChanging={changePasswordMutation.isLoading}
+        />
+      )}
+
+      {/* Help & Support Modal */}
+      {showHelpModal && (
+        <HelpSupportModal onClose={() => setShowHelpModal(false)} />
+      )}
+
+      {/* Account Settings Modal */}
+      {showAccountModal && (
+        <AccountSettingsModal
+          onClose={() => {
+            setShowAccountModal(false)
+            setIsEditing(false)
+          }}
+          member={currentMember}
+          profileForm={profileForm}
+          setProfileForm={setProfileForm}
+          isEditing={isEditing}
+          setIsEditing={setIsEditing}
+          onSave={handleProfileUpdate}
+          isSaving={updateProfileMutation.isLoading}
+          onNotificationToggle={handleNotificationToggle}
+        />
+      )}
     </MemberLayout>
   )
 }
 
+// Privacy & Security Modal
+function PrivacySecurityModal({ onClose, passwordForm, setPasswordForm, onChangePassword, isChanging }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-4" style={{
+      background: 'rgba(0, 0, 0, 0.7)',
+      backdropFilter: 'blur(4px)'
+    }}>
+      <div className="backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" style={{
+        background: 'rgba(26, 35, 50, 0.95)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+      }}>
+        <div className="sticky top-0 backdrop-blur-xl p-4 border-b border-white/10 flex items-center justify-between" style={{
+          background: 'rgba(26, 35, 50, 0.9)'
+        }}>
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Privacy & Security
+          </h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10">
+            <X className="w-5 h-5 text-gray-300" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div>
+            <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              Change Password
+            </h4>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Current Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 outline-none focus:border-green-400"
+                  placeholder="Enter current password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 outline-none focus:border-green-400"
+                  placeholder="Enter new password (min 6 characters)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 outline-none focus:border-green-400"
+                  placeholder="Confirm new password"
+                />
+              </div>
+              <button
+                onClick={onChangePassword}
+                disabled={isChanging || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
+                className="w-full py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, #8BC34A 0%, #7CB342 100%)',
+                  boxShadow: '0 4px 20px rgba(139, 195, 74, 0.4)'
+                }}
+              >
+                <Lock className="w-5 h-5" />
+                {isChanging ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-white/10">
+            <h4 className="text-lg font-semibold text-white mb-2">Security Information</h4>
+            <p className="text-sm text-gray-300">
+              Your account is secured with encrypted password storage. For additional security, 
+              we recommend using a strong, unique password and changing it regularly.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Help & Support Modal
+function HelpSupportModal({ onClose }) {
+  const faqs = [
+    {
+      question: 'How do I track my workout progress?',
+      answer: 'You can view your progress in the Progress tab. It shows calories burned, muscle groups worked, and strength progression over time.'
+    },
+    {
+      question: 'How do I mark an exercise as completed?',
+      answer: 'In the Dashboard or Workouts tab, click on an exercise and use the "Mark Complete" button, or update your sets/reps progress.'
+    },
+    {
+      question: 'Can I change my workout schedule?',
+      answer: 'Your workout schedule is assigned by your trainer. Please contact your trainer or gym staff to discuss any changes.'
+    },
+    {
+      question: 'How do I update my profile information?',
+      answer: 'Go to Profile > Account Settings to edit your personal information, contact details, and notification preferences.'
+    }
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-4" style={{
+      background: 'rgba(0, 0, 0, 0.7)',
+      backdropFilter: 'blur(4px)'
+    }}>
+      <div className="backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" style={{
+        background: 'rgba(26, 35, 50, 0.95)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+      }}>
+        <div className="sticky top-0 backdrop-blur-xl p-4 border-b border-white/10 flex items-center justify-between" style={{
+          background: 'rgba(26, 35, 50, 0.9)'
+        }}>
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <HelpCircle className="w-5 h-5" />
+            Help & Support
+          </h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10">
+            <X className="w-5 h-5 text-gray-300" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div>
+            <h4 className="text-lg font-semibold text-white mb-4">Contact Support</h4>
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                <p className="text-sm text-gray-300 mb-1">Email</p>
+                <p className="text-white font-semibold">support@fittrack.com</p>
+              </div>
+              <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                <p className="text-sm text-gray-300 mb-1">Phone</p>
+                <p className="text-white font-semibold">+1 (555) 123-4567</p>
+              </div>
+              <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                <p className="text-sm text-gray-300 mb-1">Hours</p>
+                <p className="text-white font-semibold">Monday - Friday: 9 AM - 6 PM</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-white/10">
+            <h4 className="text-lg font-semibold text-white mb-4">Frequently Asked Questions</h4>
+            <div className="space-y-4">
+              {faqs.map((faq, index) => (
+                <div key={index} className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                  <h5 className="text-white font-semibold mb-2">{faq.question}</h5>
+                  <p className="text-sm text-gray-300">{faq.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Account Settings Modal
+function AccountSettingsModal({ onClose, member, profileForm, setProfileForm, isEditing, setIsEditing, onSave, isSaving, onNotificationToggle }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-4" style={{
+      background: 'rgba(0, 0, 0, 0.7)',
+      backdropFilter: 'blur(4px)'
+    }}>
+      <div className="backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" style={{
+        background: 'rgba(26, 35, 50, 0.95)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+      }}>
+        <div className="sticky top-0 backdrop-blur-xl p-4 border-b border-white/10 flex items-center justify-between" style={{
+          background: 'rgba(26, 35, 50, 0.9)'
+        }}>
+          <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Account Settings
+          </h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10">
+            <X className="w-5 h-5 text-gray-300" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <h4 className="text-lg font-semibold text-white">Profile Information</h4>
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className="px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+              style={{
+                background: isEditing ? 'rgba(255, 255, 255, 0.1)' : 'rgba(139, 195, 74, 0.2)',
+                color: isEditing ? '#9CA3AF' : '#8BC34A'
+              }}
+            >
+              <Edit className="w-4 h-4" />
+              {isEditing ? 'Cancel' : 'Edit'}
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">First Name</label>
+                <input
+                  type="text"
+                  value={profileForm.firstName}
+                  onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                  disabled={!isEditing}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 outline-none focus:border-green-400 disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Last Name</label>
+                <input
+                  type="text"
+                  value={profileForm.lastName}
+                  onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                  disabled={!isEditing}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 outline-none focus:border-green-400 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">Phone</label>
+              <input
+                type="tel"
+                value={profileForm.phone}
+                onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                disabled={!isEditing}
+                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 outline-none focus:border-green-400 disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">Address</label>
+              <input
+                type="text"
+                value={profileForm.address}
+                onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
+                disabled={!isEditing}
+                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 outline-none focus:border-green-400 disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">Date of Birth</label>
+              <input
+                type="date"
+                value={profileForm.dateOfBirth}
+                onChange={(e) => setProfileForm({ ...profileForm, dateOfBirth: e.target.value })}
+                disabled={!isEditing}
+                className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 outline-none focus:border-green-400 disabled:opacity-50"
+              />
+            </div>
+          </div>
+
+          {isEditing && (
+            <button
+              onClick={onSave}
+              disabled={isSaving}
+              className="w-full py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, #8BC34A 0%, #7CB342 100%)',
+                boxShadow: '0 4px 20px rgba(139, 195, 74, 0.4)'
+              }}
+            >
+              <Save className="w-5 h-5" />
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          )}
+
+          <div className="pt-4 border-t border-white/10">
+            <h4 className="text-lg font-semibold text-white mb-4">Notification Preferences</h4>
+            <div className="space-y-3">
+              {[
+                { key: 'sms', label: 'SMS Notifications' },
+                { key: 'mail', label: 'Email Notifications' },
+                { key: 'pushNotification', label: 'Push Notifications' },
+                { key: 'whatsapp', label: 'WhatsApp Notifications' }
+              ].map(pref => (
+                <div key={pref.key} className="flex items-center justify-between p-3 rounded-xl" style={{
+                  background: 'rgba(255, 255, 255, 0.05)'
+                }}>
+                  <span className="text-gray-300">{pref.label}</span>
+                  <button
+                    onClick={() => onNotificationToggle(pref.key)}
+                    className={`w-12 h-6 rounded-full transition-all relative ${
+                      profileForm.communicationPreferences[pref.key] ? 'bg-green-400' : 'bg-gray-600'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all ${
+                      profileForm.communicationPreferences[pref.key] ? 'left-6' : 'left-0.5'
+                    }`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

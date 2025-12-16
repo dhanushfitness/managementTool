@@ -5,70 +5,115 @@ import Organization from '../models/Organization.js';
 
 dotenv.config();
 
-// Helper function to get exercise image URL - returns different images based on exercise type
+// Helper function to get exercise image URL from backend exercises folder
 const getExerciseImage = (exerciseName, category, muscleGroups) => {
-  const baseUrl = 'https://images.unsplash.com/photo-';
+  // Base URL for backend exercises folder
+  const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
   
-  // Different Unsplash image IDs for variety
-  const imageIds = {
-    chest: [
-      '1571019613454-1cb2f99b2d8b?w=800&q=80',  // Push-ups
-      '1517836357463-d25dfeac3438?w=800&q=80',  // Bench press
-      '1534438327276-14e70882be45?w=800&q=80', // Chest workout
-      '1571019613454-1cb2f99b2d8b?w=800&q=80',  // Repeat for variety
-    ],
-    back: [
-      '1576678927484-b24bf9626632?w=800&q=80',  // Back workout
-      '1549060279-7e168fceca0c?w=800&q=80',    // Deadlift
-      '1571019613454-1cb2f99b2d8b?w=800&q=80', // Pull exercises
-    ],
-    shoulders: [
-      '1571019613454-1cb2f99b2d8b?w=800&q=80',  // Shoulder press
-      '1517836357463-d25dfeac3438?w=800&q=80', // Upper body
-    ],
-    legs: [
-      '1549060279-7e168fceca0c?w=800&q=80',     // Squats
-      '1571019613454-1cb2f99b2d8b?w=800&q=80', // Leg workout
-    ],
-    biceps: [
-      '1571019613454-1cb2f99b2d8b?w=800&q=80',  // Arm workout
-      '1517836357463-d25dfeac3438?w=800&q=80', // Bicep curl
-    ],
-    triceps: [
-      '1571019613454-1cb2f99b2d8b?w=800&q=80',  // Tricep workout
-      '1517836357463-d25dfeac3438?w=800&q=80', // Arm extension
-    ],
-    abs: [
-      '1549060279-7e168fceca0c?w=800&q=80',     // Core workout
-      '1571019613454-1cb2f99b2d8b?w=800&q=80', // Ab exercises
-    ],
-    cardio: [
-      '1571008889698-322b1c373423?w=800&q=80',  // Cardio equipment
-      '1571019613454-1cb2f99b2d8b?w=800&q=80', // Running
-    ],
+  // Map exercise names to image files in the exercises folder
+  const exerciseImageMap = {
+    'PUSH-UPS': 'Push Ups.jpg',
+    'BENCH-PRESS': 'flat dumbell press.jpg',
+    'CHEST-PRESS': 'chest pres.jpg',
+    'FLAT-DB-PRESS': 'flat dumbell press.jpg',
+    'INCLINE-DB-PRESS': 'Incline Dumbbell Press.jpg',
+    'DECLINE-DB-PRESS': 'Dumbbell Decline Fly.jpg',
+    'DB-FLY': 'pec fly.jpg',
+    'CABLE-CROSS': 'Cable Crossover.jpg',
+    'PEC-DECK': 'pec fly.jpg',
+    'BENT-OVER-ROW': 'Bent Over Row.jpg',
+    'DB-BENT-OVER-ROW': 'Dumbbell Bent Over Row.jpg',
+    'ONE-ARM-DB-ROW': 'Dumbbell One Arm Bent Over Row.jpg',
+    'LAT-PULLDOWN': 'Lat pull-down.jpg',
+    'PULL-UPS': 'Lat pull-down.jpg',
+    'T-BAR-ROW': 'Bent Over Row.jpg',
+    'SEATED-ROW': 'seated back row.jpg',
+    'DEAD-LIFT': 'ROMANIAN DEADLIFT.jpg',
+    'ROMANIAN-DEADLIFT': 'ROMANIAN DEADLIFT.jpg',
+    'HYPEREXTENSION': 'Hyperextension.jpg',
+    'BACK-EXTENSION': 'Back Extension.jpg',
+    'SHOULDER-PRESS': 'Overhead Dumbbell Press.jpg',
+    'DB-SHOULDER-PRESS': 'seated dumbell press.jpg',
+    'LATERAL-RAISE': 'Dumbbell Lateral Raise.jpg',
+    'FRONT-RAISE': 'Dumbbell Lateral Raise.jpg',
+    'UPRIGHT-ROW': 'upright row.jpg',
+    'SHRUGS': 'Dumbbell Shrug.jpg',
+    'REAR-DELT-FLY': 'bend over lateral raise.jpg',
+    'SQUATS': 'free squats.jpg',
+    'LEG-PRESS': 'leg press.jpg',
+    'LEG-EXTENSION': 'leg press.jpg',
+    'LEG-CURL': 'seated leg curl.jpg',
+    'LUNGES': 'Lunge With.jpg',
+    'BULGARIAN-SPLIT-SQUAT': 'Bulgarian Split Squat.jpg',
+    'CALF-RAISE': 'calf raises.jpg',
+    'STEP-UPS': 'Dumbbell Step Up.jpg',
+    'BICEP-CURL': 'dumbell curl.jpg',
+    'HAMMER-CURL': 'Dumbbell Close Grip Curl.jpg',
+    'PREACHER-CURL': 'Preacher Curl.jpg',
+    'CABLE-CURL': 'Biceps cable curl.jpg',
+    'CONCENTRATION-CURL': 'Dumbbell Incline Biceps Curl.jpg',
+    'TRICEP-EXTENSION': 'Dumbbell Standing Triceps Extension.jpg',
+    'OVERHEAD-TRICEP': 'Dumbbell Seated Triceps Extension.jpg',
+    'TRICEP-PUSHDOWN': 'Cable Tricep Pushdown.jpg',
+    'CLOSE-GRIP-BENCH': 'Barbell Close Grip Bench Press.jpg',
+    'SKULL-CRUSHERS': 'skull crusher.jpg',
+    'CRUNCHES': 'crunches.jpg',
+    'SIT-UPS': 'crunches.jpg',
+    'PLANK': 'plank.jpg',
+    'SIDE-PLANK': 'Side Plank Oblique Crunch.jpg',
+    'RUSSIAN-TWIST': 'Russian Twist.jpg',
+    'MOUNTAIN-CLIMBER': 'Mountain Climber.jpg',
+    'LEG-RAISE': 'abs leg raises.jpg',
+    'TREADMILL': 'Treadmill.jpg',
+    'RUNNING': 'Treadmill.jpg',
+    'BIKE': 'recumbent bike.jpg',
+    'CYCLE': 'recumbent bike.jpg',
+    'ROWING': 'seated rowing.jpg',
+    'ELLIPTICAL': 'elliptical.jpg',
   };
   
-  // Determine which image set to use based on muscle groups or category
-  let imageSet = imageIds.cardio;
-  if (muscleGroups && muscleGroups.length > 0) {
-    const firstGroup = muscleGroups[0].toLowerCase();
-    if (imageIds[firstGroup]) {
-      imageSet = imageIds[firstGroup];
-    } else if (category === 'cardio') {
-      imageSet = imageIds.cardio;
-    } else {
-      imageSet = imageIds.chest; // Default
-    }
-  } else if (category === 'cardio') {
-    imageSet = imageIds.cardio;
+  // Normalize exercise name for matching
+  const normalizeName = (name) => {
+    return name.toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+      .trim();
+  };
+  
+  const normalizedName = normalizeName(exerciseName);
+  
+  // Try to find exact match first
+  if (exerciseImageMap[normalizedName]) {
+    return `${baseUrl}/exercises/${exerciseImageMap[normalizedName]}`;
   }
   
-  // Use exercise name to get a consistent image for the same exercise
-  // This ensures the same exercise always gets the same image
-  const nameHash = exerciseName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const imageIndex = nameHash % imageSet.length;
+  // Try partial matching
+  for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
+    if (normalizedName.includes(key) || key.includes(normalizedName)) {
+      return `${baseUrl}/exercises/${imageFile}`;
+    }
+  }
   
-  return `${baseUrl}${imageSet[imageIndex]}`;
+  // Fallback based on muscle groups
+  if (muscleGroups && muscleGroups.length > 0) {
+    const firstGroup = muscleGroups[0].toLowerCase();
+    const fallbackImages = {
+      chest: 'chest pres.jpg',
+      back: 'Bent Over Row.jpg',
+      shoulders: 'Dumbbell Lateral Raise.jpg',
+      legs: 'Bulgarian Split Squat.jpg',
+      biceps: 'Dumbbell Incline Biceps Curl.jpg',
+      triceps: 'Dumbbell Standing Triceps Extension.jpg',
+      abs: 'crunches.jpg',
+    };
+    
+    if (fallbackImages[firstGroup]) {
+      return `${baseUrl}/exercises/${fallbackImages[firstGroup]}`;
+    }
+  }
+  
+  // Final fallback
+  return `${baseUrl}/exercises/Push Ups.jpg`;
 };
 
 // Helper function to get exercise video URL
@@ -130,7 +175,7 @@ const exercises = [
     ]
   },
   {
-    name: 'FLAT DB-PRESS',
+    name: 'FLAT-DB-PRESS',
     category: 'strength',
     muscleGroups: ['chest'],
     difficulty: 'intermediate',
@@ -138,14 +183,14 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('FLAT DB-PRESS', 'strength', ['chest']),
+    imageUrl: getExerciseImage('FLAT-DB-PRESS', 'strength', ['chest']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Flat Dumbbell Press', sets: 3, reps: '10-12', weight: '25-50 lbs each', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'DECLINE-PRESS',
+    name: 'DECLINE-DB-PRESS',
     category: 'strength',
     muscleGroups: ['chest'],
     difficulty: 'intermediate',
@@ -153,14 +198,14 @@ const exercises = [
     sets: 3,
     reps: '8-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('DECLINE-PRESS', 'strength', ['chest']),
+    imageUrl: getExerciseImage('DECLINE-DB-PRESS', 'strength', ['chest']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Decline Barbell Press', sets: 3, reps: '8-12', weight: '60-80% 1RM', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'INCLINE-PRESS',
+    name: 'INCLINE-DB-PRESS',
     category: 'strength',
     muscleGroups: ['chest'],
     difficulty: 'intermediate',
@@ -168,14 +213,14 @@ const exercises = [
     sets: 3,
     reps: '8-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('INCLINE-PRESS', 'strength', ['chest']),
+    imageUrl: getExerciseImage('INCLINE-DB-PRESS', 'strength', ['chest']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Incline Barbell Press', sets: 3, reps: '8-12', weight: '50-70% 1RM', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'PEC-FLY',
+    name: 'DB-FLY',
     category: 'strength',
     muscleGroups: ['chest'],
     difficulty: 'beginner',
@@ -183,7 +228,7 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('PEC-FLY', 'strength', ['chest']),
+    imageUrl: getExerciseImage('DB-FLY', 'strength', ['chest']),
     videoUrl: getExerciseVideo('PEC-FLY'),
     variations: [
       { name: 'Cable Flyes', sets: 3, reps: '12-15', weight: '20-40 lbs', difficulty: 'beginner' }
@@ -237,7 +282,7 @@ const exercises = [
     ]
   },
   {
-    name: 'LAT PULL DOWN',
+    name: 'LAT-PULLDOWN',
     category: 'strength',
     muscleGroups: ['back'],
     difficulty: 'intermediate',
@@ -245,7 +290,7 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('LAT PULL DOWN', 'strength', ['back']),
+    imageUrl: getExerciseImage('LAT-PULLDOWN', 'strength', ['back']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Wide Grip Pulldown', sets: 3, reps: '10-12', weight: '60-100 lbs', difficulty: 'intermediate' }
@@ -267,7 +312,7 @@ const exercises = [
     ]
   },
   {
-    name: 'SINGLE HAND DB ROW',
+    name: 'ONE-ARM-DB-ROW',
     category: 'strength',
     muscleGroups: ['back'],
     difficulty: 'intermediate',
@@ -275,14 +320,14 @@ const exercises = [
     sets: 3,
     reps: '10-12 each',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('SINGLE HAND DB ROW', 'strength', ['back']),
+    imageUrl: getExerciseImage('ONE-ARM-DB-ROW', 'strength', ['back']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Single Arm DB Row', sets: 3, reps: '10-12 each', weight: '25-50 lbs', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'SEATED BACK ROW',
+    name: 'SEATED-ROW',
     category: 'strength',
     muscleGroups: ['back'],
     difficulty: 'beginner',
@@ -290,14 +335,14 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('SEATED BACK ROW', 'strength', ['back']),
+    imageUrl: getExerciseImage('SEATED-ROW', 'strength', ['back']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Seated Cable Row', sets: 3, reps: '10-12', weight: '50-80 lbs', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'BENT OVER ROW',
+    name: 'BENT-OVER-ROW',
     category: 'strength',
     muscleGroups: ['back'],
     difficulty: 'intermediate',
@@ -305,14 +350,14 @@ const exercises = [
     sets: 4,
     reps: '8-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('BENT OVER ROW', 'strength', ['back']),
+    imageUrl: getExerciseImage('BENT-OVER-ROW', 'strength', ['back']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Barbell Row', sets: 4, reps: '8-12', weight: '60-80% 1RM', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'DB OVER ROW',
+    name: 'DB-BENT-OVER-ROW',
     category: 'strength',
     muscleGroups: ['back'],
     difficulty: 'intermediate',
@@ -320,7 +365,7 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('DB OVER ROW', 'strength', ['back']),
+    imageUrl: getExerciseImage('DB-BENT-OVER-ROW', 'strength', ['back']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Dumbbell Over Row', sets: 3, reps: '10-12', weight: '25-50 lbs each', difficulty: 'intermediate' }
@@ -342,7 +387,7 @@ const exercises = [
     ]
   },
   {
-    name: 'BACK EXT',
+    name: 'BACK-EXTENSION',
     category: 'strength',
     muscleGroups: ['back'],
     difficulty: 'beginner',
@@ -350,14 +395,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('BACK EXT', 'strength', ['back']),
+    imageUrl: getExerciseImage('BACK-EXTENSION', 'strength', ['back']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Back Extension', sets: 3, reps: '12-15', weight: 'bodyweight', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'HYPER EXT',
+    name: 'HYPEREXTENSION',
     category: 'strength',
     muscleGroups: ['back'],
     difficulty: 'beginner',
@@ -365,7 +410,7 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('HYPER EXT', 'strength', ['back']),
+    imageUrl: getExerciseImage('HYPEREXTENSION', 'strength', ['back']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Hyperextension', sets: 3, reps: '12-15', weight: 'bodyweight', difficulty: 'beginner' }
@@ -374,7 +419,7 @@ const exercises = [
 
   // SHOULDER EXERCISES (10 exercises)
   {
-    name: 'OVER HEAD PRESS',
+    name: 'SHOULDER-PRESS',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'intermediate',
@@ -382,14 +427,14 @@ const exercises = [
     sets: 4,
     reps: '8-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('OVER HEAD PRESS', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('SHOULDER-PRESS', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Overhead Press', sets: 4, reps: '8-12', weight: '60-80% 1RM', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'MILITARY PRESS',
+    name: 'SHOULDER-PRESS',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'intermediate',
@@ -397,14 +442,14 @@ const exercises = [
     sets: 4,
     reps: '8-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('MILITARY PRESS', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('SHOULDER-PRESS', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Military Press', sets: 4, reps: '8-12', weight: '60-80% 1RM', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'SEATED DB PRESS',
+    name: 'DB-SHOULDER-PRESS',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'intermediate',
@@ -412,14 +457,14 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('SEATED DB PRESS', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('DB-SHOULDER-PRESS', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Seated DB Press', sets: 3, reps: '10-12', weight: '20-40 lbs each', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'BEND OVER LATERAL RAISES',
+    name: 'REAR-DELT-FLY',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'intermediate',
@@ -427,14 +472,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('BEND OVER LATERAL RAISES', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('REAR-DELT-FLY', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Bent Over Lateral Raises', sets: 3, reps: '12-15', weight: '10-20 lbs each', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'DB ALT FRONT RAISE',
+    name: 'FRONT-RAISE',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'beginner',
@@ -442,7 +487,7 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('DB ALT FRONT RAISE', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('FRONT-RAISE', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Alternating Front Raise', sets: 3, reps: '12-15', weight: '5-15 lbs each', difficulty: 'beginner' }
@@ -464,7 +509,7 @@ const exercises = [
     ]
   },
   {
-    name: 'DB SHRUGS',
+    name: 'SHRUGS',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'beginner',
@@ -472,14 +517,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('DB SHRUGS', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('SHRUGS', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Dumbbell Shrugs', sets: 3, reps: '12-15', weight: '30-60 lbs each', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'UPRIGHT ROWS',
+    name: 'UPRIGHT-ROW',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'intermediate',
@@ -487,14 +532,14 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('UPRIGHT ROWS', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('UPRIGHT-ROW', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Upright Rows', sets: 3, reps: '10-12', weight: '40-60 lbs', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'DB LATERAL RAISE',
+    name: 'LATERAL-RAISE',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'beginner',
@@ -502,14 +547,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('DB LATERAL RAISE', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('LATERAL-RAISE', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10-20 lbs each', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'REVERSE FLYS REARDELT',
+    name: 'REAR-DELT-FLY',
     category: 'strength',
     muscleGroups: ['shoulders'],
     difficulty: 'intermediate',
@@ -517,7 +562,7 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('REVERSE FLYS REARDELT', 'strength', ['shoulders']),
+    imageUrl: getExerciseImage('REAR-DELT-FLY', 'strength', ['shoulders']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Reverse Flys', sets: 3, reps: '12-15', weight: '10-20 lbs each', difficulty: 'intermediate' }
@@ -556,7 +601,7 @@ const exercises = [
     ]
   },
   {
-    name: 'LEG PRESS',
+    name: 'LEG-PRESS',
     category: 'strength',
     muscleGroups: ['legs'],
     difficulty: 'beginner',
@@ -564,7 +609,7 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('LEG PRESS', 'strength', ['legs']),
+    imageUrl: getExerciseImage('LEG-PRESS', 'strength', ['legs']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Leg Press', sets: 3, reps: '12-15', weight: '100-200 lbs', difficulty: 'beginner' }
@@ -586,7 +631,7 @@ const exercises = [
     ]
   },
   {
-    name: 'BULGARIAN SPLIT SQUAT',
+    name: 'BULGARIAN-SPLIT-SQUAT',
     category: 'strength',
     muscleGroups: ['legs'],
     difficulty: 'intermediate',
@@ -594,7 +639,7 @@ const exercises = [
     sets: 3,
     reps: '10-12 each leg',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('BULGARIAN SPLIT SQUAT', 'strength', ['legs']),
+    imageUrl: getExerciseImage('BULGARIAN-SPLIT-SQUAT', 'strength', ['legs']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Bulgarian Split Squat', sets: 3, reps: '10-12 each leg', weight: 'bodyweight or 20-40 lbs', difficulty: 'intermediate' }
@@ -616,7 +661,7 @@ const exercises = [
     ]
   },
   {
-    name: 'LEG EXTENSION',
+    name: 'LEG-EXTENSION',
     category: 'strength',
     muscleGroups: ['legs'],
     difficulty: 'beginner',
@@ -624,14 +669,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('LEG EXTENSION', 'strength', ['legs']),
+    imageUrl: getExerciseImage('LEG-EXTENSION', 'strength', ['legs']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Leg Extension', sets: 3, reps: '12-15', weight: '40-80 lbs', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'SEATED LEG CURL',
+    name: 'LEG-CURL',
     category: 'strength',
     muscleGroups: ['legs'],
     difficulty: 'beginner',
@@ -639,14 +684,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('SEATED LEG CURL', 'strength', ['legs']),
+    imageUrl: getExerciseImage('LEG-CURL', 'strength', ['legs']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Seated Leg Curl', sets: 3, reps: '12-15', weight: '40-80 lbs', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'DB STEPUPS',
+    name: 'STEP-UPS',
     category: 'strength',
     muscleGroups: ['legs'],
     difficulty: 'intermediate',
@@ -654,7 +699,7 @@ const exercises = [
     sets: 3,
     reps: '10-12 each leg',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('DB STEPUPS', 'strength', ['legs']),
+    imageUrl: getExerciseImage('STEP-UPS', 'strength', ['legs']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'DB Step-ups', sets: 3, reps: '10-12 each leg', weight: '20-40 lbs each', difficulty: 'intermediate' }
@@ -676,7 +721,7 @@ const exercises = [
     ]
   },
   {
-    name: 'FREE SQUATS',
+    name: 'SQUATS',
     category: 'strength',
     muscleGroups: ['legs'],
     difficulty: 'intermediate',
@@ -684,14 +729,14 @@ const exercises = [
     sets: 4,
     reps: '8-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('FREE SQUATS', 'strength', ['legs']),
+    imageUrl: getExerciseImage('SQUATS', 'strength', ['legs']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Free Squats', sets: 4, reps: '8-12', weight: '60-80% 1RM', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'CALF RAISE',
+    name: 'CALF-RAISE',
     category: 'strength',
     muscleGroups: ['legs'],
     difficulty: 'beginner',
@@ -699,7 +744,7 @@ const exercises = [
     sets: 3,
     reps: '15-20',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('CALF RAISE', 'strength', ['legs']),
+    imageUrl: getExerciseImage('CALF-RAISE', 'strength', ['legs']),
     videoUrl: getExerciseVideo('DEAD-LIFT'),
     variations: [
       { name: 'Standing Calf Raise', sets: 3, reps: '15-20', weight: 'bodyweight or 20-40 lbs', difficulty: 'beginner' }
@@ -708,7 +753,7 @@ const exercises = [
 
   // BICEPS EXERCISES (6 exercises)
   {
-    name: 'BICEPS CABLE CURL',
+    name: 'CABLE-CURL',
     category: 'strength',
     muscleGroups: ['biceps'],
     difficulty: 'beginner',
@@ -716,14 +761,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('BICEPS CABLE CURL', 'strength', ['biceps']),
+    imageUrl: getExerciseImage('CABLE-CURL', 'strength', ['biceps']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Cable Bicep Curl', sets: 3, reps: '12-15', weight: '20-40 lbs', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'INCLINE DB CURL',
+    name: 'CONCENTRATION-CURL',
     category: 'strength',
     muscleGroups: ['biceps'],
     difficulty: 'intermediate',
@@ -731,7 +776,7 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('INCLINE DB CURL', 'strength', ['biceps']),
+    imageUrl: getExerciseImage('CONCENTRATION-CURL', 'strength', ['biceps']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Incline DB Curl', sets: 3, reps: '10-12', weight: '15-30 lbs each', difficulty: 'intermediate' }
@@ -753,7 +798,7 @@ const exercises = [
     ]
   },
   {
-    name: 'DB CURL',
+    name: 'BICEP-CURL',
     category: 'strength',
     muscleGroups: ['biceps'],
     difficulty: 'beginner',
@@ -761,7 +806,7 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('DB CURL', 'strength', ['biceps']),
+    imageUrl: getExerciseImage('BICEP-CURL', 'strength', ['biceps']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Dumbbell Curl', sets: 3, reps: '12-15', weight: '15-30 lbs each', difficulty: 'beginner' }
@@ -800,7 +845,7 @@ const exercises = [
 
   // TRICEPS EXERCISES (5 exercises)
   {
-    name: 'CABLE PUSH DOWN',
+    name: 'TRICEP-PUSHDOWN',
     category: 'strength',
     muscleGroups: ['triceps'],
     difficulty: 'beginner',
@@ -808,14 +853,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('CABLE PUSH DOWN', 'strength', ['triceps']),
+    imageUrl: getExerciseImage('TRICEP-PUSHDOWN', 'strength', ['triceps']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Cable Pushdown', sets: 3, reps: '12-15', weight: '20-40 lbs', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'SKULL CRUSHER',
+    name: 'SKULL-CRUSHERS',
     category: 'strength',
     muscleGroups: ['triceps'],
     difficulty: 'intermediate',
@@ -823,14 +868,14 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('SKULL CRUSHER', 'strength', ['triceps']),
+    imageUrl: getExerciseImage('SKULL-CRUSHERS', 'strength', ['triceps']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Skull Crusher', sets: 3, reps: '10-12', weight: '20-40 lbs', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'CLOSE GRIP PRESS',
+    name: 'CLOSE-GRIP-BENCH',
     category: 'strength',
     muscleGroups: ['triceps'],
     difficulty: 'intermediate',
@@ -838,14 +883,14 @@ const exercises = [
     sets: 3,
     reps: '8-12',
     restTime: '90 seconds',
-    imageUrl: getExerciseImage('CLOSE GRIP PRESS', 'strength', ['triceps']),
+    imageUrl: getExerciseImage('CLOSE-GRIP-BENCH', 'strength', ['triceps']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Close Grip Press', sets: 3, reps: '8-12', weight: '50-70% 1RM', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'ONE ARM DB EXT',
+    name: 'TRICEP-EXTENSION',
     category: 'strength',
     muscleGroups: ['triceps'],
     difficulty: 'intermediate',
@@ -853,14 +898,14 @@ const exercises = [
     sets: 3,
     reps: '10-12 each',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('ONE ARM DB EXT', 'strength', ['triceps']),
+    imageUrl: getExerciseImage('TRICEP-EXTENSION', 'strength', ['triceps']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'Single Arm Extension', sets: 3, reps: '10-12 each', weight: '10-20 lbs', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'DB OVERHEAD EXT',
+    name: 'OVERHEAD-TRICEP',
     category: 'strength',
     muscleGroups: ['triceps'],
     difficulty: 'intermediate',
@@ -868,7 +913,7 @@ const exercises = [
     sets: 3,
     reps: '10-12',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('DB OVERHEAD EXT', 'strength', ['triceps']),
+    imageUrl: getExerciseImage('OVERHEAD-TRICEP', 'strength', ['triceps']),
     videoUrl: getExerciseVideo('BENCH-PRESS'),
     variations: [
       { name: 'DB Overhead Extension', sets: 3, reps: '10-12', weight: '20-40 lbs', difficulty: 'intermediate' }
@@ -982,7 +1027,7 @@ const exercises = [
     ]
   },
   {
-    name: 'RUSSIA TWIST',
+    name: 'RUSSIAN-TWIST',
     category: 'strength',
     muscleGroups: ['abs'],
     difficulty: 'intermediate',
@@ -990,14 +1035,14 @@ const exercises = [
     sets: 3,
     reps: '20-30',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('RUSSIA TWIST', 'strength', ['abs']),
+    imageUrl: getExerciseImage('RUSSIAN-TWIST', 'strength', ['abs']),
     videoUrl: getExerciseVideo('PUSH-UPS'),
     variations: [
       { name: 'Russian Twist', sets: 3, reps: '20-30', weight: 'bodyweight or 10-20 lbs', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'AB LEG RAISES',
+    name: 'LEG-RAISE',
     category: 'strength',
     muscleGroups: ['abs'],
     difficulty: 'intermediate',
@@ -1005,14 +1050,14 @@ const exercises = [
     sets: 3,
     reps: '12-15',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('AB LEG RAISES', 'strength', ['abs']),
+    imageUrl: getExerciseImage('LEG-RAISE', 'strength', ['abs']),
     videoUrl: getExerciseVideo('PUSH-UPS'),
     variations: [
       { name: 'Leg Raises', sets: 3, reps: '12-15', weight: 'bodyweight', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'MOUNTAIN CLIMBER',
+    name: 'MOUNTAIN-CLIMBER',
     category: 'strength',
     muscleGroups: ['abs'],
     difficulty: 'intermediate',
@@ -1020,7 +1065,7 @@ const exercises = [
     sets: 3,
     reps: '20-30 each leg',
     restTime: '60 seconds',
-    imageUrl: getExerciseImage('MOUNTAIN CLIMBER', 'strength', ['abs']),
+    imageUrl: getExerciseImage('MOUNTAIN-CLIMBER', 'strength', ['abs']),
     videoUrl: getExerciseVideo('PUSH-UPS'),
     variations: [
       { name: 'Mountain Climber', sets: 3, reps: '20-30 each leg', weight: 'bodyweight', difficulty: 'intermediate' }
@@ -1076,7 +1121,7 @@ const exercises = [
     ]
   },
   {
-    name: 'RECUMBENT BIKE',
+    name: 'CYCLE',
     category: 'cardio',
     muscleGroups: ['legs'],
     difficulty: 'beginner',
@@ -1086,13 +1131,13 @@ const exercises = [
     restTime: '0',
     duration: 20,
     distance: 3,
-    imageUrl: getExerciseImage('RECUMBENT BIKE', 'cardio', ['legs']),
+    imageUrl: getExerciseImage('CYCLE', 'cardio', ['legs']),
     variations: [
       { name: 'Recumbent Bike', sets: 1, reps: '20-30 minutes', weight: 'bodyweight', difficulty: 'beginner' }
     ]
   },
   {
-    name: 'ROWING MACHINE',
+    name: 'ROWING',
     category: 'cardio',
     muscleGroups: ['full-body'],
     difficulty: 'intermediate',
@@ -1102,13 +1147,13 @@ const exercises = [
     restTime: '0',
     duration: 15,
     distance: 2.5,
-    imageUrl: getExerciseImage('ROWING MACHINE', 'cardio', ['full-body']),
+    imageUrl: getExerciseImage('ROWING', 'cardio', ['full-body']),
     variations: [
       { name: 'Rowing Steady', sets: 1, reps: '15-20 minutes', weight: 'bodyweight', difficulty: 'intermediate' }
     ]
   },
   {
-    name: 'UPRIGHT BIKE',
+    name: 'BIKE',
     category: 'cardio',
     muscleGroups: ['legs'],
     difficulty: 'beginner',
@@ -1118,7 +1163,7 @@ const exercises = [
     restTime: '0',
     duration: 20,
     distance: 3,
-    imageUrl: getExerciseImage('UPRIGHT BIKE', 'cardio', ['legs']),
+    imageUrl: getExerciseImage('BIKE', 'cardio', ['legs']),
     variations: [
       { name: 'Upright Bike', sets: 1, reps: '20-30 minutes', weight: 'bodyweight', difficulty: 'beginner' }
     ]

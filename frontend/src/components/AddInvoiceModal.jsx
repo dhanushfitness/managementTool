@@ -24,7 +24,6 @@ export default function AddInvoiceModal({
     memberId: '',
     memberName: '',
     memberPhone: '',
-    sacCode: '',
     items: [{
       selectedServiceId: '',
       serviceId: '',
@@ -37,13 +36,9 @@ export default function AddInvoiceModal({
       taxType: 'No tax',
       startDate: '',
       expiryDate: '',
-      numberOfSessions: '',
-      sacCode: ''
+      numberOfSessions: ''
     }],
     discountReason: '',
-    customerNotes: '',
-    internalNotes: '',
-    termsAndConditions: '',
     paymentModes: [{
       method: '',
       amount: 0
@@ -55,7 +50,10 @@ export default function AddInvoiceModal({
   const [memberSearchError, setMemberSearchError] = useState('')
   const [activeInvoiceWarning, setActiveInvoiceWarning] = useState('')
   const [isCheckingActiveInvoice, setIsCheckingActiveInvoice] = useState(false)
+  const [selectedMemberIndex, setSelectedMemberIndex] = useState(-1)
   const memberSearchBlurTimeout = useRef(null)
+  const memberDropdownRef = useRef(null)
+  const memberItemRefs = useRef({})
   const [showRazorpayModal, setShowRazorpayModal] = useState(false)
   const [razorpayInvoiceData, setRazorpayInvoiceData] = useState(null)
 
@@ -170,6 +168,7 @@ export default function AddInvoiceModal({
     }
     setMemberSearch(value)
     setMemberSearchError('')
+    setSelectedMemberIndex(-1) // Reset selected index when search changes
  
     const trimmed = value.trim()
     if (trimmed.length < 2) {
@@ -212,6 +211,7 @@ export default function AddInvoiceModal({
       }))
       setMemberSearch('')
       setMemberSearchResults([])
+      setSelectedMemberIndex(-1)
       return
     }
 
@@ -228,6 +228,7 @@ export default function AddInvoiceModal({
     setMemberSearch(displayText)
     setMemberSearchResults([])
     setMemberSearchError('')
+    setSelectedMemberIndex(-1)
   }
 
   const handleMemberInputFocus = () => {
@@ -244,7 +245,31 @@ export default function AddInvoiceModal({
     memberSearchBlurTimeout.current = setTimeout(() => {
       setMemberSearchResults([])
       setIsMemberSearching(false)
+      setSelectedMemberIndex(-1)
     }, 150)
+  }
+
+  const handleMemberInputKeyDown = (e) => {
+    if (!memberSearchResults.length || isMemberSearching) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedMemberIndex(prev => 
+        prev < memberSearchResults.length - 1 ? prev + 1 : prev
+      )
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedMemberIndex(prev => prev > 0 ? prev - 1 : -1)
+    } else if (e.key === 'Enter' && selectedMemberIndex >= 0) {
+      e.preventDefault()
+      const selectedMember = memberSearchResults[selectedMemberIndex]
+      if (selectedMember) {
+        handleMemberSelectFromSearch(selectedMember)
+      }
+    } else if (e.key === 'Escape') {
+      setMemberSearchResults([])
+      setSelectedMemberIndex(-1)
+    }
   }
 
   const createInvoiceMutation = useMutation({
@@ -267,7 +292,6 @@ export default function AddInvoiceModal({
       memberId: '',
       memberName: '',
       memberPhone: '',
-      sacCode: '',
       items: [{
         selectedServiceId: '',
         serviceId: '',
@@ -280,8 +304,7 @@ export default function AddInvoiceModal({
         taxType: 'No tax',
         startDate: '',
         expiryDate: '',
-        numberOfSessions: '',
-        sacCode: ''
+        numberOfSessions: ''
       }],
       discountReason: '',
       customerNotes: '',
@@ -315,10 +338,21 @@ export default function AddInvoiceModal({
       return
     }
 
-    // Validate items
-    const validItems = formData.items.filter(item => item.serviceId && item.unitPrice > 0)
+    // Validate items - must have service and variation selected
+    const validItems = formData.items.filter(item => 
+      item.selectedServiceId && item.serviceId && item.unitPrice > 0
+    )
     if (validItems.length === 0) {
-      toast.error('Please add at least one service with a selected variation and price')
+      toast.error('Please add at least one service item with a selected variation')
+      return
+    }
+
+    // Validate payment method
+    const validPaymentModes = formData.paymentModes.filter(pm => 
+      pm.method && parseFloat(pm.amount) > 0
+    )
+    if (validPaymentModes.length === 0) {
+      toast.error('Please add at least one payment method with amount')
       return
     }
 
@@ -356,7 +390,7 @@ export default function AddInvoiceModal({
       return
     }
 
-    const totalPaid = formData.paymentModes.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0)
+    const totalPaid = validPaymentModes.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0)
     const pending = Math.max(0, total - totalPaid)
 
     const invoiceData = {
@@ -373,12 +407,8 @@ export default function AddInvoiceModal({
       total,
       pending,
       rounding: 0,
-      sacCode: formData.sacCode || undefined,
       discountReason: formData.discountReason || undefined,
-      customerNotes: formData.customerNotes || undefined,
-      internalNotes: formData.internalNotes || undefined,
-      paymentModes: formData.paymentModes.filter(pm => pm.method && pm.amount > 0),
-      terms: formData.termsAndConditions || undefined,
+      paymentModes: validPaymentModes,
       status: totalPaid >= total ? 'paid' : (totalPaid > 0 ? 'partial' : 'draft')
     }
 
@@ -429,8 +459,7 @@ export default function AddInvoiceModal({
         taxType: 'No tax',
         startDate: '',
         expiryDate: '',
-        numberOfSessions: '',
-        sacCode: ''
+        numberOfSessions: ''
       }]
     }))
   }
@@ -600,6 +629,26 @@ export default function AddInvoiceModal({
 
   const totals = calculateTotals()
 
+  // Check if all required fields are filled
+  const isFormValid = () => {
+    // Check member
+    if (!formData.memberId) return false
+
+    // Check items - must have at least one item with service and variation
+    const hasValidItem = formData.items.some(item => 
+      item.selectedServiceId && item.serviceId && item.unitPrice > 0
+    )
+    if (!hasValidItem) return false
+
+    // Check payment method - must have at least one payment mode with method and amount
+    const hasValidPayment = formData.paymentModes.some(pm => 
+      pm.method && parseFloat(pm.amount) > 0
+    )
+    if (!hasValidPayment) return false
+
+    return true
+  }
+
   useEffect(() => {
     if (isOpen && defaultMemberId) {
       setFormData(prev => ({
@@ -620,6 +669,16 @@ export default function AddInvoiceModal({
     }
   }, [])
 
+  // Scroll selected item into view
+  useEffect(() => {
+    if (selectedMemberIndex >= 0 && memberItemRefs.current[selectedMemberIndex]) {
+      memberItemRefs.current[selectedMemberIndex].scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      })
+    }
+  }, [selectedMemberIndex])
+
   const handleClose = (shouldRefresh = false) => {
     resetForm()
     if (typeof onClose === 'function') {
@@ -635,6 +694,17 @@ export default function AddInvoiceModal({
       <div 
         className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300"
         onClick={() => handleClose(false)}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          margin: 0,
+          padding: 0,
+          width: '100vw',
+          height: '100vh'
+        }}
       />
       
       {/* Modal */}
@@ -683,6 +753,7 @@ export default function AddInvoiceModal({
                         type="text"
                         value={memberSearch}
                         onChange={(e) => handleMemberInputChange(e.target.value)}
+                        onKeyDown={handleMemberInputKeyDown}
                         onFocus={handleMemberInputFocus}
                         onBlur={handleMemberInputBlur}
                         placeholder="Search by name or phone number"
@@ -690,22 +761,32 @@ export default function AddInvoiceModal({
                       />
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                       {(isMemberSearching || memberSearchResults.length > 0 || memberSearchError) && (
-                        <div className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                        <div 
+                          ref={memberDropdownRef}
+                          className="absolute left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto"
+                        >
                           {isMemberSearching && (
                             <div className="px-4 py-3 text-sm text-gray-500 flex items-center">
                               <Loader2 className="w-4 h-4 animate-spin mr-2" />
                               Searching...
                             </div>
                           )}
-                          {!isMemberSearching && memberSearchResults.map(member => (
+                          {!isMemberSearching && memberSearchResults.map((member, index) => (
                             <button
                               key={member._id}
+                              ref={(el) => {
+                                if (el) memberItemRefs.current[index] = el
+                              }}
                               type="button"
                               onMouseDown={(e) => {
                                 e.preventDefault()
                                 handleMemberSelectFromSearch(member)
                               }}
-                              className="w-full px-4 py-3 text-left hover:bg-orange-50 focus:bg-orange-50 transition-colors border-b border-gray-100 last:border-b-0"
+                              className={`w-full px-4 py-3 text-left transition-colors border-b border-gray-100 last:border-b-0 ${
+                                index === selectedMemberIndex 
+                                  ? 'bg-orange-100 border-orange-200' 
+                                  : 'hover:bg-orange-50 focus:bg-orange-50'
+                              }`}
                             >
                               <span className="block text-sm font-medium text-gray-900">
                                 {`${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unnamed Member'}
@@ -771,19 +852,6 @@ export default function AddInvoiceModal({
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      SAC Code
-                    </label>
-                    <input
-                      type="text"
-                      name="sacCode"
-                      value={formData.sacCode}
-                      onChange={handleChange}
-                      placeholder="Enter SAC code"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all bg-white"
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -1022,55 +1090,6 @@ export default function AddInvoiceModal({
                 </div>
               </div>
 
-              {/* Notes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Customer Notes
-                  </label>
-                  <textarea
-                    name="customerNotes"
-                    value={formData.customerNotes}
-                    onChange={handleChange}
-                    maxLength={240}
-                    placeholder="Notes visible to customer"
-                    rows="4"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none bg-white"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">{formData.customerNotes.length}/240</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Internal Notes
-                  </label>
-                  <textarea
-                    name="internalNotes"
-                    value={formData.internalNotes}
-                    onChange={handleChange}
-                    maxLength={240}
-                    placeholder="Internal notes (not visible to customer)"
-                    rows="4"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none bg-white"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">{formData.internalNotes.length}/240</p>
-                </div>
-              </div>
-
-              {/* Terms */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Terms and Conditions
-                </label>
-                <textarea
-                  name="termsAndConditions"
-                  value={formData.termsAndConditions}
-                  onChange={handleChange}
-                  placeholder="Enter terms and conditions..."
-                  rows="4"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none bg-white"
-                />
-              </div>
             </div>
           </form>
 
@@ -1086,7 +1105,7 @@ export default function AddInvoiceModal({
             <button
               type="submit"
               form="invoice-create-form"
-              disabled={createInvoiceMutation.isLoading || !!activeInvoiceWarning || !formData.memberId}
+              disabled={createInvoiceMutation.isLoading || !!activeInvoiceWarning || !isFormValid()}
               className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md flex items-center space-x-2"
             >
               {createInvoiceMutation.isLoading ? (

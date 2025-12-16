@@ -509,9 +509,20 @@ export const getReceipts = async (req, res) => {
     // Build date query
     let dateQuery = {};
     if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      // If endDate is the same as startDate, set to end of that day
+      // If endDate is different (like tomorrow for "today" filter), set to start of that day
+      // This matches dashboard's logic: today 00:00:00 to tomorrow 00:00:00 (inclusive)
+      if (startDate === endDate) {
+        end.setHours(23, 59, 59, 999);
+      } else {
+        end.setHours(0, 0, 0, 0);
+      }
       dateQuery.paidAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: start,
+        $lte: end
       };
     } else {
       const end = new Date();

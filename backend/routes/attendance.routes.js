@@ -10,7 +10,8 @@ import {
   searchMemberByAttendanceId,
   getMemberActiveServices,
   updateAttendance,
-  fingerprintCheckIn
+  fingerprintCheckIn,
+  faceCheckIn
 } from '../controllers/attendance.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
@@ -26,6 +27,7 @@ router.get('/member/:memberId/services', getMemberActiveServices);
 router.get('/member/:memberId', getMemberAttendanceHistory);
 router.put('/:attendanceId', authorize('owner', 'manager', 'staff'), updateAttendance);
 router.post('/fingerprint', fingerprintCheckIn); // Public endpoint for device integration
+router.post('/face', faceCheckIn); // Public endpoint for device integration
 router.get('/', getAttendance);
 router.get('/stats', getAttendanceStats);
 router.get('/branch/:branchId', getBranchAttendance);

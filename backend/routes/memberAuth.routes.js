@@ -3,7 +3,8 @@ import {
   memberLogin,
   setMemberPassword,
   changeMemberPassword,
-  getMemberProfile
+  getMemberProfile,
+  updateMemberProfile
 } from '../controllers/memberAuth.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 import { authenticateMember } from '../middleware/memberAuth.middleware.js';
@@ -19,6 +20,7 @@ router.post('/set-password', authenticate, authorize('owner', 'manager', 'staff'
 // Member routes (require member authentication)
 router.use(authenticateMember);
 router.get('/profile', getMemberProfile);
+router.put('/profile', updateMemberProfile);
 router.post('/change-password', changeMemberPassword);
 
 export default router;

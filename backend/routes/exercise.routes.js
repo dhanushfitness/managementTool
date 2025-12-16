@@ -10,6 +10,7 @@ import {
   updateAssignment,
   deleteAssignment,
   markExerciseCompleted,
+  getMemberProgress,
   upload
 } from '../controllers/exercise.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
@@ -44,7 +45,9 @@ router.delete('/assignment/:assignmentId', authorize('owner', 'manager', 'staff'
 const memberRouter = express.Router();
 memberRouter.use(authenticateMember);
 memberRouter.get('/my-exercises', getMemberExercises);
+memberRouter.get('/progress', getMemberProgress);
 memberRouter.post('/assignment/:assignmentId/complete', markExerciseCompleted);
+memberRouter.patch('/assignment/:assignmentId', updateAssignment);
 
 export { memberRouter as memberExerciseRoutes };
 export default router;

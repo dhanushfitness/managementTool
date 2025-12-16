@@ -42,7 +42,33 @@ A comprehensive SaaS platform for gyms and fitness studios to manage memberships
 
 ## Setup Instructions
 
-### Prerequisites
+### Quick Start with Docker (Recommended for Development)
+
+**🚀 Fastest way to get started with hot-reloading:**
+
+```bash
+# Make scripts executable (first time only)
+chmod +x docker-dev-start.sh
+
+# Start development environment
+./docker-dev-start.sh
+```
+
+That's it! The entire stack will be running with hot-reload:
+- **Frontend**: http://localhost:8080 (instant updates)
+- **Backend API**: http://localhost:5000 (auto-restart on changes)
+- **MongoDB**: Automatically configured
+
+📖 **Documentation**:
+- [Development Guide](./DEVELOPMENT_GUIDE.md) - Complete Docker development setup
+- [Quick Reference](./DEV_QUICK_REFERENCE.md) - Essential commands cheat sheet
+- [Production Setup](./DOCKER_SETUP_GUIDE.md) - Production Docker deployment
+
+---
+
+### Manual Setup (Without Docker)
+
+#### Prerequisites
 - Node.js 18+ 
 - MongoDB (local or cloud)
 - Razorpay account (for payments)
@@ -60,20 +86,69 @@ cd backend
 npm install
 ```
 
-3. Create `.env` file (copy from `.env.example`):
+3. Create `.env` file:
 ```bash
 cp .env.example .env
 ```
 
 4. Update `.env` with your configuration:
+
+**Required Variables:**
 ```env
+# Server & Database
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/gym_management
-JWT_SECRET=your_super_secret_jwt_key
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+JWT_SECRET=your_super_secret_jwt_key_min_32_chars
 FRONTEND_URL=http://localhost:5173
 ```
+
+**Payment Gateway (Required for payments):**
+```env
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+```
+See [RAZORPAY_SETUP.md](RAZORPAY_SETUP.md) for detailed setup instructions.
+
+**Email Configuration (Required for notifications):**
+```env
+# For Gmail (recommended for testing)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+SMTP_FROM=your_email@gmail.com
+```
+See [EMAIL_SETUP.md](EMAIL_SETUP.md) and [GMAIL_QUICK_SETUP.md](GMAIL_QUICK_SETUP.md) for setup guides.
+
+**SMS Configuration (Required for SMS notifications):**
+```env
+# MSG91 (Popular in India)
+MSG91_AUTH_KEY=your_msg91_auth_key
+MSG91_SENDER_ID=GYMMGT
+
+# OR Twilio (Alternative)
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE_NUMBER=your_phone_number
+```
+See [MSG91_QUICK_START.md](MSG91_QUICK_START.md) or [SMS_SETUP.md](SMS_SETUP.md) for SMS setup.
+
+**WhatsApp Configuration (Optional):**
+```env
+WHATSAPP_PROVIDER=facebook
+WHATSAPP_API_KEY=your_api_key
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+```
+See [TWILIO_WHATSAPP_SETUP.md](TWILIO_WHATSAPP_SETUP.md) for WhatsApp setup.
+
+**Cron Jobs:**
+```env
+ENABLE_CRON_JOBS=true
+```
+
+> **Note:** The server will start without optional configurations, but some features may not work. Check the startup console output for configuration warnings.
 
 5. Start the backend server:
 ```bash
@@ -92,7 +167,20 @@ cd frontend
 npm install
 ```
 
-3. Start the development server:
+3. Create `.env` file (optional):
+```bash
+cp .env.example .env
+```
+
+4. Update `.env` if needed:
+```env
+VITE_API_BASE_URL=/api
+VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
+```
+
+> **Note:** For local development, you can skip creating `.env` as defaults will work with the Vite proxy.
+
+5. Start the development server:
 ```bash
 npm run dev
 ```

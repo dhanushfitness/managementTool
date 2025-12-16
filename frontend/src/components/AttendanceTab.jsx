@@ -3,13 +3,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   searchMemberByAttendanceId, 
   getMemberActiveServices, 
-  checkIn 
+  checkIn,
+  checkOut,
+  getMemberAttendanceHistory
 } from '../api/attendance'
-import { Clock, Calendar, User, CheckCircle2, XCircle } from 'lucide-react'
+import { getMemberTimeSlots } from '../api/members'
+import { Clock, Calendar, User, CheckCircle2, XCircle, LogOut, AlertTriangle, Settings } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LoadingSpinner from './LoadingSpinner'
 import DateInput from './DateInput'
 import TimeInput from './TimeInput'
+import MemberTimeSlots from './MemberTimeSlots'
 
 export default function AttendanceTab({ member }) {
   const queryClient = useQueryClient()
@@ -20,6 +24,7 @@ export default function AttendanceTab({ member }) {
   const [checkInDate, setCheckInDate] = useState('')
   const [checkInTime, setCheckInTime] = useState('')
   const [isSearching, setIsSearching] = useState(false)
+  const [showTimeSlotsModal, setShowTimeSlotsModal] = useState(false)
 
   // Format date for input
   const formatDateForInput = (date) => {
@@ -65,7 +70,23 @@ export default function AttendanceTab({ member }) {
     enabled: !!selectedMember?._id
   })
 
+  // Fetch time slots for expired members
+  const { data: timeSlotsData } = useQuery({
+    queryKey: ['member-time-slots', selectedMember?._id],
+    queryFn: () => getMemberTimeSlots(selectedMember._id).then(res => res.data),
+    enabled: !!selectedMember?._id && selectedMember?.membershipStatus === 'expired'
+  })
+
+  // Fetch current check-in status
+  const { data: attendanceHistory } = useQuery({
+    queryKey: ['member-attendance-history', selectedMember?._id],
+    queryFn: () => getMemberAttendanceHistory(selectedMember._id, { limit: 1 }).then(res => res.data),
+    enabled: !!selectedMember?._id
+  })
+
   const activeServices = servicesData?.services || []
+  const timeSlots = timeSlotsData?.timeSlots || []
+  const currentCheckIn = attendanceHistory?.attendance?.[0]?.checkOutTime ? null : attendanceHistory?.attendance?.[0]
 
   // Set default service when services load
   useEffect(() => {
@@ -114,6 +135,49 @@ export default function AttendanceTab({ member }) {
     }
   })
 
+  // Check if current time is within allowed time slot
+  const checkTimeSlotAccess = () => {
+    if (selectedMember?.membershipStatus !== 'expired' || timeSlots.length === 0) {
+      return { allowed: true }
+    }
+
+    const checkInDateTime = new Date(`${checkInDate}T${checkInTime}`)
+    const dayOfWeek = checkInDateTime.getDay()
+    const currentTime = checkInTime
+
+    const daySlots = timeSlots.filter(slot => slot.dayOfWeek === dayOfWeek && slot.enabled)
+    
+    if (daySlots.length === 0) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+      return { 
+        allowed: false, 
+        message: `No access allowed on ${dayNames[dayOfWeek]}` 
+      }
+    }
+
+    const isWithinSlot = daySlots.some(slot => {
+      const [startHour, startMin] = slot.startTime.split(':').map(Number)
+      const [endHour, endMin] = slot.endTime.split(':').map(Number)
+      const [currentHour, currentMin] = currentTime.split(':').map(Number)
+      
+      const startMinutes = startHour * 60 + startMin
+      const endMinutes = endHour * 60 + endMin
+      const currentMinutes = currentHour * 60 + currentMin
+      
+      return currentMinutes >= startMinutes && currentMinutes <= endMinutes
+    })
+
+    if (!isWithinSlot) {
+      const allowedSlots = daySlots.map(slot => `${slot.startTime} - ${slot.endTime}`).join(', ')
+      return { 
+        allowed: false, 
+        message: `Access denied. Allowed times: ${allowedSlots}` 
+      }
+    }
+
+    return { allowed: true }
+  }
+
   const handleCheckIn = () => {
     if (!selectedMember) {
       toast.error('Please search and select a member first')
@@ -130,6 +194,13 @@ export default function AttendanceTab({ member }) {
       return
     }
 
+    // Check time slot access for expired members
+    const timeSlotCheck = checkTimeSlotAccess()
+    if (!timeSlotCheck.allowed) {
+      toast.error(timeSlotCheck.message)
+      return
+    }
+
     checkInMutation.mutate({
       memberId: selectedMember._id,
       checkInType,
@@ -138,6 +209,25 @@ export default function AttendanceTab({ member }) {
       checkInTime,
       method: 'manual'
     })
+  }
+
+  // Check-out mutation
+  const checkOutMutation = useMutation({
+    mutationFn: (attendanceId) => checkOut(attendanceId).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['member-attendance-history', selectedMember?._id])
+      queryClient.invalidateQueries(['member', member?._id])
+      toast.success('Check-out successful!')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Check-out failed')
+    }
+  })
+
+  const handleCheckOut = () => {
+    if (currentCheckIn?._id) {
+      checkOutMutation.mutate(currentCheckIn._id)
+    }
   }
 
   // Calculate membership details
@@ -201,6 +291,15 @@ export default function AttendanceTab({ member }) {
           Attendance - {selectedMember ? `${selectedMember.firstName} ${selectedMember.lastName}` : 'Member'}
         </h1>
         <div className="flex items-center space-x-2 flex-wrap gap-2">
+          {selectedMember?.membershipStatus === 'expired' && (
+            <button
+              onClick={() => setShowTimeSlotsModal(true)}
+              className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors text-sm font-medium flex items-center space-x-2"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Manage Time Slots</span>
+            </button>
+          )}
           <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium">
             Inter branch transfer
           </button>
@@ -347,7 +446,7 @@ export default function AttendanceTab({ member }) {
                   <Clock className="w-5 h-5 text-gray-400" />
                   <button
                     onClick={handleCheckIn}
-                    disabled={checkInMutation.isLoading || !selectedMember || !selectedService}
+                    disabled={checkInMutation.isLoading || !selectedMember || !selectedService || !!currentCheckIn}
                     className="px-6 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
                     {checkInMutation.isLoading ? (
@@ -362,6 +461,45 @@ export default function AttendanceTab({ member }) {
                 </div>
               </div>
             </div>
+
+            {/* Time Slot Warning for Expired Members */}
+            {selectedMember?.membershipStatus === 'expired' && timeSlots.length > 0 && checkInDate && checkInTime && (() => {
+              const timeSlotCheck = checkTimeSlotAccess()
+              if (!timeSlotCheck.allowed) {
+                return (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start space-x-2">
+                    <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-yellow-800">Time Slot Restriction</p>
+                      <p className="text-sm text-yellow-700 mt-1">{timeSlotCheck.message}</p>
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })()}
+
+            {/* Current Check-in Status */}
+            {currentCheckIn && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">Currently Checked In</p>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Checked in at: {new Date(currentCheckIn.checkInTime).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCheckOut}
+                    disabled={checkOutMutation.isPending}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>{checkOutMutation.isPending ? 'Processing...' : 'Check Out'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Membership Details */}
@@ -418,6 +556,32 @@ export default function AttendanceTab({ member }) {
                 </div>
               </div>
 
+              {/* Time Slots Display for Expired Members */}
+              {selectedMember?.membershipStatus === 'expired' && timeSlots.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                  <h3 className="text-lg font-bold text-gray-900">Time Slot Access</h3>
+                  <p className="text-sm text-gray-600">
+                    This member can only access the gym during the following times:
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((dayName, index) => {
+                      const daySlots = timeSlots.filter(slot => slot.dayOfWeek === index && slot.enabled)
+                      if (daySlots.length === 0) return null
+                      return (
+                        <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                          <p className="font-semibold text-gray-900 text-sm">{dayName}</p>
+                          {daySlots.map((slot, idx) => (
+                            <p key={idx} className="text-sm text-gray-600 mt-1">
+                              {slot.startTime} - {slot.endTime}
+                            </p>
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Date Boxes */}
               <div className="grid grid-cols-3 gap-3 pt-4 border-t border-gray-200">
                 {membershipDetails.daysRemaining > 0 && (
@@ -471,6 +635,18 @@ export default function AttendanceTab({ member }) {
           </div>
         </div>
       </div>
+
+      {/* Time Slots Management Modal */}
+      {showTimeSlotsModal && selectedMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <MemberTimeSlots 
+              memberId={selectedMember._id} 
+              onClose={() => setShowTimeSlotsModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

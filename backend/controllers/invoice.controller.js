@@ -81,14 +81,77 @@ const updateScheduledCallsForExpiryDate = async (memberId, newExpiryDate, organi
 
 // Generate invoice number
 const generateInvoiceNumber = async (organizationId) => {
-  const organization = await Organization.findById(organizationId);
-  const prefix = organization.invoiceSettings.prefix || 'INV';
-  const number = organization.invoiceSettings.nextNumber || 1;
+  const maxRetries = 10; // Maximum number of retries to avoid infinite loop
+  let attempts = 0;
   
-  organization.invoiceSettings.nextNumber = number + 1;
+  while (attempts < maxRetries) {
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      throw new Error('Organization not found');
+    }
+    
+    const prefix = organization.invoiceSettings?.prefix || 'INV';
+    let number = organization.invoiceSettings?.nextNumber || 1;
+    
+    // Generate invoice number
+    const invoiceNumber = `${prefix}-${String(number).padStart(6, '0')}`;
+    
+    // Check if this invoice number already exists
+    const existingInvoice = await Invoice.findOne({ invoiceNumber });
+    
+    if (!existingInvoice) {
+      // Invoice number is available, update nextNumber and return
+      organization.invoiceSettings = organization.invoiceSettings || {};
+      organization.invoiceSettings.nextNumber = number + 1;
+      organization.invoiceSettings.prefix = prefix;
+      await organization.save();
+      
+      return invoiceNumber;
+    }
+    
+    // Invoice number exists, increment and try again
+    organization.invoiceSettings = organization.invoiceSettings || {};
+    organization.invoiceSettings.nextNumber = number + 1;
+    organization.invoiceSettings.prefix = prefix;
+    await organization.save();
+    
+    attempts++;
+  }
+  
+  // If we've exhausted retries, find the highest invoice number and use that + 1
+  const organization = await Organization.findById(organizationId);
+  const prefix = organization.invoiceSettings?.prefix || 'INV';
+  
+  // Find the highest invoice number with this prefix
+  const highestInvoice = await Invoice.findOne({
+    invoiceNumber: { $regex: `^${prefix}-` }
+  })
+    .sort({ invoiceNumber: -1 })
+    .select('invoiceNumber');
+  
+  if (highestInvoice) {
+    // Extract number from highest invoice (e.g., "INV-001002" -> 1002)
+    const match = highestInvoice.invoiceNumber.match(/\d+$/);
+    const highestNumber = match ? parseInt(match[0], 10) : 0;
+    const nextNumber = highestNumber + 1;
+    
+    // Update organization's nextNumber
+    organization.invoiceSettings = organization.invoiceSettings || {};
+    organization.invoiceSettings.nextNumber = nextNumber + 1;
+    organization.invoiceSettings.prefix = prefix;
+    await organization.save();
+    
+    return `${prefix}-${String(nextNumber).padStart(6, '0')}`;
+  }
+  
+  // Fallback: start from 1
+  const nextNumber = 1;
+  organization.invoiceSettings = organization.invoiceSettings || {};
+  organization.invoiceSettings.nextNumber = nextNumber + 1;
+  organization.invoiceSettings.prefix = prefix;
   await organization.save();
-
-  return `${prefix}-${String(number).padStart(6, '0')}`;
+  
+  return `${prefix}-${String(nextNumber).padStart(6, '0')}`;
 };
 
 const generateReceiptNumber = async (organizationId) => {
@@ -723,6 +786,17 @@ export const createInvoice = async (req, res) => {
     if (error.errors) {
       console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
     }
+    
+    // Handle duplicate key error specifically
+    if (error.code === 11000 || error.name === 'MongoServerError') {
+      const duplicateField = error.keyPattern ? Object.keys(error.keyPattern)[0] : 'invoiceNumber';
+      return res.status(409).json({
+        success: false,
+        message: `Invoice number already exists. Please try again.`,
+        error: `Duplicate key error on ${duplicateField}`
+      });
+    }
+    
     handleError(error, res, 500);
   }
 };
@@ -1816,12 +1890,24 @@ export const getPendingCollections = async (req, res) => {
     // Calculate pending amounts by category using aggregation for better performance
     const pendingSummaryAggregation = await Invoice.aggregate([
       { $match: query },
+      {
+        // Add itemsCount before unwinding (when items is still an array)
+        $addFields: {
+          itemsCount: {
+            $cond: [
+              { $isArray: '$items' },
+              { $size: '$items' },
+              1
+            ]
+          }
+        }
+      },
       { $unwind: { path: '$items', preserveNullAndEmptyArrays: true } },
       {
         $project: {
           invoiceType: 1,
           pending: { $ifNull: ['$pending', 0] },
-          itemsCount: { $size: { $ifNull: ['$items', []] } },
+          itemsCount: 1, // Use the pre-calculated count
           description: '$items.description'
         }
       },
@@ -1830,7 +1916,7 @@ export const getPendingCollections = async (req, res) => {
           itemPending: {
             $divide: [
               '$pending',
-              { $max: [{ $size: { $ifNull: ['$items', []] } }, 1] }
+              { $max: ['$itemsCount', 1] }
             ]
           }
         }

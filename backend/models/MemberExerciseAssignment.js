@@ -65,6 +65,14 @@ const memberExerciseAssignmentSchema = new mongoose.Schema({
     default: 0
   },
   notes: String,
+  setsCompleted: {
+    type: Number,
+    default: 0
+  },
+  repsCompleted: {
+    type: Number,
+    default: 0
+  },
   isCompleted: {
     type: Boolean,
     default: false
@@ -86,6 +94,7 @@ const memberExerciseAssignmentSchema = new mongoose.Schema({
 // Indexes
 memberExerciseAssignmentSchema.index({ memberId: 1, weekDay: 1, weekNumber: 1 });
 memberExerciseAssignmentSchema.index({ memberId: 1, isCompleted: 1 });
+memberExerciseAssignmentSchema.index({ memberId: 1, completedAt: 1 });
 memberExerciseAssignmentSchema.index({ organizationId: 1, memberId: 1 });
 
 const MemberExerciseAssignment = mongoose.model('MemberExerciseAssignment', memberExerciseAssignmentSchema);
