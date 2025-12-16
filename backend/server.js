@@ -8,7 +8,7 @@ import rateLimit from 'express-rate-limit';
 import compression from 'compression';
 import path from 'path';
 
-// Import routes
+// Routes
 import authRoutes from './routes/auth.routes.js';
 import organizationRoutes from './routes/organization.routes.js';
 import memberRoutes from './routes/member.routes.js';
@@ -34,111 +34,99 @@ import exerciseRoutes, { memberExerciseRoutes } from './routes/exercise.routes.j
 import memberAuthRoutes from './routes/memberAuth.routes.js';
 import { handleError } from './utils/errorHandler.js';
 
-// Load environment variables
+// Load env
 dotenv.config();
-
-// Validate environment variables
-import { validateEnv } from './utils/envValidator.js';
-validateEnv(false); // false = non-strict mode (warnings only)
 
 const app = express();
 
-// Compression middleware - compress all responses
+/* ---------------------------------------------------
+   BASIC MIDDLEWARE
+--------------------------------------------------- */
 app.use(compression());
-
-// Security middleware
 app.use(helmet());
-// CORS configuration - allow frontend from Netlify or localhost
+
+/* ---------------------------------------------------
+   CORS (🔥 FIXED & CORRECT)
+--------------------------------------------------- */
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://localhost:3000',
-  'http://localhost:8080',
-  'https://*.netlify.app'
+  process.env.FRONTEND_URL,          // Netlify prod
+  'http://localhost:3000',           // CRA
+  'http://localhost:5173',           // Vite
 ].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc.)
+    // allow server-to-server / curl / mobile apps
     if (!origin) return callback(null, true);
-    
-    // Check if origin matches allowed origins
-    if (allowedOrigins.some(allowed => {
-      if (allowed.includes('*')) {
-        const pattern = allowed.replace('*', '.*');
-        return new RegExp(pattern).test(origin);
-      }
-      return allowed === origin;
-    })) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow all for now, restrict in production
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting - more lenient for development
+// 🔥 REQUIRED for browser preflight
+app.options('*', cors());
+
+/* ---------------------------------------------------
+   RATE LIMIT (🔥 OPTIONS FIX)
+--------------------------------------------------- */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 200 : 1000, // Higher limit for development
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  // Skip rate limiting for health checks
-  skip: (req) => req.path === '/health' || req.path === '/api/health'
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 200 : 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) =>
+    req.method === 'OPTIONS' ||   // 🔥 allow preflight
+    req.path === '/health' ||
+    req.path === '/api/health'
 });
+
 app.use('/api/', limiter);
 
-// Body parser
+/* ---------------------------------------------------
+   BODY PARSERS
+--------------------------------------------------- */
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Static files for uploads
+/* ---------------------------------------------------
+   STATIC FILES
+--------------------------------------------------- */
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-// Static files for exercises
 app.use('/exercises', express.static(path.join(process.cwd(), 'exercises')));
 
-// Logging middleware - Morgan
+/* ---------------------------------------------------
+   LOGGING
+--------------------------------------------------- */
 if (process.env.NODE_ENV === 'development') {
-  // Development: detailed colored output
   app.use(morgan('dev'));
 } else {
-  // Production: Apache combined log format for better analytics
   app.use(morgan('combined'));
 }
 
-// Request logging - only in development
-// if (process.env.NODE_ENV === 'development') {
-//   app.use((req, res, next) => {
-//     console.log('REQ', {
-//       method: req.method,
-//       url: req.originalUrl,
-//       ip: req.ip,
-//       headers: {
-//         'x-forwarded-for': req.headers['x-forwarded-for'],
-//         'user-agent': req.headers['user-agent'],
-//         host: req.headers.host
-//       },
-//       body: req.body && Object.keys(req.body).length ? req.body : undefined
-//     });
-//     next();
-//   });
-// }
-
-
-// Health check
+/* ---------------------------------------------------
+   HEALTH CHECK
+--------------------------------------------------- */
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// API Routes
+/* ---------------------------------------------------
+   API ROUTES
+--------------------------------------------------- */
 app.use('/api/auth', authRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/members', memberRoutes);
-app.use('/api/clients', memberRoutes); // Alias for clients
+app.use('/api/clients', memberRoutes);
 app.use('/api/plans', planRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/setup-checklist', setupChecklistRoutes);
@@ -161,60 +149,44 @@ app.use('/api/exercises', exerciseRoutes);
 app.use('/api/member/exercises', memberExerciseRoutes);
 app.use('/api/member-auth', memberAuthRoutes);
 
-// Error handling middleware
+/* ---------------------------------------------------
+   ERROR HANDLING
+--------------------------------------------------- */
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error(err);
   handleError(err, res, err.status || 500);
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// Connect to MongoDB with optimized connection pooling
+/* ---------------------------------------------------
+   DATABASE + SERVER START
+--------------------------------------------------- */
 const mongoOptions = {
-  maxPoolSize: 10, // Maximum number of connections in the pool
-  minPoolSize: 2, // Minimum number of connections in the pool
-  serverSelectionTimeoutMS: 5000, // How long to wait for server selection
-  socketTimeoutMS: 45000, // How long to wait for socket operations
-  connectTimeoutMS: 10000, // How long to wait for initial connection
-  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-  retryWrites: true, // Retry writes on transient errors
-  retryReads: true, // Retry reads on transient errors
-  bufferCommands: false, // Disable mongoose buffering
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 10000,
+  retryWrites: true,
+  retryReads: true,
+  bufferCommands: false,
 };
 
 mongoose.connect(process.env.MONGODB_URI, mongoOptions)
-.then(async() => {
-  console.log('✅ MongoDB connected successfully');
-  
-  // Initialize cron jobs after MongoDB connection
-  if (process.env.ENABLE_CRON_JOBS !== 'false') {
-    try {
-      const { initializeCronJobs } = await import('./jobs/membershipExpiry.js');
-      initializeCronJobs();
-      
-      const { initializeDailyCronJobs } = await import('./jobs/dailyCronJobs.js');
-      initializeDailyCronJobs();
-      
-      console.log('✅ All cron jobs initialized');
-    } catch (error) {
-      console.error('❌ Failed to initialize cron jobs:', error);
-    }
-  }
-  
-  // Start server
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  .then(() => {
+    console.log('✅ MongoDB connected');
+
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('❌ MongoDB connection error', err);
+    process.exit(1);
   });
-})
-.catch((error) => {
-  console.error('❌ MongoDB connection error:', error);
-  process.exit(1);
-});
 
 export default app;
-
