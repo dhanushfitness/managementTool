@@ -13,6 +13,7 @@ import Member from '../models/Member.js';
 import Invoice from '../models/Invoice.js';
 import Payment from '../models/Payment.js';
 import Plan from '../models/Plan.js';
+import Service from '../models/Service.js';
 
 dotenv.config();
 
@@ -39,14 +40,14 @@ const parseDate = (dateString) => {
 
 // Helper function to parse name into first and last name
 const parseName = (fullName) => {
-  if (!fullName || isNaNValue(fullName)) return { firstName: 'Unknown', lastName: 'Member' };
+  if (!fullName || isNaNValue(fullName)) return { firstName: 'Unknown', lastName: '' };
   const parts = fullName.trim().split(/\s+/).filter(p => p.length > 0);
   if (parts.length === 0) {
-    return { firstName: 'Unknown', lastName: 'Member' };
+    return { firstName: 'Unknown', lastName: '' };
   }
   if (parts.length === 1) {
-    // If only one name part, use it as firstName and add a default lastName
-    return { firstName: parts[0], lastName: 'Member' };
+    // If only one name part, use it as firstName and keep lastName empty
+    return { firstName: parts[0], lastName: '' };
   }
   return {
     firstName: parts[0],
@@ -201,21 +202,10 @@ async function findOrCreateUser(organizationId, branchId, userName, role = 'staf
   return user;
 }
 
-// Find or create member
-async function findOrCreateMember(organizationId, branchId, memberData, salesRepId, createdById) {
+// Find or create member (updates existing members)
+async function findOrCreateMember(organizationId, branchId, memberData, salesRepId, createdById, planId = null, planName = null, startDate = null, endDate = null) {
   const memberIdStr = String(memberData.Member_ID || '');
   const memberId = `MEM${memberIdStr.padStart(6, '0')}`;
-  
-  // Check if member already exists
-  let member = await Member.findOne({ 
-    organizationId, 
-    memberId 
-  });
-  
-  if (member) {
-    console.log(`✅ Found existing member: ${memberId} - ${member.firstName} ${member.lastName}`);
-    return member;
-  }
   
   const nameParts = parseName(memberData.Member_Name);
   const email = memberData['E-Mail'] && !isNaNValue(memberData['E-Mail']) 
@@ -237,13 +227,62 @@ async function findOrCreateMember(organizationId, branchId, memberData, salesRep
   
   // Determine membership status based on Active/Inactive and dates
   let membershipStatus = mapMembershipStatus(memberData['Active/Inactive']);
-  const startDate = parseDate(memberData.Start_Date);
-  const endDate = parseDate(memberData.End_Date);
+  // Use provided dates from parameters, or parse from memberData
+  const memberStartDate = startDate || parseDate(memberData.Start_Date);
+  const memberEndDate = endDate || parseDate(memberData.End_Date);
   
   // If end date is in the past, mark as expired
-  if (endDate && endDate < new Date() && membershipStatus === 'active') {
+  if (memberEndDate && memberEndDate < new Date() && membershipStatus === 'active') {
     membershipStatus = 'expired';
   }
+  
+  // Check if member already exists
+  let member = await Member.findOne({ 
+    organizationId, 
+    memberId 
+  });
+  
+  if (member) {
+    // Update existing member with new data
+    member.firstName = nameParts.firstName;
+    member.lastName = nameParts.lastName;
+    if (email) member.email = email;
+    if (phone) member.phone = phone;
+    if (dateOfBirth) member.dateOfBirth = dateOfBirth;
+    if (gender) member.gender = gender;
+    if (gstNo) member.gstNo = gstNo;
+    if (clubId) member.clubId = clubId;
+    if (salesRepId) member.salesRep = salesRepId;
+    member.source = mapLeadSource(memberData['Lead Source']);
+    member.membershipStatus = membershipStatus;
+    if (planId && planName && memberStartDate && memberEndDate) {
+      member.currentPlan = {
+        planId,
+        planName,
+        startDate: memberStartDate,
+        endDate: memberEndDate
+      };
+    } else if (memberStartDate && memberEndDate) {
+      member.currentPlan = {
+        startDate: memberStartDate,
+        endDate: memberEndDate
+      };
+    }
+    await member.save();
+    console.log(`✅ Updated existing member: ${memberId} - ${member.firstName} ${member.lastName}`);
+    return member;
+  }
+  
+  // Create new member
+  const currentPlanData = (planId && planName && memberStartDate && memberEndDate) ? {
+    planId,
+    planName,
+    startDate: memberStartDate,
+    endDate: memberEndDate
+  } : (memberStartDate && memberEndDate) ? {
+    startDate: memberStartDate,
+    endDate: memberEndDate
+  } : undefined;
   
   member = await Member.create({
     organizationId,
@@ -260,15 +299,145 @@ async function findOrCreateMember(organizationId, branchId, memberData, salesRep
     salesRep: salesRepId,
     source: mapLeadSource(memberData['Lead Source']),
     membershipStatus,
-    currentPlan: (startDate && endDate) ? {
-      startDate,
-      endDate
-    } : undefined,
+    currentPlan: currentPlanData,
     createdBy: createdById
   });
   
   console.log(`✅ Created member: ${memberId} - ${member.firstName} ${member.lastName}`);
   return member;
+}
+
+// Find or create service
+async function findOrCreateService(organizationId, serviceName, createdById) {
+  if (!serviceName || isNaNValue(serviceName)) {
+    serviceName = 'Gym Membership';
+  }
+  
+  // Clean service name
+  const cleanName = serviceName.trim();
+  
+  // Try to find existing service by name
+  let service = await Service.findOne({
+    organizationId,
+    name: { $regex: new RegExp(`^${cleanName}$`, 'i') }
+  });
+  
+  if (!service) {
+    // Create new service
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    service = await Service.create({
+      organizationId,
+      name: cleanName,
+      slug,
+      description: `${cleanName} service`,
+      category: 'membership',
+      icon: 'dumbbell',
+      accentColor: '#F97316',
+      isPromoted: true,
+      isActive: true,
+      displayOrder: 0,
+      createdBy: createdById
+    });
+    console.log(`✅ Created service: ${service.name}`);
+  } else {
+    console.log(`✅ Found existing service: ${service.name}`);
+  }
+  
+  return service;
+}
+
+// Parse Description_Service to extract service name and variation
+const parseDescriptionService = (descriptionService) => {
+  if (!descriptionService || isNaNValue(descriptionService)) {
+    return { serviceName: 'Gym Membership', variationName: '1 Month Membership' };
+  }
+  
+  const parts = String(descriptionService).split(',').map(p => p.trim());
+  if (parts.length >= 2) {
+    return {
+      serviceName: parts[0] || 'Gym Membership',
+      variationName: parts[1] || '1 Month Membership'
+    };
+  } else if (parts.length === 1) {
+    return {
+      serviceName: parts[0] || 'Gym Membership',
+      variationName: '1 Month Membership'
+    };
+  }
+  
+  return { serviceName: 'Gym Membership', variationName: '1 Month Membership' };
+};
+
+// Find or create plan for a service
+async function findOrCreatePlan(organizationId, serviceId, variationName, price, startDate, endDate, createdById) {
+  // Use the variation name from Description_Service, or calculate from duration if not provided
+  let planName = variationName || '1 Month Membership';
+  
+  // Calculate duration if dates are provided (for plan metadata)
+  let duration = { value: 1, unit: 'months' };
+  
+  if (startDate && endDate) {
+    const diffTime = Math.abs(endDate - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays >= 365) {
+      const years = Math.round(diffDays / 365);
+      duration = { value: years, unit: 'years' };
+      if (!variationName) {
+        planName = years === 1 ? '1 Year Membership' : `${years} Years Membership`;
+      }
+    } else if (diffDays >= 30) {
+      const months = Math.round(diffDays / 30);
+      duration = { value: months, unit: 'months' };
+      if (!variationName) {
+        planName = months === 1 ? '1 Month Membership' : `${months} Months Membership`;
+      }
+    } else if (diffDays >= 7) {
+      const weeks = Math.round(diffDays / 7);
+      duration = { value: weeks, unit: 'weeks' };
+      if (!variationName) {
+        planName = weeks === 1 ? '1 Week Membership' : `${weeks} Weeks Membership`;
+      }
+    } else {
+      duration = { value: diffDays, unit: 'days' };
+      if (!variationName) {
+        planName = diffDays === 1 ? '1 Day Membership' : `${diffDays} Days Membership`;
+      }
+    }
+  }
+  
+  // Clean plan name
+  const cleanPlanName = planName.trim();
+  
+  // Try to find existing plan by name and service
+  let plan = await Plan.findOne({
+    organizationId,
+    serviceId,
+    name: { $regex: new RegExp(`^${cleanPlanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+  });
+  
+  if (!plan) {
+    const service = await Service.findById(serviceId);
+    plan = await Plan.create({
+      organizationId,
+      serviceId,
+      serviceName: service?.name || 'Gym Membership',
+      serviceType: service?.category || 'membership',
+      name: cleanPlanName,
+      description: `${cleanPlanName} plan`,
+      type: 'duration',
+      duration,
+      price: price || 0,
+      taxRate: 0,
+      isActive: true,
+      createdBy: createdById
+    });
+    console.log(`✅ Created plan: ${plan.name} - ₹${plan.price}`);
+  } else {
+    console.log(`✅ Found existing plan: ${plan.name}`);
+  }
+  
+  return plan;
 }
 
 // Generate invoice number (use existing Bill_No or generate new)
@@ -296,7 +465,7 @@ async function getInvoiceNumber(organization, billNo) {
 }
 
 // Create invoice
-async function createInvoice(organizationId, branchId, memberId, invoiceData, createdById) {
+async function createInvoice(organizationId, branchId, memberId, invoiceData, createdById, service = null, plan = null) {
   const billNo = invoiceData.Bill_No;
   const invoiceNumber = await getInvoiceNumber(
     await Organization.findById(organizationId),
@@ -321,18 +490,43 @@ async function createInvoice(organizationId, branchId, memberId, invoiceData, cr
     status = 'partial';
   }
   
-  // Create invoice items
-  const description = invoiceData.Description_Service && !isNaNValue(invoiceData.Description_Service)
-    ? invoiceData.Description_Service
-    : 'Gym Membership';
+  // Use provided service and plan, or create them if not provided
+  let finalService = service;
+  let finalPlan = plan;
   
+  if (!finalService || !finalPlan) {
+    // Parse Description_Service to extract service name and variation
+    const descriptionService = invoiceData.Description_Service && !isNaNValue(invoiceData.Description_Service)
+      ? invoiceData.Description_Service
+      : 'Gym Membership, 1 Month Membership';
+    
+    const { serviceName, variationName } = parseDescriptionService(descriptionService);
+    
+    // Find or create service (always "Gym Membership" from parsed data)
+    finalService = await findOrCreateService(organizationId, serviceName, createdById);
+    
+    // Find or create plan with variation name from Description_Service
+    finalPlan = await findOrCreatePlan(
+      organizationId,
+      finalService._id,
+      variationName, // Use the variation name from Description_Service
+      amount,
+      startDate,
+      endDate,
+      createdById
+    );
+  }
+  
+  // Create invoice items with serviceId linked to plan (variation)
   const items = [{
-    description,
+    description: finalPlan.name, // Use plan name (variation) as description
+    serviceId: finalPlan._id, // Link to plan (this is the variation)
     quantity: 1,
     unitPrice: amount,
     amount: amount,
     taxAmount: taxAmount,
     total: finalAmount,
+    taxRate: amount > 0 ? (taxAmount / amount) * 100 : 0,
     startDate: startDate,
     expiryDate: endDate
   }];
@@ -348,6 +542,7 @@ async function createInvoice(organizationId, branchId, memberId, invoiceData, cr
     branchId,
     invoiceNumber,
     memberId,
+    planId: finalPlan._id, // Link plan to invoice
     type: 'membership',
     invoiceType: 'service',
     items,
@@ -374,7 +569,7 @@ async function createInvoice(organizationId, branchId, memberId, invoiceData, cr
     updatedAt: purchaseDate
   });
   
-  console.log(`✅ Created invoice: ${invoiceNumber} - Amount: ${finalAmount}, Paid: ${paid}`);
+  console.log(`✅ Created invoice: ${invoiceNumber} - Amount: ${finalAmount}, Paid: ${paid}, Service: ${finalService.name}, Variation: ${finalPlan.name}`);
   return invoice;
 }
 
@@ -523,34 +718,76 @@ async function importBillReport(filePath, organizationName, organizationEmail) {
           'staff'
         );
         
-        // Find or create member
+        // Parse Description_Service to get service and variation info
+        const descriptionService = record.Description_Service && !isNaNValue(record.Description_Service)
+          ? record.Description_Service
+          : 'Gym Membership, 1 Month Membership';
+        const { serviceName, variationName } = parseDescriptionService(descriptionService);
+        
+        // Find or create service and plan first (needed for member's currentPlan)
+        const service = await findOrCreateService(organization._id, serviceName, createdBy._id);
+        const startDate = parseDate(record.Start_Date);
+        const endDate = parseDate(record.End_Date);
+        const amount = record.Amount || 0;
+        const plan = await findOrCreatePlan(
+          organization._id,
+          service._id,
+          variationName,
+          amount,
+          startDate,
+          endDate,
+          createdBy._id
+        );
+        
+        // Find or create member (with plan info)
         const member = await findOrCreateMember(
           organization._id,
           branch._id,
           record,
           salesRep._id,
-          createdBy._id
+          createdBy._id,
+          plan._id,
+          plan.name,
+          startDate,
+          endDate
         );
         
-        // Create invoice
-        const invoice = await createInvoice(
-          organization._id,
-          branch._id,
-          member._id,
-          record,
-          createdBy._id
-        );
+        // Check if invoice already exists (by invoice number from Bill_No)
+        const billNo = record.Bill_No;
+        let invoice = null;
         
-        // Create payment if paid > 0
-        if (record.Paid && record.Paid > 0) {
-          await createPayment(
+        if (billNo && !isNaNValue(billNo)) {
+          invoice = await Invoice.findOne({
+            organizationId: organization._id,
+            invoiceNumber: billNo
+          });
+        }
+        
+        if (!invoice) {
+          // Create invoice only if it doesn't exist
+          invoice = await createInvoice(
             organization._id,
             branch._id,
-            invoice._id,
             member._id,
             record,
-            createdBy._id
+            createdBy._id,
+            service,
+            plan
           );
+          
+          // Create payment if paid > 0
+          if (record.Paid && record.Paid > 0) {
+            await createPayment(
+              organization._id,
+              branch._id,
+              invoice._id,
+              member._id,
+              record,
+              createdBy._id
+            );
+          }
+        } else {
+          console.log(`⏭️  Skipping invoice creation - invoice ${billNo} already exists`);
         }
         
         successCount++;

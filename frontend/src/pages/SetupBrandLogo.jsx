@@ -50,17 +50,19 @@ export default function SetupBrandLogo() {
   const uploadMutation = useMutation({
     mutationFn: (formData) => uploadOrganizationLogo(formData),
     onSuccess: (data) => {
-      toast.success('Brand logo updated successfully! Refreshing...')
+      toast.success('Brand logo updated successfully!')
       setLogoPreview(resolveAssetUrl(data.logo))
       setFileName('')
       setLogoFile(null)
-      // Invalidate all organization-related queries
+      // Invalidate and refetch all organization-related queries
       queryClient.invalidateQueries({ queryKey: ['organization-details'] })
       queryClient.refetchQueries({ queryKey: ['organization-details'] })
-      // Force page reload to clear any cached images
-      setTimeout(() => {
-        window.location.reload()
-      }, 800)
+      // Also trigger a custom event that Layout can listen to
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('organization-logo-updated', { 
+          detail: { logo: data.logo } 
+        }))
+      }
     },
     onError: (error) => {
       toast.error(error?.response?.data?.message || 'Failed to upload logo')

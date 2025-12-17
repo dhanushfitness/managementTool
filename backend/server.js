@@ -50,7 +50,7 @@ app.use(helmet());
 --------------------------------------------------- */
 const allowedOrigins = [
   process.env.FRONTEND_URL,          // Netlify prod
-  'http://localhost:3000',           // CRA
+  'http://localhost:8080',           // CRA
   'http://localhost:5173',           // Vite
 ].filter(Boolean);
 

@@ -8225,6 +8225,7 @@ export const getNewClientsReport = async (req, res) => {
 
     const members = await Member.find(match)
       .populate('salesRep', 'firstName lastName')
+      .populate('currentPlan.planId', 'serviceName name') // Populate plan to get serviceName
       .sort({ createdAt: -1 })
       .lean();
 
@@ -8248,21 +8249,27 @@ export const getNewClientsReport = async (req, res) => {
       return `${day}-${month}-${year}`;
     };
 
-    const records = paginatedRecords.map(member => ({
-      _id: member._id,
-      memberId: member.memberId || '-',
-      memberName: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
-      mobile: member.phone || '-',
-      email: member.email || '-',
-      serviceName: member.currentPlan?.planName || '-',
-      joinDate: member.currentPlan?.startDate || member.createdAt,
-      startDate: formatDate(member.currentPlan?.startDate || member.createdAt),
-      endDate: formatDate(member.currentPlan?.endDate),
-      leadSource: member.leadSource || member.source || '-',
-      salesRepName: member.salesRep
-        ? `${member.salesRep.firstName || ''} ${member.salesRep.lastName || ''}`.trim()
-        : '-'
-    }));
+    const records = paginatedRecords.map(member => {
+      // Get service name from plan's serviceName, fallback to planName, then to '-'
+      const plan = member.currentPlan?.planId;
+      const serviceName = plan?.serviceName || member.currentPlan?.planName || '-';
+      
+      return {
+        _id: member._id,
+        memberId: member.memberId || '-',
+        memberName: `${member.firstName || ''} ${member.lastName || ''}`.trim(),
+        mobile: member.phone || '-',
+        email: member.email || '-',
+        serviceName: serviceName, // Use service name from plan
+        joinDate: member.currentPlan?.startDate || member.createdAt,
+        startDate: formatDate(member.currentPlan?.startDate || member.createdAt),
+        endDate: formatDate(member.currentPlan?.endDate),
+        leadSource: member.leadSource || member.source || '-',
+        salesRepName: member.salesRep
+          ? `${member.salesRep.firstName || ''} ${member.salesRep.lastName || ''}`.trim()
+          : '-'
+      };
+    });
 
     res.json({
       success: true,
@@ -11759,16 +11766,30 @@ export const getServiceExpiryReport = async (req, res) => {
     }
 
     // Parse dates correctly - handle YYYY-MM-DD format
-    const start = new Date(fromDate + 'T00:00:00.000Z');
-    const end = new Date(toDate + 'T23:59:59.999Z');
+    // Normalize dates to start of day to avoid timezone issues
+    // Convert YYYY-MM-DD to Date objects and set to start of day
+    const startDate = new Date(fromDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+    
+    // For end date, set to start of next day (exclusive) so we include the entire end date
+    const endDate = new Date(toDate);
+    endDate.setUTCDate(endDate.getUTCDate() + 1); // Add 1 day
+    endDate.setUTCHours(0, 0, 0, 0); // Set to start of next day
+
+    // Helper function to normalize a date to start of day for comparison
+    const normalizeToDateOnly = (date) => {
+      const d = new Date(date);
+      d.setUTCHours(0, 0, 0, 0);
+      return d;
+    };
 
     // Debug logging
     console.log('Service Expiry Query:', {
       organizationId: req.organizationId,
       fromDate,
       toDate,
-      start: start.toISOString(),
-      end: end.toISOString()
+      start: startDate.toISOString(),
+      end: endDate.toISOString()
     });
 
     // Step 1: Get all members first (with filters)
@@ -11833,8 +11854,9 @@ export const getServiceExpiryReport = async (req, res) => {
       // Check if any item in this invoice has expiry date in the range
       const hasExpiringItem = latestInvoice.items?.some(item => {
         if (!item.expiryDate) return false;
-        const itemExpiry = new Date(item.expiryDate);
-        return itemExpiry >= start && itemExpiry <= end;
+        const itemExpiryDate = normalizeToDateOnly(item.expiryDate);
+        // Use >= and < (not <=) since endDate is start of next day (exclusive)
+        return itemExpiryDate >= startDate && itemExpiryDate < endDate;
       });
 
       if (hasExpiringItem) {
@@ -11882,8 +11904,9 @@ export const getServiceExpiryReport = async (req, res) => {
       for (const item of invoice.items || []) {
         if (!item.expiryDate) continue;
         
-        const itemExpiry = new Date(item.expiryDate);
-        if (itemExpiry < start || itemExpiry > end) continue;
+        const itemExpiryDate = normalizeToDateOnly(item.expiryDate);
+        // Use >= and < (not <=) since endDate is start of next day (exclusive)
+        if (itemExpiryDate < startDate || itemExpiryDate >= endDate) continue;
 
         // Filter by service if specified
         if (serviceId && serviceId !== 'all') {
@@ -11895,7 +11918,7 @@ export const getServiceExpiryReport = async (req, res) => {
           member,
           invoice,
           item,
-          expiryDate: itemExpiry
+          expiryDate: new Date(item.expiryDate)
         });
       }
     }

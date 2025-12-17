@@ -341,7 +341,12 @@ export default function NewClientsReport() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-green-600" />
-                          <span className="text-sm font-bold text-green-600">{record.memberName}</span>
+                          <Link 
+                            to={`/clients/${record._id}`}
+                            className="text-sm font-bold text-green-600 hover:text-green-700 hover:underline"
+                          >
+                            {record.memberName}
+                          </Link>
                         </div>
                       </td>
                       <td className="px-4 py-3">

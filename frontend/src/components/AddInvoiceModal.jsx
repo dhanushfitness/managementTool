@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { X, Plus, Trash2, Search, CreditCard, FileText, AlertCircle, Loader2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
@@ -127,6 +127,22 @@ export default function AddInvoiceModal({
     setActiveInvoiceWarning('')
     
     try {
+      // First check member status
+      const memberResponse = await getMemberApi(memberId)
+      const member = memberResponse?.data?.member
+      
+      if (member && member.membershipStatus === 'active') {
+        const endDate = member.currentPlan?.endDate 
+          ? new Date(member.currentPlan.endDate).toLocaleDateString() 
+          : 'unknown date'
+        setActiveInvoiceWarning(
+          `Cannot create invoice: Member has an active membership (${member.currentPlan?.planName || 'membership'}) ending on ${endDate}. Only expired members can receive new invoices.`
+        )
+        setIsCheckingActiveInvoice(false)
+        return false
+      }
+
+      // If membership is expired, only check for unpaid/partial invoices
       const response = await api.get('/invoices', {
         params: {
           memberId,
@@ -135,13 +151,14 @@ export default function AddInvoiceModal({
       })
       
       const invoices = response.data?.invoices || []
-      const activeInvoice = invoices.find(inv => 
-        inv.status !== 'cancelled' && inv.status !== 'refunded'
+      // Only block if there's an unpaid/partial invoice (not paid invoices)
+      const activeUnpaidInvoice = invoices.find(inv => 
+        inv.status === 'draft' || inv.status === 'sent' || inv.status === 'partial'
       )
 
-      if (activeInvoice) {
+      if (activeUnpaidInvoice) {
         setActiveInvoiceWarning(
-          `This member already has an active invoice (${activeInvoice.invoiceNumber}) with status "${activeInvoice.status}". Only one active invoice per client is allowed.`
+          `Cannot create invoice: Member already has an active unpaid invoice (${activeUnpaidInvoice.invoiceNumber}) with status "${activeUnpaidInvoice.status}". Please complete or cancel the existing invoice before creating a new one.`
         )
         setIsCheckingActiveInvoice(false)
         return false
@@ -199,6 +216,22 @@ export default function AddInvoiceModal({
     if (memberSearchBlurTimeout.current) {
       clearTimeout(memberSearchBlurTimeout.current)
       memberSearchBlurTimeout.current = null
+    }
+    
+    // Check if member has active membership - prevent invoice creation for active members
+    if (member.membershipStatus === 'active') {
+      setActiveInvoiceWarning('Cannot create invoice: Member has an active membership. Please wait for the membership to expire before creating a new invoice.')
+      setFormData(prev => ({
+        ...prev,
+        memberId: '',
+        memberName: '',
+        memberPhone: ''
+      }))
+      setMemberSearch('')
+      setMemberSearchResults([])
+      setSelectedMemberIndex(-1)
+      toast.error('Cannot create invoice for active members. Only expired members can receive new invoices.')
+      return
     }
     
     const canProceed = await checkActiveInvoice(member._id)
@@ -331,10 +364,24 @@ export default function AddInvoiceModal({
       return
     }
 
+    // Verify member status - prevent creating invoices for active members
+    try {
+      const memberResponse = await getMemberApi(formData.memberId)
+      const member = memberResponse?.data?.member
+      if (member && member.membershipStatus === 'active') {
+        toast.error('Cannot create invoice: Member has an active membership. Only expired members can receive new invoices.')
+        setActiveInvoiceWarning('Cannot create invoice: Member has an active membership. Please wait for the membership to expire before creating a new invoice.')
+        return
+      }
+    } catch (error) {
+      console.error('Error fetching member details:', error)
+      // Continue with submission if we can't verify, backend will handle it
+    }
+
     // Check for active invoice before submission
     const canProceed = await checkActiveInvoice(formData.memberId)
     if (!canProceed) {
-      toast.error('Cannot create invoice: Member already has an active invoice')
+      // Error message is already set in checkActiveInvoice and shown in the warning
       return
     }
 
@@ -629,25 +676,32 @@ export default function AddInvoiceModal({
 
   const totals = calculateTotals()
 
-  // Check if all required fields are filled
-  const isFormValid = () => {
+  // Check if all required fields are filled - use useMemo for reactive validation
+  const isFormValid = useMemo(() => {
     // Check member
-    if (!formData.memberId) return false
+    if (!formData.memberId || String(formData.memberId).trim() === '') return false
 
     // Check items - must have at least one item with service and variation
-    const hasValidItem = formData.items.some(item => 
-      item.selectedServiceId && item.serviceId && item.unitPrice > 0
-    )
+    const hasValidItem = formData.items.some(item => {
+      const hasService = item.selectedServiceId && String(item.selectedServiceId).trim() !== ''
+      const hasVariation = item.serviceId && String(item.serviceId).trim() !== ''
+      const price = Number(item.unitPrice)
+      const hasPrice = !isNaN(price) && price > 0
+      return hasService && hasVariation && hasPrice
+    })
     if (!hasValidItem) return false
 
     // Check payment method - must have at least one payment mode with method and amount
-    const hasValidPayment = formData.paymentModes.some(pm => 
-      pm.method && parseFloat(pm.amount) > 0
-    )
+    const hasValidPayment = formData.paymentModes.some(pm => {
+      const hasMethod = pm.method && String(pm.method).trim() !== ''
+      const amount = Number(pm.amount)
+      const hasAmount = !isNaN(amount) && amount > 0
+      return hasMethod && hasAmount
+    })
     if (!hasValidPayment) return false
 
     return true
-  }
+  }, [formData])
 
   useEffect(() => {
     if (isOpen && defaultMemberId) {
@@ -771,29 +825,61 @@ export default function AddInvoiceModal({
                               Searching...
                             </div>
                           )}
-                          {!isMemberSearching && memberSearchResults.map((member, index) => (
-                            <button
-                              key={member._id}
-                              ref={(el) => {
-                                if (el) memberItemRefs.current[index] = el
-                              }}
-                              type="button"
-                              onMouseDown={(e) => {
-                                e.preventDefault()
-                                handleMemberSelectFromSearch(member)
-                              }}
-                              className={`w-full px-4 py-3 text-left transition-colors border-b border-gray-100 last:border-b-0 ${
-                                index === selectedMemberIndex 
-                                  ? 'bg-orange-100 border-orange-200' 
-                                  : 'hover:bg-orange-50 focus:bg-orange-50'
-                              }`}
-                            >
-                              <span className="block text-sm font-medium text-gray-900">
-                                {`${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unnamed Member'}
-                              </span>
-                              <span className="block text-xs text-gray-500 mt-1">{member.phone || 'No phone'}</span>
-                            </button>
-                          ))}
+                          {!isMemberSearching && memberSearchResults.map((member, index) => {
+                            const isActive = member.membershipStatus === 'active'
+                            const isExpired = member.membershipStatus === 'expired'
+                            return (
+                              <button
+                                key={member._id}
+                                ref={(el) => {
+                                  if (el) memberItemRefs.current[index] = el
+                                }}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault()
+                                  if (!isActive) {
+                                    handleMemberSelectFromSearch(member)
+                                  } else {
+                                    toast.error('Cannot create invoice for active members. Only expired members can receive new invoices.')
+                                  }
+                                }}
+                                disabled={isActive}
+                                className={`w-full px-4 py-3 text-left transition-colors border-b border-gray-100 last:border-b-0 ${
+                                  isActive 
+                                    ? 'bg-gray-100 cursor-not-allowed opacity-60' 
+                                    : index === selectedMemberIndex 
+                                      ? 'bg-orange-100 border-orange-200' 
+                                      : 'hover:bg-orange-50 focus:bg-orange-50'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <span className="block text-sm font-medium text-gray-900">
+                                      {`${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Unnamed Member'}
+                                    </span>
+                                    <span className="block text-xs text-gray-500 mt-1">{member.phone || 'No phone'}</span>
+                                  </div>
+                                  <div className="ml-2">
+                                    {isActive && (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Active
+                                      </span>
+                                    )}
+                                    {isExpired && (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        Expired
+                                      </span>
+                                    )}
+                                    {!isActive && !isExpired && member.membershipStatus && (
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 capitalize">
+                                        {member.membershipStatus}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            )
+                          })}
                           {!isMemberSearching && memberSearchResults.length === 0 && memberSearchError && (
                             <p className="px-4 py-3 text-sm text-gray-500">{memberSearchError}</p>
                           )}
@@ -1105,7 +1191,7 @@ export default function AddInvoiceModal({
             <button
               type="submit"
               form="invoice-create-form"
-              disabled={createInvoiceMutation.isLoading || !!activeInvoiceWarning || !isFormValid()}
+              disabled={createInvoiceMutation.isLoading || !!activeInvoiceWarning || !isFormValid}
               className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md flex items-center space-x-2"
             >
               {createInvoiceMutation.isLoading ? (

@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { isTokenExpired } from '../utils/auth'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import { Dumbbell, Mail, Lock, Loader2 } from 'lucide-react'
 
 export default function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
   const { setAuth, token, user, hydrated } = useAuthStore()
 
@@ -24,22 +26,10 @@ export default function Login() {
 
     try {
       const response = await api.post('/auth/login', formData)
-      console.log('Login response:', response.data)
-      
-      // Handle both response structures: { success, token, user } or { token, user }
       const token = response.data.token || response.data.data?.token
       const user = response.data.user || response.data.data?.user
       
-      console.log('Extracted token and user:', { hasToken: !!token, hasUser: !!user })
-      
       if (token && user) {
-        console.log('Login successful, received:', { 
-          hasToken: !!token, 
-          hasUser: !!user,
-          userKeys: Object.keys(user || {}),
-          tokenLength: token?.length
-        })
-        
         // Clear any member token when admin logs in
         if (typeof window !== 'undefined') {
           localStorage.removeItem('memberToken')
@@ -47,8 +37,6 @@ export default function Login() {
           window.axiosLoginTime = Date.now()
         }
         
-        // Set auth state - this also sets hydrated to true
-        console.log('Setting auth state...')
         setAuth(token, user)
         
         // Also set token directly in localStorage for immediate access
@@ -57,15 +45,13 @@ export default function Login() {
           const authData = authStorage ? JSON.parse(authStorage) : { state: {} }
           authData.state = { ...authData.state, token, user, hydrated: true }
           localStorage.setItem('auth-storage', JSON.stringify(authData))
-          console.log('Directly set auth in localStorage')
         } catch (e) {
           console.error('Error setting auth in localStorage:', e)
         }
         
-        // Wait for state to be persisted and ensure token is available
         await new Promise(resolve => setTimeout(resolve, 100))
         
-        // Verify token was stored correctly - check multiple times
+        // Verify token was stored correctly
         let attempts = 0
         let authState = useAuthStore.getState()
         let storedToken = authState.token
@@ -79,52 +65,30 @@ export default function Login() {
           storedUser = authState.user
           isHydrated = authState.hydrated
           attempts++
-          console.log(`Verification attempt ${attempts}:`, { 
-            storedToken: !!storedToken, 
-            storedUser: !!storedUser,
-            isHydrated,
-            tokensMatch: storedToken === token
-          })
         }
         
-        console.log('Final verification:', { 
-          storedToken: !!storedToken, 
-          storedUser: !!storedUser,
-          isHydrated,
-          tokensMatch: storedToken === token,
-          userMatch: JSON.stringify(storedUser) === JSON.stringify(user)
-        })
-        
         if (!storedToken || storedToken !== token) {
-          console.error('Token not stored correctly', { storedToken, token })
           toast.error('Failed to save authentication token. Please try again.')
           setLoading(false)
           return
         }
         
         if (!storedUser) {
-          console.error('User not stored correctly', { storedUser, user })
           toast.error('Failed to save user data. Please try again.')
           setLoading(false)
           return
         }
         
         if (!isHydrated) {
-          console.warn('Not hydrated yet, but proceeding anyway')
           useAuthStore.getState().setHydrated()
         }
         
-        toast.success('Login successful!')
-        
-        // Use replace to prevent back navigation to login
-        console.log('Navigating to dashboard...')
+        toast.success('Welcome back!')
         navigate('/', { replace: true })
       } else {
-        console.error('Invalid response structure:', response.data)
         toast.error('Invalid response from server')
       }
     } catch (error) {
-      console.error('Login error:', error)
       const errorMessage = error.response?.data?.message || error.message || 'Login failed'
       toast.error(errorMessage)
     } finally {
@@ -133,62 +97,96 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-primary-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-lg">
-        <div>
-          <h2 className="text-center text-3xl font-bold text-gray-900">Gym Management</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">Sign in to your account</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-50 p-4">
+      <div className="w-full max-w-md">
+        {/* Logo/Brand Section */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg mb-4">
+            <Dumbbell className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+          <p className="text-gray-600">Sign in to manage your gym</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
+
+        {/* Login Card */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Field */}
+            <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
+                Email Address
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className="input mt-1"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                  placeholder="you@example.com"
+                />
+              </div>
             </div>
-            <div>
+
+            {/* Password Field */}
+            <div className="space-y-2">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="input mt-1"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full pl-10 pr-12 py-3 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div>
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full"
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
             </button>
-          </div>
+          </form>
+        </div>
 
-          <div className="text-center">
-            <Link to="/register" className="text-sm text-primary-600 hover:text-primary-700">
-              Don't have an account? Register
-            </Link>
-          </div>
-        </form>
+        {/* Footer */}
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Don't have an account?{' '}
+          <button
+            onClick={() => navigate('/register')}
+            className="text-orange-600 font-medium hover:text-orange-700 transition-colors"
+          >
+            Create one
+          </button>
+        </p>
       </div>
     </div>
   )
 }
-

@@ -58,15 +58,38 @@ const handleUpload = (req, res, next) => {
   });
 };
 
+// Custom phone validator that accepts various formats including country codes
+const validatePhone = (value) => {
+  if (!value || typeof value !== 'string') return false;
+  // Remove all non-digit characters except +
+  const cleaned = value.trim();
+  // Extract only digits
+  const digitsOnly = cleaned.replace(/\D/g, '');
+  // Must have between 10 and 15 digits (allows country codes)
+  if (digitsOnly.length < 10 || digitsOnly.length > 15) return false;
+  // Basic format check - should start with + or digit, and contain only digits (after removing +)
+  const hasValidFormat = /^\+?\d+$/.test(cleaned.replace(/[\s\-\(\)]/g, ''));
+  return hasValidFormat;
+};
+
 // Validation rules
 const registerValidation = [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
-  body('phone').isMobilePhone('any'),
+  body('phone')
+    .trim()
+    .notEmpty()
+    .withMessage('Phone number is required')
+    .custom(validatePhone)
+    .withMessage('Please enter a valid phone number (e.g., +91 789456123 or 789456123)'),
   body('firstName').trim().notEmpty(),
   body('lastName').trim().notEmpty(),
   body('organizationName').trim().notEmpty(),
-  body('organizationPhone').optional({ checkFalsy: true }).isMobilePhone('any'),
+  body('organizationPhone')
+    .optional({ checkFalsy: true })
+    .trim()
+    .custom((value) => !value || validatePhone(value))
+    .withMessage('Please enter a valid organization phone number'),
   body('addressStreet').optional({ checkFalsy: true }).isString().trim(),
   body('addressCity').optional({ checkFalsy: true }).isString().trim(),
   body('addressState').optional({ checkFalsy: true }).isString().trim(),

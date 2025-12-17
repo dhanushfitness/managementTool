@@ -40,7 +40,10 @@ import {
   Users2,
   Archive,
   Dumbbell,
-  Building2
+  Building2,
+  X,
+  Mail,
+  Phone as PhoneIcon
 } from 'lucide-react'
 import { setupSections } from '../data/setupSections'
 import { getOrganizationDetails } from '../api/organization'
@@ -50,27 +53,54 @@ const resolveAssetUrl = (path) => {
   if (!path) return null
   if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:')) return path
 
-  const absoluteEnvBase = [
-    import.meta.env.VITE_BACKEND_URL,
-    import.meta.env.VITE_API_ORIGIN,
-    import.meta.env.VITE_API_BASE_URL
-  ].find((value) => typeof value === 'string' && /^https?:\/\//i.test(value))
-
-  const getDefaultBase = () => {
-    if (typeof window === 'undefined') return ''
-    const { origin } = window.location
-    if (origin.includes('localhost:5173')) {
-      return 'http://localhost:5000'
+  // Get the backend base URL (without /api prefix for static files)
+  const getBackendBaseUrl = () => {
+    // Try environment variables first
+    const envBase = [
+      import.meta.env.VITE_BACKEND_URL,
+      import.meta.env.VITE_API_ORIGIN
+    ].find((value) => typeof value === 'string' && /^https?:\/\//i.test(value))
+    
+    if (envBase) {
+      // Remove /api suffix if present
+      return envBase.replace(/\/api\/?$/, '')
     }
-    return origin
+
+    // Get from API instance and remove /api suffix
+    if (typeof window !== 'undefined' && api?.defaults?.baseURL) {
+      const apiBase = api.defaults.baseURL
+      // If it's a relative path like /api, get the origin
+      if (apiBase.startsWith('/')) {
+        return window.location.origin
+      }
+      // If it's a full URL, remove /api suffix
+      return apiBase.replace(/\/api\/?$/, '')
+    }
+
+    // Default fallback for development
+    if (typeof window !== 'undefined') {
+      const { origin } = window.location
+      if (origin.includes('localhost:5173') || origin.includes('localhost:3000')) {
+        return 'http://localhost:5000'
+      }
+      return origin
+    }
+    
+    return ''
   }
 
-  const base = absoluteEnvBase || getDefaultBase()
+  const backendBase = getBackendBaseUrl()
 
   try {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`
-    return new URL(normalizedPath, base || undefined).href
-  } catch {
+    // Static files are served directly from backend root, not under /api
+    if (normalizedPath.startsWith('/uploads')) {
+      return backendBase ? `${backendBase}${normalizedPath}` : normalizedPath
+    }
+    return new URL(normalizedPath, backendBase || undefined).href
+  } catch (error) {
+    console.error('Error resolving asset URL:', error, { path, backendBase })
+    // Fallback: return path as-is if it starts with /
     return path.startsWith('/') ? path : `/${path}`
   }
 }
@@ -78,10 +108,10 @@ const resolveAssetUrl = (path) => {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, hasSubmenu: false },
   { name: 'Enquiries', href: '/enquiries', icon: HelpCircle, hasSubmenu: false },
-  { name: 'Marketing', href: '/marketing', icon: Megaphone, hasSubmenu: true },
+  // { name: 'Marketing', href: '/marketing', icon: Megaphone, hasSubmenu: true },
   { name: 'Client', href: '/clients', icon: Users, hasSubmenu: true },
   { name: 'Staff', href: '/staff', icon: UserCog, hasSubmenu: false },
-  { name: 'Reports', href: '/reports', icon: BarChart3, hasSubmenu: true },
+  // { name: 'Reports', href: '/reports', icon: BarChart3, hasSubmenu: true },
   { name: 'Setup', href: '/setup', icon: Settings, hasSubmenu: true },
 ]
 
@@ -122,12 +152,13 @@ export default function Layout() {
   const reportsMenuRef = useRef(null)
   const setupMenuRef = useRef(null)
 
-  const { data: organizationResponse } = useQuery({
+  const { data: organizationResponse, refetch: refetchOrganization } = useQuery({
     queryKey: ['organization-details'],
     queryFn: getOrganizationDetails,
     enabled: Boolean(user?.organizationId),
     staleTime: 0, // Always refetch on mount to get latest logo
-    refetchOnWindowFocus: true // Refetch when window regains focus
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnMount: true // Always refetch when component mounts
   })
 
   const organization = organizationResponse?.organization
@@ -145,97 +176,112 @@ export default function Layout() {
 
   useEffect(() => {
     setIsLogoBroken(false)
-    // Update timestamp only when logo URL actually changes
+    // Update timestamp when logo URL changes to force refresh
     setLogoTimestamp(Date.now())
   }, [organizationLogoUrl])
 
+  // Listen for logo update events and refetch organization details
+  useEffect(() => {
+    const handleLogoUpdate = () => {
+      refetchOrganization()
+      // Force logo refresh by updating timestamp
+      setLogoTimestamp(Date.now())
+      setIsLogoBroken(false)
+    }
+
+    window.addEventListener('organization-logo-updated', handleLogoUpdate)
+    return () => {
+      window.removeEventListener('organization-logo-updated', handleLogoUpdate)
+    }
+  }, [refetchOrganization])
+
   // Reports categories data
   const reportsCategories = [
-    {
-      name: 'General Reports',
-      icon: FileText,
-      expandable: true,
-      subItems: [
-        { name: 'Biometric Report', path: '/reports/biometric' }
-      ]
-    },
-    {
-      name: 'Marketing',
-      icon: Megaphone,
-      expandable: true,
-      subItems: [
-        { name: 'Offers', path: '/reports/offers' },
-        { name: 'Lead Source', path: '/reports/lead-source' },
-        { name: 'Referral', path: '/reports/referral' },
-        { name: 'SMS Report', path: '/reports/sms' },
-        { name: 'Business MIS Report', path: '/reports/business-mis' },
-        { name: 'Marketing MIS Report', path: '/reports/marketing-mis' }
-      ]
-    },
-    {
-      name: 'Sales',
-      icon: DollarSign,
-      expandable: true,
-      subItems: [
-        { name: 'DSR Report', path: '/reports/sales/dsr' },
-        { name: 'Revenue', path: '/reports/sales/revenue' },
-        { name: 'Revenue - Month Till Date', path: '/reports/sales/revenue-month-till-date' },
-        { name: 'Service Sales', path: '/reports/sales/service-sales' },
-        { name: 'Service Type', path: '/reports/sales/service-type' },
-        { name: 'Enquiry Conversion Report', path: '/reports/sales/enquiry-conversion' }
-      ]
-    },
-    {
-      name: 'Finance',
-      icon: CreditCard,
-      expandable: true,
-      subItems: [
-        { name: 'All Invoices', path: '/reports/finance/all-invoices' },
-        { name: 'Paid Invoices', path: '/reports/finance/paid-invoices' },
-        { name: 'Receipts', path: '/reports/finance/receipts' },
-        { name: 'Pending Collections', path: '/reports/finance/pending-collections' },
-        { name: 'Cancelled Invoices', path: '/reports/finance/cancelled-invoices' },
-        { name: 'Refund Report', path: '/reports/finance/refund-report' },
-        { name: 'Effective Sales (Accounting)', path: '/reports/finance/effective-sales-accounting' },
-        { name: 'Revenue Realization', path: '/reports/finance/revenue-realization' },
-        { name: 'Revenue Realization (Base Value)', path: '/reports/finance/revenue-realization-base-value' },
-        { name: 'Collection Report', path: '/reports/finance/collection' },
-        { name: 'Cashflow Statement', path: '/reports/finance/cashflow-statement' },
-        { name: 'Payment Mode Report', path: '/reports/finance/payment-mode' },
-        { name: 'Backdated bills-Service Sales', path: '/reports/finance/backdated-bills' },
-        { name: 'Discount Report', path: '/reports/finance/discount' }
-      ]
-    },
-    {
-      name: 'Client Management',
-      icon: Users,
-      expandable: true,
-      subItems: [
-        { name: 'Upgrade & Cross-Sell', path: '/reports/client-management/upgrade' },
-        { name: 'Transfer & Extension', path: '/reports/client-management/service-transfer' },
-        { name: 'Freeze and Date Change', path: '/reports/client-management/freeze-and-date-change' }
-      ]
-    },
-    {
-      name: 'Staff',
-      icon: UserCog,
-      expandable: true,
-      subItems: [
-        { name: 'Staff Check-Ins', path: '/reports/staff/check-ins' },
-        { name: 'Staff Leave', path: '/reports/staff/leave' },
-        { name: 'Attendance Register', path: '/reports/staff/attendance-register' },
-        { name: 'Staff Birthday Report', path: '/reports/staff/birthday' },
-        { name: 'Call Log Report', path: '/reports/staff/call-log' }
-      ]
-    },
-    {
-      name: 'Expense',
-      icon: Receipt,
-      expandable: true,
-      subItems: [
-        { name: 'Expense Summary', path: '/reports/expense/summary' }
-      ]
-    }
+    // {
+    //   name: 'General Reports',
+    //   icon: FileText,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Biometric Report', path: '/reports/biometric' }
+    //   ]
+    // },
+    // {
+    //   name: 'Marketing',
+    //   icon: Megaphone,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Offers', path: '/reports/offers' },
+    //     { name: 'Lead Source', path: '/reports/lead-source' },
+    //     { name: 'Referral', path: '/reports/referral' },
+    //     { name: 'SMS Report', path: '/reports/sms' },
+    //     { name: 'Business MIS Report', path: '/reports/business-mis' },
+    //     { name: 'Marketing MIS Report', path: '/reports/marketing-mis' }
+    //   ]
+    // },
+    // {
+    //   name: 'Sales',
+    //   icon: DollarSign,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'DSR Report', path: '/reports/sales/dsr' },
+    //     { name: 'Revenue', path: '/reports/sales/revenue' },
+    //     { name: 'Revenue - Month Till Date', path: '/reports/sales/revenue-month-till-date' },
+    //     { name: 'Service Sales', path: '/reports/sales/service-sales' },
+    //     { name: 'Service Type', path: '/reports/sales/service-type' },
+    //     { name: 'Enquiry Conversion Report', path: '/reports/sales/enquiry-conversion' }
+    //   ]
+    // },
+    // {
+    //   name: 'Finance',
+    //   icon: CreditCard,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'All Invoices', path: '/reports/finance/all-invoices' },
+    //     { name: 'Paid Invoices', path: '/reports/finance/paid-invoices' },
+    //     { name: 'Receipts', path: '/reports/finance/receipts' },
+    //     { name: 'Pending Collections', path: '/reports/finance/pending-collections' },
+    //     { name: 'Cancelled Invoices', path: '/reports/finance/cancelled-invoices' },
+    //     { name: 'Refund Report', path: '/reports/finance/refund-report' },
+    //     { name: 'Effective Sales (Accounting)', path: '/reports/finance/effective-sales-accounting' },
+    //     { name: 'Revenue Realization', path: '/reports/finance/revenue-realization' },
+    //     { name: 'Revenue Realization (Base Value)', path: '/reports/finance/revenue-realization-base-value' },
+    //     { name: 'Collection Report', path: '/reports/finance/collection' },
+    //     { name: 'Cashflow Statement', path: '/reports/finance/cashflow-statement' },
+    //     { name: 'Payment Mode Report', path: '/reports/finance/payment-mode' },
+    //     { name: 'Backdated bills-Service Sales', path: '/reports/finance/backdated-bills' },
+    //     { name: 'Discount Report', path: '/reports/finance/discount' }
+    //   ]
+    // },
+    // {
+    //   name: 'Client Management',
+    //   icon: Users,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Upgrade & Cross-Sell', path: '/reports/client-management/upgrade' },
+    //     { name: 'Transfer & Extension', path: '/reports/client-management/service-transfer' },
+    //     { name: 'Freeze and Date Change', path: '/reports/client-management/freeze-and-date-change' }
+    //   ]
+    // },
+    // {
+    //   name: 'Staff',
+    //   icon: UserCog,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Staff Check-Ins', path: '/reports/staff/check-ins' },
+    //     { name: 'Staff Leave', path: '/reports/staff/leave' },
+    //     { name: 'Attendance Register', path: '/reports/staff/attendance-register' },
+    //     { name: 'Staff Birthday Report', path: '/reports/staff/birthday' },
+    //     { name: 'Call Log Report', path: '/reports/staff/call-log' }
+    //   ]
+    // },
+    // {
+    //   name: 'Expense',
+    //   icon: Receipt,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Expense Summary', path: '/reports/expense/summary' }
+    //   ]
+    // }
   ]
 
   // Client segments data
@@ -249,76 +295,76 @@ export default function Layout() {
         { name: 'Active Clients', path: '/clients?filter=validity&type=active' },
         { name: 'Inactive Clients', path: '/clients?filter=validity&type=inactive' }
       ]
-    },
-    {
-      name: 'Purchase Type Based',
-      icon: ShoppingBag,
-      expandable: true,
-      subItems: [
-        { name: 'Monthly', path: '/clients?filter=purchase&type=monthly' },
-        { name: 'Quarterly', path: '/clients?filter=purchase&type=quarterly' },
-        { name: 'Annual', path: '/clients?filter=purchase&type=annual' },
-        { name: 'Pay Per Session', path: '/clients?filter=purchase&type=pay-per-session' }
-      ]
-    },
-    {
-      name: 'Service Category',
-      icon: Tag,
-      expandable: true,
-      subItems: [
-        { name: 'Gym Membership', path: '/clients?filter=service&category=gym' },
-        { name: 'Personal Training', path: '/clients?filter=service&category=pt' },
-        { name: 'Group Classes', path: '/clients?filter=service&category=group' },
-        { name: 'Yoga', path: '/clients?filter=service&category=yoga' },
-        { name: 'Pilates', path: '/clients?filter=service&category=pilates' }
-      ]
-    },
-    {
-      name: 'Behaviour Based',
-      icon: TrendingUp,
-      expandable: true,
-      subItems: [
-        { name: 'Highly Active', path: '/clients?filter=behaviour&type=highly-active' },
-        { name: 'Regular', path: '/clients?filter=behaviour&type=regular' },
-        { name: 'Occasional', path: '/clients?filter=behaviour&type=occasional' },
-        { name: 'Inactive', path: '/clients?filter=behaviour&type=inactive' }
-      ]
-    },
-    {
-      name: 'Gender Based',
-      icon: User,
-      expandable: true,
-      subItems: [
-        { name: 'Male', path: '/clients?filter=gender&type=male' },
-        { name: 'Female', path: '/clients?filter=gender&type=female' },
-        { name: 'Other', path: '/clients?filter=gender&type=other' }
-      ]
-    },
-    {
-      name: 'Age Group',
-      icon: Users2,
-      expandable: false,
-      path: '/clients?filter=age-group'
-    },
-    {
-      name: 'Custom Groups',
-      icon: Users,
-      expandable: true,
-      subItems: [
-        { name: 'VIP Members', path: '/clients?filter=custom&group=vip' },
-        { name: 'Corporate', path: '/clients?filter=custom&group=corporate' },
-        { name: 'Referrals', path: '/clients?filter=custom&group=referrals' }
-      ]
-    },
-    {
-      name: 'Archived',
-      icon: Archive,
-      expandable: true,
-      subItems: [
-        { name: 'Cancelled Members', path: '/clients?filter=archived&type=cancelled' },
-        { name: 'Expired Members', path: '/clients?filter=archived&type=expired' }
-      ]
     }
+    // {
+    //   name: 'Purchase Type Based',
+    //   icon: ShoppingBag,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Monthly', path: '/clients?filter=purchase&type=monthly' },
+    //     { name: 'Quarterly', path: '/clients?filter=purchase&type=quarterly' },
+    //     { name: 'Annual', path: '/clients?filter=purchase&type=annual' },
+    //     { name: 'Pay Per Session', path: '/clients?filter=purchase&type=pay-per-session' }
+    //   ]
+    // },
+    // {
+    //   name: 'Service Category',
+    //   icon: Tag,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Gym Membership', path: '/clients?filter=service&category=gym' },
+    //     { name: 'Personal Training', path: '/clients?filter=service&category=pt' },
+    //     { name: 'Group Classes', path: '/clients?filter=service&category=group' },
+    //     { name: 'Yoga', path: '/clients?filter=service&category=yoga' },
+    //     { name: 'Pilates', path: '/clients?filter=service&category=pilates' }
+    //   ]
+    // },
+    // {
+    //   name: 'Behaviour Based',
+    //   icon: TrendingUp,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Highly Active', path: '/clients?filter=behaviour&type=highly-active' },
+    //     { name: 'Regular', path: '/clients?filter=behaviour&type=regular' },
+    //     { name: 'Occasional', path: '/clients?filter=behaviour&type=occasional' },
+    //     { name: 'Inactive', path: '/clients?filter=behaviour&type=inactive' }
+    //   ]
+    // },
+    // {
+    //   name: 'Gender Based',
+    //   icon: User,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Male', path: '/clients?filter=gender&type=male' },
+    //     { name: 'Female', path: '/clients?filter=gender&type=female' },
+    //     { name: 'Other', path: '/clients?filter=gender&type=other' }
+    //   ]
+    // },
+    // {
+    //   name: 'Age Group',
+    //   icon: Users2,
+    //   expandable: false,
+    //   path: '/clients?filter=age-group'
+    // },
+    // {
+    //   name: 'Custom Groups',
+    //   icon: Users,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'VIP Members', path: '/clients?filter=custom&group=vip' },
+    //     { name: 'Corporate', path: '/clients?filter=custom&group=corporate' },
+    //     { name: 'Referrals', path: '/clients?filter=custom&group=referrals' }
+    //   ]
+    // },
+    // {
+    //   name: 'Archived',
+    //   icon: Archive,
+    //   expandable: true,
+    //   subItems: [
+    //     { name: 'Cancelled Members', path: '/clients?filter=archived&type=cancelled' },
+    //     { name: 'Expired Members', path: '/clients?filter=archived&type=expired' }
+    //   ]
+    // }
   ]
 
   const toggleCategory = (categoryName) => {
@@ -525,19 +571,24 @@ export default function Layout() {
             >
               {organizationLogoUrl && !isLogoBroken ? (
                 <img
-                  src={`${organizationLogoUrl}?v=${logoTimestamp}`}
+                  src={`${organizationLogoUrl}?v=${logoTimestamp}&t=${Date.now()}`}
                   alt={`${organizationDisplayName} logo`}
-                  className="h-full w-full object-contain rounded-full"
+                  className="h-full w-full object-cover rounded-full"
                   onError={(e) => {
-                    console.error('Logo failed to load:', {
+                    console.error('❌ Logo failed to load:', {
                       src: e.target.src,
                       originalPath: organization?.logo,
-                      resolvedUrl: organizationLogoUrl
+                      resolvedUrl: organizationLogoUrl,
+                      apiBaseURL: api?.defaults?.baseURL
                     })
                     setIsLogoBroken(true)
                   }}
                   onLoad={() => {
-                    console.log('✅ Logo loaded successfully:', organizationLogoUrl)
+                    console.log('✅ Logo loaded successfully:', {
+                      src: organizationLogoUrl,
+                      originalPath: organization?.logo
+                    })
+                    setIsLogoBroken(false)
                   }}
                 />
               ) : (
@@ -908,49 +959,28 @@ export default function Layout() {
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-x-hidden max-w-full">
           {/* Header Bar */}
-          <header className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-8 py-4 flex items-center justify-between shadow-lg">
-            <div className="flex items-center space-x-6">
-              <div 
-                className={`w-10 h-10 rounded-full shadow-md flex items-center justify-center ${
-                  organizationLogoUrl && !isLogoBroken 
-                    ? 'bg-white border-2 border-gray-200' 
-                    : 'bg-gradient-to-br from-orange-500 to-red-600'
-                }`}
-              >
-                {organizationLogoUrl && !isLogoBroken ? (
-                  <img
-                    src={`${organizationLogoUrl}?v=${logoTimestamp}`}
-                    alt={`${organizationDisplayName} logo`}
-                    className="h-8 w-8 object-contain rounded-full"
-                    onError={(e) => {
-                      console.error('❌ Header logo failed to load:', e.target.src)
-                      setIsLogoBroken(true)
-                    }}
-                  />
-                ) : (
-                  <User className="w-5 h-5 text-white" strokeWidth={2} />
-                )}
-              </div>
-              <span className="text-sm font-medium text-gray-300">{organizationDisplayName}</span>
-              <div className="relative" ref={memberSearchRef}>
-                <div className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
-                  <div className="relative">
+          <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center space-x-4 flex-1">
+              <div className="relative flex-1 max-w-2xl" ref={memberSearchRef}>
+                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm hover:shadow-md transition-all focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-orange-500">
+                  <Search className="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" />
+                  <div className="relative flex-shrink-0">
                     <select
                       value={memberSearchType}
                       onChange={(e) => setMemberSearchType(e.target.value)}
-                      className="bg-transparent text-white text-sm border-none outline-none cursor-pointer appearance-none pr-6 focus:outline-none"
+                      className="bg-transparent text-gray-700 text-sm border-none outline-none cursor-pointer appearance-none pr-6 focus:outline-none font-medium"
                     >
-                      <option value="member-name" className="bg-gray-800 text-white">Member Name</option>
-                      <option value="email" className="bg-gray-800 text-white">Email</option>
-                      <option value="phone" className="bg-gray-800 text-white">Phone Number</option>
-                      <option value="member-id" className="bg-gray-800 text-white">Member ID</option>
+                      <option value="member-name">Member Name</option>
+                      <option value="email">Email</option>
+                      <option value="phone">Phone Number</option>
+                      <option value="member-id">Member ID</option>
                     </select>
-                    <ChevronDown className="absolute right-0 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/80 pointer-events-none" />
+                    <ChevronDown className="absolute right-0 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
-                  <div className="w-px h-5 bg-white/20"></div>
+                  <div className="w-px h-6 bg-gray-300 mx-3"></div>
                   <input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search members..."
                     value={memberSearchQuery}
                     onChange={(e) => setMemberSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -958,38 +988,57 @@ export default function Layout() {
                         handleMemberSearch()
                       }
                     }}
-                    className="bg-transparent text-white placeholder-white/60 text-sm border-none outline-none w-48"
+                    className="flex-1 bg-transparent text-gray-900 placeholder-gray-400 text-sm border-none outline-none"
                   />
+                  {memberSearchQuery && (
+                    <button
+                      onClick={() => {
+                        setMemberSearchQuery('')
+                        setMemberSearchResults([])
+                        setShowMemberSearchResults(false)
+                      }}
+                      className="ml-2 p-1 hover:bg-gray-200 rounded-full transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
+                  )}
                   <button
                     onClick={handleMemberSearch}
-                    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-md text-sm font-semibold transition-all shadow-md hover:shadow-lg"
+                    className="ml-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-5 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow-md"
                   >
-                    Go
+                    Search
                   </button>
                 </div>
                 
                 {/* Search Results Dropdown */}
                 {showMemberSearchResults && memberSearchResults.length > 0 && (
-                  <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                    <div className="bg-blue-50 px-4 py-2 border-b border-gray-200">
-                      <h3 className="text-sm font-semibold text-gray-700">By Member</h3>
+                  <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                    <div className="bg-gradient-to-r from-orange-50 to-orange-100 px-4 py-3 border-b border-gray-200">
+                      <h3 className="text-sm font-semibold text-gray-800 flex items-center">
+                        <Users className="w-4 h-4 mr-2 text-orange-600" />
+                        Search Results ({memberSearchResults.length})
+                      </h3>
                     </div>
-                    <div className="py-1">
+                    <div className="py-2">
                       {memberSearchResults.map((member, index) => {
                         const fullName = `${member.firstName || ''} ${member.lastName || ''}`.trim()
                         const email = member.email || ''
                         const phone = member.phone || ''
-                        const displayText = `${fullName}${email ? ` - ${email}` : ''}${phone ? ` - ${phone}` : ''}`
                         
                         return (
                           <button
                             key={member._id || index}
                             onClick={() => handleMemberResultClick(member)}
-                            className={`w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors ${
-                              index === 0 ? 'bg-blue-50' : 'bg-white'
+                            className={`w-full text-left px-4 py-3 text-sm hover:bg-orange-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                              index === 0 ? 'bg-orange-50' : 'bg-white'
                             }`}
                           >
-                            {displayText}
+                            <div className="font-medium text-gray-900">{fullName || 'Unnamed Member'}</div>
+                            <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                              {email && <div className="flex items-center"><Mail className="w-3 h-3 mr-1" />{email}</div>}
+                              {phone && <div className="flex items-center"><PhoneIcon className="w-3 h-3 mr-1" />{phone}</div>}
+                              {member.memberId && <div className="flex items-center"><Tag className="w-3 h-3 mr-1" />{member.memberId}</div>}
+                            </div>
                           </button>
                         )
                       })}
@@ -1011,7 +1060,7 @@ export default function Layout() {
                     setShowReportsMenu(false)
                     setShowSetupMenu(false)
                   }}
-                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all backdrop-blur-sm border border-white/20"
+                  className="p-2.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-all border border-gray-200 text-gray-700 hover:text-orange-600"
                 >
                   <Plus className="w-5 h-5" />
                 </button>
@@ -1041,7 +1090,7 @@ export default function Layout() {
 
               {/* Check-in Menu */}
               <div className="relative group" ref={checkInMenuRef}>
-                <button 
+                {/* <button 
                   onClick={() => {
                     setShowCheckInMenu(!showCheckInMenu)
                     setShowAddMenu(false)
@@ -1054,11 +1103,11 @@ export default function Layout() {
                   className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all backdrop-blur-sm border border-white/20"
                 >
                   <Clock className="w-5 h-5" />
-                </button>
-                <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                </button> */}
+                {/* <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
                   Check-in
-                </span>
-                {showCheckInMenu && (
+                </span> */}
+                {/* {showCheckInMenu && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
                     <div className="py-1">
                       <button
@@ -1083,11 +1132,11 @@ export default function Layout() {
                       </button>
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
 
               {/* Send Menu */}
-              <div className="relative group" ref={sendMenuRef}>
+              {/* <div className="relative group" ref={sendMenuRef}>
                 <button 
                   onClick={() => {
                     setShowSendMenu(!showSendMenu)
@@ -1147,7 +1196,7 @@ export default function Layout() {
                     </div>
                   </div>
                 )}
-              </div>
+              </div> */}
 
               {/* Profile Menu */}
               <div className="relative group" ref={profileMenuRef}>
@@ -1161,13 +1210,13 @@ export default function Layout() {
                     setShowReportsMenu(false)
                     setShowSetupMenu(false)
                   }}
-                  className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center cursor-pointer hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg border-2 border-white/20"
+                  className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center cursor-pointer hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg border-2 border-gray-200"
                 >
                   <span className="text-white text-sm font-bold">
                     {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </span>
                 </button>
-                <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
                   Profile
                 </span>
                 {showProfileMenu && (
@@ -1183,7 +1232,7 @@ export default function Layout() {
                         <UserCircle className="w-4 h-4 mr-3 text-gray-500" />
                         Super Admin Profile
                       </button>
-                      <button
+                      {/* <button
                         onClick={() => {
                           navigate('/account-plan')
                           setShowProfileMenu(false)
@@ -1192,8 +1241,8 @@ export default function Layout() {
                       >
                         <CreditCard className="w-4 h-4 mr-3 text-gray-500" />
                         Account Plan
-                      </button>
-                      <button
+                      </button> */}
+                      {/* <button
                         onClick={() => {
                           navigate('/central-panel')
                           setShowProfileMenu(false)
@@ -1202,8 +1251,8 @@ export default function Layout() {
                       >
                         <Settings className="w-4 h-4 mr-3 text-gray-500" />
                         Central Panel
-                      </button>
-                      <button
+                      </button> */}
+                      {/* <button
                         onClick={() => {
                           navigate('/branches?action=add')
                           setShowProfileMenu(false)
@@ -1212,12 +1261,13 @@ export default function Layout() {
                       >
                         <PlusCircle className="w-4 h-4 mr-3 text-gray-500" />
                         Add a Branch
-                      </button>
+                      </button> */}
                       <div className="border-t border-gray-200 my-1"></div>
                       <button
                         onClick={() => {
                           logout()
                           setShowProfileMenu(false)
+                          navigate('/login', { replace: true })
                         }}
                         className="w-full flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
                       >

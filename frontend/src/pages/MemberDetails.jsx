@@ -1433,6 +1433,16 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
               const daysRemaining = item.expiryDate ? calculateDaysRemaining(item.expiryDate) : 0
               const isActive = item.expiryDate ? new Date(item.expiryDate) >= new Date() : true
 
+              // Get service name and variation from member's currentPlan if available, otherwise from invoice
+              const serviceName = member?.currentPlan?.planId?.serviceName || 
+                                 invoice.planId?.serviceName || 
+                                 'Gym Membership'
+              const serviceVariationName = member?.currentPlan?.planId?.name || 
+                                          invoice.planId?.name || 
+                                          item.serviceId?.name || 
+                                          item.description || 
+                                          'N/A'
+
               // Format duration display
               const formatDurationDisplay = (duration) => {
                 if (!duration) return '7 Days Per week. Valid for 3 month(s).'
@@ -1454,13 +1464,13 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                         <div>
                           <p className="text-xs font-medium text-gray-600 mb-1.5">Service Name</p>
                           <p className="text-base font-bold text-gray-900">
-                            {item.serviceId?.serviceId?.name || item.description || 'N/A'}
+                            {serviceName}
                           </p>
                         </div>
                         <div>
                           <p className="text-xs font-medium text-gray-600 mb-1.5">Service Variation Name</p>
                           <p className="text-base font-bold text-gray-900">
-                            {item.serviceId?.name || invoice.planId?.name || item.description || 'N/A'}
+                            {serviceVariationName}
                           </p>
                         </div>
                       </div>
