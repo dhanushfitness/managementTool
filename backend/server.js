@@ -60,30 +60,81 @@ app.use(helmet({
 /* ---------------------------------------------------
    CORS (🔥 FIXED & CORRECT)
 --------------------------------------------------- */
-const allowedOrigins = [
-  "https://app.airfitluxury.in",          // Netlify prod
-  'http://localhost:8080',           // CRA
-  'http://localhost:5173',           // Vite
-].filter(Boolean);
+// Get allowed origins from environment or use defaults
+const getAllowedOrigins = () => {
+  const origins = [];
+  
+  // Add from environment variable (comma-separated)
+  if (process.env.ALLOWED_ORIGINS) {
+    origins.push(...process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()));
+  }
+  
+  // Add from FRONTEND_URL if set
+  if (process.env.FRONTEND_URL) {
+    origins.push(process.env.FRONTEND_URL);
+    // Also add http version if https
+    if (process.env.FRONTEND_URL.startsWith('https://')) {
+      origins.push(process.env.FRONTEND_URL.replace('https://', 'http://'));
+    }
+  }
+  
+  // Add default origins
+  const defaultOrigins = [
+    "https://app.airfitluxury.in",          // Production frontend
+    "http://app.airfitluxury.in",           // Production frontend (http fallback)
+    'http://localhost:8080',                // CRA
+    'http://localhost:5173',                // Vite
+    'http://localhost:3000',                // Alternative dev port
+  ];
+  
+  origins.push(...defaultOrigins);
+  
+  // Remove duplicates and filter out empty values
+  return [...new Set(origins.filter(Boolean))];
+};
+
+const allowedOrigins = getAllowedOrigins();
 
 app.use(cors({
   origin: function (origin, callback) {
-    // allow server-to-server / curl / mobile apps
+    // allow server-to-server / curl / mobile apps / Postman
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
+    // Log for debugging
+    console.log(`⚠️  CORS blocked origin: ${origin}`);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // 24 hours
 }));
 
-// 🔥 REQUIRED for browser preflight
-app.options('*', cors());
+// 🔥 REQUIRED for browser preflight - handle all OPTIONS requests
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Max-Age', '86400');
+  }
+  res.sendStatus(200);
+});
 
 /* ---------------------------------------------------
    RATE LIMIT ( OPTIONS FIX)
@@ -204,6 +255,7 @@ mongoose.connect(process.env.MONGODB_URI, mongoOptions)
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌐 CORS allowed origins:`, allowedOrigins);
     });
   })
   .catch(err => {
