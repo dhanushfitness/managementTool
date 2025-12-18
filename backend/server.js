@@ -60,6 +60,15 @@ app.use(helmet({
 /* ---------------------------------------------------
    CORS (🔥 FIXED & CORRECT)
 --------------------------------------------------- */
+// Debug middleware to log all requests (for CORS debugging)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    console.log(`📥 ${req.method} ${req.path} - Origin: ${origin}`);
+  }
+  next();
+});
+
 // Get allowed origins from environment or use defaults
 const getAllowedOrigins = () => {
   const origins = [];
@@ -98,14 +107,35 @@ const allowedOrigins = getAllowedOrigins();
 app.use(cors({
   origin: function (origin, callback) {
     // allow server-to-server / curl / mobile apps / Postman
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('✅ CORS: No origin (server-to-server request), allowing');
+      return callback(null, true);
+    }
 
-    if (allowedOrigins.includes(origin)) {
+    // Normalize origin (remove trailing slash)
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    
+    // Check exact match
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes(normalizedOrigin)) {
+      console.log(`✅ CORS: Allowing origin: ${origin}`);
+      return callback(null, true);
+    }
+
+    // Check if origin matches any allowed origin (case-insensitive, with/without trailing slash)
+    const originLower = normalizedOrigin.toLowerCase();
+    const isAllowed = allowedOrigins.some(allowed => {
+      const allowedNormalized = allowed.replace(/\/$/, '').toLowerCase();
+      return originLower === allowedNormalized || originLower.startsWith(allowedNormalized);
+    });
+
+    if (isAllowed) {
+      console.log(`✅ CORS: Allowing origin (normalized match): ${origin}`);
       return callback(null, true);
     }
 
     // Log for debugging
     console.log(`⚠️  CORS blocked origin: ${origin}`);
+    console.log(`   Allowed origins:`, allowedOrigins);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -120,19 +150,42 @@ app.use(cors({
     'Access-Control-Request-Headers'
   ],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400 // 24 hours
+  maxAge: 86400, // 24 hours
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 }));
 
 // 🔥 REQUIRED for browser preflight - handle all OPTIONS requests
 app.options('*', (req, res) => {
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Max-Age', '86400');
+  console.log(`🔍 OPTIONS request from origin: ${origin}`);
+  
+  if (origin) {
+    // Normalize origin
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    const originLower = normalizedOrigin.toLowerCase();
+    
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.some(allowed => {
+      const allowedNormalized = allowed.replace(/\/$/, '').toLowerCase();
+      return originLower === allowedNormalized || originLower.startsWith(allowedNormalized);
+    });
+    
+    if (isAllowed) {
+      console.log(`✅ OPTIONS: Allowing origin: ${origin}`);
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Max-Age', '86400');
+      return res.sendStatus(200);
+    } else {
+      console.log(`⚠️  OPTIONS: Blocked origin: ${origin}`);
+      console.log(`   Allowed origins:`, allowedOrigins);
+    }
   }
+  
+  // Still send 200 even if origin not allowed (some browsers need this)
   res.sendStatus(200);
 });
 
@@ -189,6 +242,18 @@ if (process.env.NODE_ENV === 'development') {
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  const origin = req.headers.origin;
+  res.status(200).json({
+    success: true,
+    message: 'CORS is working!',
+    origin: origin,
+    allowedOrigins: allowedOrigins,
     timestamp: new Date().toISOString()
   });
 });
