@@ -1,6 +1,54 @@
 import Organization from '../models/Organization.js';
 import Branch from '../models/Branch.js';
 import AuditLog from '../models/AuditLog.js';
+import axios from 'axios';
+
+// Helper function to send organization data to external API
+const sendOrganizationToExternalAPI = async (organization, action = 'create') => {
+  try {
+    const apiUrl = process.env.ORGANIZATION_API_URL || 'https://api.airfitluxury.in/';
+    
+    if (!apiUrl) {
+      console.warn('⚠️  ORGANIZATION_API_URL not configured, skipping external API call');
+      return;
+    }
+
+    // Prepare organization data for external API
+    const organizationData = {
+      id: organization._id.toString(),
+      name: organization.name,
+      email: organization.email,
+      phone: organization.phone,
+      address: organization.address,
+      logo: organization.logo,
+      currency: organization.currency,
+      timezone: organization.timezone,
+      taxSettings: organization.taxSettings,
+      invoiceSettings: organization.invoiceSettings,
+      branding: organization.branding,
+      isActive: organization.isActive,
+      action: action, // 'create' or 'update'
+      timestamp: new Date().toISOString()
+    };
+
+    // Send to external API
+    await axios.post(apiUrl, organizationData, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000 // 10 second timeout
+    });
+
+    console.log(`✅ Successfully sent organization ${action} to external API: ${apiUrl}`);
+  } catch (error) {
+    // Log error but don't fail the request
+    console.error(`❌ Error sending organization to external API:`, error.message);
+    if (error.response) {
+      console.error(`   Response status: ${error.response.status}`);
+      console.error(`   Response data:`, error.response.data);
+    }
+  }
+};
 
 export const createOrganization = async (req, res) => {
   try {
@@ -19,6 +67,9 @@ export const createOrganization = async (req, res) => {
       entityType: 'Organization',
       entityId: newOrg._id
     });
+
+    // Send organization data to external API
+    await sendOrganizationToExternalAPI(newOrg, 'create');
 
     res.status(201).json({ success: true, organization: newOrg });
   } catch (error) {
@@ -65,6 +116,9 @@ export const updateOrganization = async (req, res) => {
       entityId: organization._id,
       changes: { after: req.body }
     });
+
+    // Send organization data to external API
+    await sendOrganizationToExternalAPI(organization, 'update');
 
     // Convert logo path to full URL if it exists
     if (organization.logo) {
