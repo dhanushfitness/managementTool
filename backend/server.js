@@ -61,7 +61,7 @@ app.use(helmet({
    CORS (🔥 FIXED & CORRECT)
 --------------------------------------------------- */
 const allowedOrigins = [
-  process.env.FRONTEND_URL,          // Netlify prod
+  "https://app.airfitluxury.in",          // Netlify prod
   'http://localhost:8080',           // CRA
   'http://localhost:5173',           // Vite
 ].filter(Boolean);
