@@ -4,13 +4,28 @@ import AuditLog from '../models/AuditLog.js';
 import axios from 'axios';
 
 // Helper function to send organization data to external API
-const sendOrganizationToExternalAPI = async (organization, action = 'create') => {
+const sendOrganizationToExternalAPI = async (organization, action = 'create', req = null) => {
   try {
     const apiUrl = process.env.ORGANIZATION_API_URL || 'https://api.airfitluxury.in/';
     
     if (!apiUrl) {
       console.warn('⚠️  ORGANIZATION_API_URL not configured, skipping external API call');
       return;
+    }
+
+    // Convert logo path to full URL if it's a relative path
+    let logoUrl = organization.logo;
+    if (logoUrl && !logoUrl.startsWith('http')) {
+      if (req) {
+        // Use request object to construct full URL
+        const protocol = req.protocol;
+        const host = req.get('host');
+        logoUrl = `${protocol}://${host}${logoUrl}`;
+      } else {
+        // Fallback: use environment variable or construct from BACKEND_URL
+        const backendUrl = process.env.BACKEND_URL || process.env.FRONTEND_URL?.replace('/api', '') || 'http://localhost:5000';
+        logoUrl = `${backendUrl}${logoUrl}`;
+      }
     }
 
     // Prepare organization data for external API
@@ -20,7 +35,7 @@ const sendOrganizationToExternalAPI = async (organization, action = 'create') =>
       email: organization.email,
       phone: organization.phone,
       address: organization.address,
-      logo: organization.logo,
+      logo: logoUrl,
       currency: organization.currency,
       timezone: organization.timezone,
       taxSettings: organization.taxSettings,
@@ -69,7 +84,7 @@ export const createOrganization = async (req, res) => {
     });
 
     // Send organization data to external API
-    await sendOrganizationToExternalAPI(newOrg, 'create');
+    await sendOrganizationToExternalAPI(newOrg, 'create', req);
 
     res.status(201).json({ success: true, organization: newOrg });
   } catch (error) {
@@ -118,7 +133,7 @@ export const updateOrganization = async (req, res) => {
     });
 
     // Send organization data to external API
-    await sendOrganizationToExternalAPI(organization, 'update');
+    await sendOrganizationToExternalAPI(organization, 'update', req);
 
     // Convert logo path to full URL if it exists
     if (organization.logo) {
