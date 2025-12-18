@@ -398,11 +398,11 @@ export default function Clients() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end">
+        {/* <div className="flex items-center justify-end">
           <button className="px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all font-semibold border-2 border-gray-300 shadow-sm">
             Import Member Details
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* Filter and Action Bar */}
@@ -424,11 +424,11 @@ export default function Clients() {
               <option value="inactive">Inactive Clients</option>
             </select>
             
-            <select className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all">
+            {/* <select className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all">
               <option>Mailer list</option>
-            </select>
+            </select> */}
 
-            <button 
+            {/* <button   
               onClick={() => setShowFilterModal(true)}
               className={`p-2.5 rounded-xl transition-all relative ${
                 hasActiveFilters 
@@ -441,21 +441,21 @@ export default function Clients() {
               {hasActiveFilters && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border-2 border-white"></span>
               )}
-            </button>
+            </button> */}
 
-            <select className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all">
+            {/* <select className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all">
               <option>Communicate</option>
               <option>Send Email</option>
               <option>Send SMS</option>
-            </select>
+            </select> */}
           </div>
 
           {/* Right Side - Action Buttons */}
           <div className="flex items-center space-x-3">
-            <button className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl text-sm flex items-center gap-2">
+            {/* <button className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl text-sm flex items-center gap-2">
               <Mail className="w-4 h-4" />
               Add to Mailer
-            </button>
+            </button> */}
             <button
               onClick={handleExport}
               className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 text-sm"

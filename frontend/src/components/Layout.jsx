@@ -162,23 +162,36 @@ export default function Layout() {
   })
 
   const organization = organizationResponse?.organization
-  const organizationLogoUrl = resolveAssetUrl(organization?.logo)
+  // If logo is already a full URL, use it directly; otherwise resolve it
+  const organizationLogoUrl = organization?.logo?.startsWith('http') 
+    ? organization.logo 
+    : resolveAssetUrl(organization?.logo)
   const organizationDisplayName = organization?.name || user?.organizationName || 'Indiranagar'
 
   // Debug logging
   useEffect(() => {
-    console.log('Organization Logo Debug:', {
+    console.log('🔍 Organization Logo Debug:', {
+      hasOrganization: !!organization,
       rawLogoPath: organization?.logo,
       resolvedLogoUrl: organizationLogoUrl,
-      organizationName: organizationDisplayName
+      isLogoBroken,
+      organizationName: organizationDisplayName,
+      willShowLogo: !!(organizationLogoUrl && !isLogoBroken)
     })
-  }, [organization?.logo, organizationLogoUrl, organizationDisplayName])
+  }, [organization?.logo, organizationLogoUrl, organizationDisplayName, isLogoBroken])
 
   useEffect(() => {
-    setIsLogoBroken(false)
-    // Update timestamp when logo URL changes to force refresh
-    setLogoTimestamp(Date.now())
-  }, [organizationLogoUrl])
+    // Reset broken state when logo URL changes or organization data loads
+    if (organizationLogoUrl) {
+      console.log('🔄 Resetting logo broken state, URL:', organizationLogoUrl)
+      setIsLogoBroken(false)
+      // Update timestamp when logo URL changes to force refresh
+      setLogoTimestamp(Date.now())
+    } else if (organization && !organization.logo) {
+      // If organization exists but no logo, show default icon
+      setIsLogoBroken(true)
+    }
+  }, [organizationLogoUrl, organization])
 
   // Listen for logo update events and refetch organization details
   useEffect(() => {
@@ -560,39 +573,36 @@ export default function Layout() {
           </button>
 
           <div className={`p-6 ${isSidebarCollapsed ? 'px-3' : 'pb-4'} border-b border-gray-100`}>
-            <div
-              className={`mb-3 flex items-center justify-center ${
-                isSidebarCollapsed ? 'h-14 w-14' : 'h-24 w-24'
-              } ${
-                organizationLogoUrl && !isLogoBroken 
-                  ? 'rounded-full bg-white border-2 border-orange-100 p-3 mx-auto shadow-md hover:shadow-lg transition-shadow' 
-                  : 'rounded-full bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white shadow-lg hover:shadow-xl transition-all mx-auto ring-4 ring-orange-100'
-              }`}
-            >
+            <div className="mb-3 flex items-center justify-center">
               {organizationLogoUrl && !isLogoBroken ? (
                 <img
-                  src={`${organizationLogoUrl}?v=${logoTimestamp}&t=${Date.now()}`}
+                  src={organizationLogoUrl}
                   alt={`${organizationDisplayName} logo`}
-                  className="h-full w-full object-cover rounded-full"
+                  className="max-w-full h-auto object-contain"
+                  style={{ maxHeight: isSidebarCollapsed ? '56px' : '96px' }}
                   onError={(e) => {
                     console.error('❌ Logo failed to load:', {
                       src: e.target.src,
                       originalPath: organization?.logo,
                       resolvedUrl: organizationLogoUrl,
-                      apiBaseURL: api?.defaults?.baseURL
+                      error: e.type
                     })
                     setIsLogoBroken(true)
                   }}
-                  onLoad={() => {
+                  onLoad={(e) => {
                     console.log('✅ Logo loaded successfully:', {
-                      src: organizationLogoUrl,
-                      originalPath: organization?.logo
+                      src: e.target.src,
+                      originalPath: organization?.logo,
+                      naturalWidth: e.target.naturalWidth,
+                      naturalHeight: e.target.naturalHeight
                     })
                     setIsLogoBroken(false)
                   }}
                 />
               ) : (
-                <div className="flex items-center justify-center w-full h-full">
+                <div className={`flex items-center justify-center ${
+                  isSidebarCollapsed ? 'h-14 w-14' : 'h-24 w-24'
+                } rounded-full bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white shadow-lg hover:shadow-xl transition-all ring-4 ring-orange-100`}>
                   <User 
                     className={`${isSidebarCollapsed ? 'w-7 h-7' : 'w-11 h-11'} text-white drop-shadow-sm`}
                     strokeWidth={2.5}
@@ -602,8 +612,9 @@ export default function Layout() {
             </div>
             {!isSidebarCollapsed && (
               <div className="text-center">
-                <p className="text-sm font-semibold text-gray-800 truncate px-2">{organizationDisplayName}</p>
-                <div className="mt-1 w-12 h-0.5 bg-gradient-to-r from-transparent via-orange-400 to-transparent mx-auto"></div>
+                <p className="text-xs font-bold text-gray-800 uppercase tracking-wide truncate px-2">
+                  {organizationDisplayName}
+                </p>
               </div>
             )}
           </div>
@@ -1210,69 +1221,48 @@ export default function Layout() {
                     setShowReportsMenu(false)
                     setShowSetupMenu(false)
                   }}
-                  className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center cursor-pointer hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg border-2 border-gray-200"
+                  className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center cursor-pointer hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
                 >
-                  <span className="text-white text-sm font-bold">
+                  <span className="text-white text-sm font-bold uppercase">
                     {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </span>
                 </button>
-                <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                  Profile
-                </span>
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
-                    <div className="py-1">
+                  <div className="absolute right-0 mt-3 w-64 bg-white rounded-lg shadow-xl border border-gray-100 z-50 overflow-hidden">
+                    {/* Profile Header */}
+                    <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-orange-100 border-b border-orange-200">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Account</p>
+                      <p className="text-sm font-bold text-gray-900">
+                        {user?.firstName} {user?.lastName}
+                      </p>
+                      <p className="text-xs text-gray-600 mt-0.5">{user?.email}</p>
+                    </div>
+                    
+                    {/* Menu Items */}
+                    <div className="py-2">
                       <button
                         onClick={() => {
                           navigate('/profile')
                           setShowProfileMenu(false)
                         }}
-                        className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        className="w-full flex items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                       >
-                        <UserCircle className="w-4 h-4 mr-3 text-gray-500" />
-                        Super Admin Profile
+                        <UserCircle className="w-4 h-4 mr-3 text-gray-400" />
+                        <span className="uppercase tracking-wide">Profile</span>
                       </button>
-                      {/* <button
-                        onClick={() => {
-                          navigate('/account-plan')
-                          setShowProfileMenu(false)
-                        }}
-                        className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                      >
-                        <CreditCard className="w-4 h-4 mr-3 text-gray-500" />
-                        Account Plan
-                      </button> */}
-                      {/* <button
-                        onClick={() => {
-                          navigate('/central-panel')
-                          setShowProfileMenu(false)
-                        }}
-                        className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                      >
-                        <Settings className="w-4 h-4 mr-3 text-gray-500" />
-                        Central Panel
-                      </button> */}
-                      {/* <button
-                        onClick={() => {
-                          navigate('/branches?action=add')
-                          setShowProfileMenu(false)
-                        }}
-                        className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                      >
-                        <PlusCircle className="w-4 h-4 mr-3 text-gray-500" />
-                        Add a Branch
-                      </button> */}
-                      <div className="border-t border-gray-200 my-1"></div>
+                      
+                      <div className="border-t border-gray-100 my-2"></div>
+                      
                       <button
                         onClick={() => {
                           logout()
                           setShowProfileMenu(false)
                           navigate('/login', { replace: true })
                         }}
-                        className="w-full flex items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        className="w-full flex items-center px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <LogOut className="w-4 h-4 mr-3" />
-                        Log Out
+                        <span className="uppercase tracking-wide">Log Out</span>
                       </button>
                     </div>
                   </div>

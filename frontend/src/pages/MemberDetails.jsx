@@ -364,9 +364,9 @@ export default function MemberDetails() {
     { id: 'service-card', label: 'Service Card', icon: CreditCard },
     { id: 'payments', label: 'Payments', icon: DollarSign },
     { id: 'call-log', label: 'Call Log', icon: PhoneCall },
-    { id: 'referrals', label: 'Referrals', icon: Users },
-    { id: 'attendance', label: 'Attendance', icon: Activity },
-    { id: 'terms', label: 'Terms & Conditions', icon: FileCheck }
+    // { id: 'referrals', label: 'Referrals', icon: Users },
+    // { id: 'attendance', label: 'Attendance', icon: Activity },
+    // { id: 'terms', label: 'Terms & Conditions', icon: FileCheck }
   ]
 
   return (
@@ -803,7 +803,7 @@ export default function MemberDetails() {
                           </p>
                         )}
                       </div>
-                      <div>
+                      {/* <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Personal Trainer</label>
                         <input
                           type="text"
@@ -811,12 +811,12 @@ export default function MemberDetails() {
                           disabled
                           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
                         />
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 
                   {/* IDs Section */}
-                  <div className="bg-gray-50 rounded-lg p-4">
+                  {/* <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">IDs</h3>
                     <div className="space-y-4">
                       <div>
@@ -855,10 +855,10 @@ export default function MemberDetails() {
                         />
                       </div>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Communication Preferences */}
-                  <div className="bg-gray-50 rounded-lg p-4">
+                  {/* <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">Communication Preference Settings</h3>
                     <div className="space-y-3">
                       {[
@@ -890,7 +890,7 @@ export default function MemberDetails() {
                     <p className="mt-4 text-xs text-gray-500">
                       I do not have any objection to receive communication from AIRFIT, Indiranagar. {new Date().toLocaleString()}
                     </p>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             )}
@@ -1085,9 +1085,9 @@ export default function MemberDetails() {
                     <Edit2 className="w-4 h-4" />
                     <span>Edit</span>
                   </button>
-                  <button className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
+                  {/* <button className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
                     Sell Product
-                  </button>
+                  </button> */}
                   <button
                     onClick={() => navigate('/clients')}
                     className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
@@ -1944,11 +1944,11 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
         <h1 className="text-3xl font-bold text-gray-900">
           Payments - {member?.firstName?.toUpperCase()} {member?.lastName?.toUpperCase()}
         </h1>
-        <div className="flex items-center space-x-2">
+        {/* <div className="flex items-center space-x-2">
           <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
             Product
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* Filter and Action Bar */}

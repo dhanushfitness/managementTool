@@ -1208,7 +1208,7 @@ export default function AddMemberModal({ isOpen, onClose }) {
           {/* Footer Actions */}
           <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 px-8 py-5 -mx-8 -mb-8 shadow-lg flex justify-between items-center">
             <div className="flex space-x-3">
-              <button
+              {/* <button
                 type="button"
                 onClick={() => {
                   navigate('/clients?action=add-bill')
@@ -1217,7 +1217,7 @@ export default function AddMemberModal({ isOpen, onClose }) {
                 className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
               >
                 Add Member & Bill
-              </button>
+              </button> */}
             </div>
             <div className="flex space-x-3">
               <button

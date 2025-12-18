@@ -211,20 +211,20 @@ export default function SetupGettingStarted() {
 
                           {/* Actions */}
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {!isCompleted && (
-                              <button
-                                onClick={() => handleTaskNavigate(task)}
-                                disabled={isDisabled}
-                                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                                  isDisabled
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                    : 'bg-orange-500 text-white hover:bg-orange-600'
-                                }`}
-                              >
-                                {task.actionLabel || 'Open'}
-                                <ArrowRight className="h-4 w-4" />
-                              </button>
-                            )}
+                            <button
+                              onClick={() => handleTaskNavigate(task)}
+                              disabled={isDisabled}
+                              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                                isDisabled
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : isCompleted
+                                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  : 'bg-orange-500 text-white hover:bg-orange-600'
+                              }`}
+                            >
+                              {task.actionLabel || (isCompleted ? 'Reopen' : 'Open')}
+                              <ArrowRight className="h-4 w-4" />
+                            </button>
                             <button
                               onClick={() => handleStatusChange(task, isCompleted ? 'pending' : 'completed')}
                               disabled={updateStatusMutation.isPending}
@@ -234,7 +234,7 @@ export default function SetupGettingStarted() {
                                   : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                               }`}
                             >
-                              {isCompleted ? 'Reopen' : 'Mark Done'}
+                              {isCompleted ? 'Mark Pending' : 'Mark Done'}
                             </button>
                           </div>
                         </div>

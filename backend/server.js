@@ -43,7 +43,19 @@ const app = express();
    BASIC MIDDLEWARE
 --------------------------------------------------- */
 app.use(compression());
-app.use(helmet());
+// Configure helmet to allow cross-origin images and static files
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "http://localhost:5000", "https:", "http:"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+    },
+  },
+}));
 
 /* ---------------------------------------------------
    CORS (🔥 FIXED & CORRECT)
@@ -74,15 +86,15 @@ app.use(cors({
 app.options('*', cors());
 
 /* ---------------------------------------------------
-   RATE LIMIT (🔥 OPTIONS FIX)
+   RATE LIMIT ( OPTIONS FIX)
 --------------------------------------------------- */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000,//15 minutes
   max: process.env.NODE_ENV === 'production' ? 200 : 1000,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) =>
-    req.method === 'OPTIONS' ||   // 🔥 allow preflight
+    req.method === 'OPTIONS' ||   //  allow preflight
     req.path === '/health' ||
     req.path === '/api/health'
 });
@@ -98,8 +110,18 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 /* ---------------------------------------------------
    STATIC FILES
 --------------------------------------------------- */
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-app.use('/exercises', express.static(path.join(process.cwd(), 'exercises')));
+// Middleware to add CORS headers to static files
+const staticOptions = {
+  setHeaders: (res, path) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  }
+};
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), staticOptions));
+app.use('/exercises', express.static(path.join(process.cwd(), 'exercises'), staticOptions));
 
 /* ---------------------------------------------------
    LOGGING

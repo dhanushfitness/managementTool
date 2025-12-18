@@ -101,9 +101,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo/Brand Section */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg mb-4">
+          {/* <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg mb-4">
             <Dumbbell className="h-8 w-8 text-white" />
-          </div>
+          </div> */}
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
           <p className="text-gray-600">Sign in to manage your gym</p>
         </div>
@@ -178,13 +178,13 @@ export default function Login() {
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-500 mt-6">
-          Don't have an account?{' '}
-          <button
+          Don't have an account? contact to email: dhanushfitnessofficial@gymmanager.com{' '}
+          {/* <button
             onClick={() => navigate('/register')}
             className="text-orange-600 font-medium hover:text-orange-700 transition-colors"
           >
             Create one
-          </button>
+          </button> */}
         </p>
       </div>
     </div>

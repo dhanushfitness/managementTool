@@ -31,6 +31,16 @@ export const getOrganization = async (req, res) => {
     const organization = await Organization.findById(req.organizationId)
       .populate('createdBy', 'firstName lastName');
 
+    // Convert logo path to full URL if it exists
+    if (organization && organization.logo) {
+      const protocol = req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+      organization.logo = organization.logo.startsWith('http') 
+        ? organization.logo 
+        : `${baseUrl}${organization.logo}`;
+    }
+
     res.json({ success: true, organization });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -55,6 +65,16 @@ export const updateOrganization = async (req, res) => {
       entityId: organization._id,
       changes: { after: req.body }
     });
+
+    // Convert logo path to full URL if it exists
+    if (organization.logo) {
+      const protocol = req.protocol;
+      const host = req.get('host');
+      const baseUrl = `${protocol}://${host}`;
+      organization.logo = organization.logo.startsWith('http') 
+        ? organization.logo 
+        : `${baseUrl}${organization.logo}`;
+    }
 
     res.json({ success: true, organization });
   } catch (error) {
@@ -410,7 +430,17 @@ export const uploadOrganizationLogo = async (req, res) => {
       }
     });
 
-    res.json({ success: true, logo: relativePath, organization });
+    // Convert logo path to full URL
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+    const logoUrl = `${baseUrl}${relativePath}`;
+
+    // Return organization with full logo URL
+    const organizationResponse = organization.toObject();
+    organizationResponse.logo = logoUrl;
+
+    res.json({ success: true, logo: logoUrl, organization: organizationResponse });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
