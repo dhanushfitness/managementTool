@@ -105,7 +105,7 @@ export default function ServiceSalesReport() {
   const location = useLocation()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(false) // Start as false to apply URL params first
+  const [hasSearched, setHasSearched] = useState(true) // Start as true to auto-load data
   const [initialParamsApplied, setInitialParamsApplied] = useState(false)
 
   // Apply date filter from URL params on mount
@@ -127,11 +127,10 @@ export default function ServiceSalesReport() {
           endDate: converted.endDate
         } : {})
       }))
-      setHasSearched(true)
-    } else {
-      setHasSearched(true)
     }
-    
+    // Always enable search immediately, even if no dateFilter in URL (use default filters)
+    // This ensures data loads when navigating from dashboard
+    setHasSearched(true)
     setInitialParamsApplied(true)
   }, [location.search, initialParamsApplied])
 
@@ -148,13 +147,21 @@ export default function ServiceSalesReport() {
       ...filters,
       page,
       limit: 20
-    }).then(res => res.data),
+    }).then(res => {
+      // Handle response structure: { success: true, data: {...} }
+      const responseData = res.data
+      if (responseData?.success && responseData?.data) {
+        return responseData.data
+      }
+      // Fallback: if data is directly in response
+      return responseData?.data || responseData
+    }),
     enabled: hasSearched
   })
 
-  const bookings = reportData?.data?.bookings || []
-  const totals = reportData?.data?.totals || { quantity: 0, listPrice: 0, discountValue: 0, totalAmount: 0 }
-  const pagination = reportData?.data?.pagination || { page: 1, pages: 1, total: 0 }
+  const bookings = reportData?.bookings || []
+  const totals = reportData?.totals || { quantity: 0, listPrice: 0, discountValue: 0, totalAmount: 0 }
+  const pagination = reportData?.pagination || { page: 1, pages: 1, total: 0 }
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))

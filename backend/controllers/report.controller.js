@@ -2688,18 +2688,19 @@ export const getServiceSalesReport = async (req, res) => {
       const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(endDate);
-      // If endDate is the same as startDate, set to end of that day
-      // If endDate is different (like tomorrow for "today" filter), set to start of that day
-      // This matches dashboard's logic: today 00:00:00 to tomorrow 00:00:00 (inclusive)
-      if (startDate === endDate) {
-        end.setHours(23, 59, 59, 999);
-      } else {
-        end.setHours(0, 0, 0, 0);
-      }
+      // Always set endDate to end of day to include the full end date
+      // This ensures we get all invoices created on the end date
+      end.setHours(23, 59, 59, 999);
       dateQuery.createdAt = {
         $gte: start,
         $lte: end
       };
+      console.log('Service Sales Report - Date Query:', {
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        startDateParam: startDate,
+        endDateParam: endDate
+      });
     } else {
       // Handle date range presets
       // If "all-time" is selected, don't add date filter
@@ -2751,6 +2752,8 @@ export const getServiceSalesReport = async (req, res) => {
       ...dateQuery
       // No status filter to match dashboard behavior - dashboard includes all invoices
     };
+    
+    console.log('Service Sales Report - Base Query:', JSON.stringify(baseQuery, null, 2));
 
     // Filter by sale type (New Bookings vs Rebookings)
     if (saleType === 'new-bookings') {
@@ -2766,6 +2769,8 @@ export const getServiceSalesReport = async (req, res) => {
       .populate('items.serviceId', 'name')
       .sort({ createdAt: -1 });
 
+    console.log('Service Sales Report - Total invoices found:', allInvoicesForTotals.length);
+
     // Get paginated invoices for display
     const invoices = await Invoice.find(baseQuery)
       .populate('memberId', 'firstName lastName gender')
@@ -2774,6 +2779,8 @@ export const getServiceSalesReport = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
+    
+    console.log('Service Sales Report - Paginated invoices:', invoices.length);
 
     // Calculate totals from ALL invoices (not just paginated ones)
     let allTotals = { quantity: 0, listPrice: 0, discountValue: 0, totalAmount: 0 };

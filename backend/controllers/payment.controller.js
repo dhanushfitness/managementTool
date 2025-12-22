@@ -350,8 +350,16 @@ export const getPayments = async (req, res) => {
     if (invoiceId) query.invoiceId = invoiceId;
     if (startDate || endDate) {
       query.paidAt = {};
-      if (startDate) query.paidAt.$gte = new Date(startDate);
-      if (endDate) query.paidAt.$lte = new Date(endDate);
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        query.paidAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.paidAt.$lte = end;
+      }
     }
 
     const payments = await Payment.find(query)
@@ -513,18 +521,19 @@ export const getReceipts = async (req, res) => {
       const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(endDate);
-      // If endDate is the same as startDate, set to end of that day
-      // If endDate is different (like tomorrow for "today" filter), set to start of that day
-      // This matches dashboard's logic: today 00:00:00 to tomorrow 00:00:00 (inclusive)
-      if (startDate === endDate) {
-        end.setHours(23, 59, 59, 999);
-      } else {
-        end.setHours(0, 0, 0, 0);
-      }
+      // Always set endDate to end of day to include the full end date
+      // This ensures we get all payments made on the end date
+      end.setHours(23, 59, 59, 999);
       dateQuery.paidAt = {
         $gte: start,
         $lte: end
       };
+      console.log('Receipts - Date Query:', {
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        startDateParam: startDate,
+        endDateParam: endDate
+      });
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
@@ -817,9 +826,14 @@ export const exportReceipts = async (req, res) => {
     // Build date query (same as getReceipts)
     let dateQuery = {};
     if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      // Always set endDate to end of day to include the full end date
+      end.setHours(23, 59, 59, 999);
       dateQuery.paidAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: start,
+        $lte: end
       };
     } else {
       const end = new Date();
