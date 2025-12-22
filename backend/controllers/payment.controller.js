@@ -341,12 +341,13 @@ export const createPaymentLink = async (req, res) => {
 
 export const getPayments = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, memberId, startDate, endDate } = req.query;
+    const { page = 1, limit = 20, status, memberId, invoiceId, startDate, endDate } = req.query;
     const skip = (page - 1) * limit;
 
     const query = { organizationId: req.organizationId };
     if (status) query.status = status;
     if (memberId) query.memberId = memberId;
+    if (invoiceId) query.invoiceId = invoiceId;
     if (startDate || endDate) {
       query.paidAt = {};
       if (startDate) query.paidAt.$gte = new Date(startDate);

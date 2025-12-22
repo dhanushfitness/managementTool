@@ -881,8 +881,8 @@ async function importBillReport(filePath, organizationName, organizationEmail) {
 //   node import-bill-report.js "file.xlsx"        -> Reads from file
 //   node import-bill-report.js embedded           -> Uses embedded DEFAULT_DATA
 const filePath = process.argv[2] || 'embedded'; // Default to embedded data
-const organizationEmail = process.argv[3] || 'dhanush@gmail.com';
-const organizationName = process.argv[4] || 'Dhanush Organization';
+const organizationEmail = process.argv[3] || 'nileshkumaryadav8369@gmail.com';
+const organizationName = process.argv[4] || 'Airfit Luxury Club';
 
 console.log('🚀 Starting Bill Report Import...\n');
 if (filePath === 'embedded') {

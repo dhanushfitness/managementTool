@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Calendar, Upload, Camera, User } from 'lucide-react'
+import { X, Calendar, Upload, Camera, User, FileText } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import LoadingSpinner from './LoadingSpinner'
 import DateInput from './DateInput'
+import { searchMembers } from '../api/members'
 
-export default function AddMemberModal({ isOpen, onClose }) {
+export default function AddMemberModal({ isOpen, onClose, onMemberCreated }) {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('personal')
   const [showCamera, setShowCamera] = useState(false)
@@ -17,6 +18,7 @@ export default function AddMemberModal({ isOpen, onClose }) {
   const [capturedImage, setCapturedImage] = useState(null)
   const [facingMode, setFacingMode] = useState('user') // 'user' for front camera, 'environment' for back
   const [errorMessage, setErrorMessage] = useState('')
+  const [isAddingMemberAndBill, setIsAddingMemberAndBill] = useState(false)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const [formData, setFormData] = useState({
@@ -79,11 +81,13 @@ export default function AddMemberModal({ isOpen, onClose }) {
 
   const createMemberMutation = useMutation({
     mutationFn: (data) => api.post('/members', data),
-    onSuccess: () => {
+    onSuccess: (response) => {
       setErrorMessage('')
+      const createdMember = response?.data?.member
       toast.success('Member created successfully')
       queryClient.invalidateQueries(['members'])
       queryClient.invalidateQueries(['dashboard-stats'])
+      
       onClose()
       // Reset form
       setFormData({
@@ -150,7 +154,7 @@ export default function AddMemberModal({ isOpen, onClose }) {
       
       // Show toast with error message and high z-index
       toast.error(errorMsg, {
-        duration: 8000,
+        duration: 6000,
         position: 'top-center',
         style: {
           background: '#fee2e2',
@@ -158,19 +162,85 @@ export default function AddMemberModal({ isOpen, onClose }) {
           padding: '16px',
           fontSize: '14px',
           maxWidth: '500px',
-          zIndex: 10005,
+          zIndex: 10010,
         },
         className: 'error-toast',
       })
-      
-      // Also show alert as backup
-      setTimeout(() => {
-        if (errorMsg) {
-          alert(`Error: ${errorMsg}`)
-        }
-      }, 100)
     }
   })
+
+  // Check for duplicate member before submission
+  const checkForDuplicate = async () => {
+    try {
+      const phone = `${formData.countryCode}${formData.phone}`.trim()
+      const email = formData.email?.trim()
+      
+      // Check for duplicate phone
+      if (phone) {
+        const phoneResults = await searchMembers(phone)
+        const phoneMembers = phoneResults?.data?.members || []
+        
+        // Normalize phone for comparison (remove non-digit characters except +)
+        const normalizePhone = (p) => p ? p.replace(/[^\d+]/g, '') : ''
+        const normalizedInputPhone = normalizePhone(phone)
+        
+        const duplicatePhone = phoneMembers.find(m => {
+          const existingNormalized = normalizePhone(m.phone)
+          return existingNormalized === normalizedInputPhone && existingNormalized !== ''
+        })
+        
+        if (duplicatePhone) {
+          toast.error('A member with this contact number already exists. Please use a different contact number.', {
+            duration: 6000,
+            position: 'top-center',
+            style: {
+              background: '#fee2e2',
+              color: '#991b1b',
+              padding: '16px',
+              fontSize: '14px',
+              maxWidth: '500px',
+              zIndex: 10010,
+            },
+          })
+          return true
+        }
+      }
+      
+      // Check for duplicate email
+      if (email) {
+        const emailResults = await api.get('/members/search', {
+          params: { q: email, searchType: 'email' }
+        })
+        const emailMembers = emailResults?.data?.members || []
+        
+        const duplicateEmail = emailMembers.find(m => 
+          m.email?.toLowerCase().trim() === email.toLowerCase().trim()
+        )
+        
+        if (duplicateEmail) {
+          toast.error('A member with this email already exists. Please use a different email address.', {
+            duration: 6000,
+            position: 'top-center',
+            style: {
+              background: '#fee2e2',
+              color: '#991b1b',
+              padding: '16px',
+              fontSize: '14px',
+              maxWidth: '500px',
+              zIndex: 10010,
+            },
+          })
+          return true
+        }
+      }
+      
+      return false
+    } catch (error) {
+      console.error('Error checking for duplicate:', error)
+      // If check fails, allow submission (backend will catch it)
+      return false
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -206,7 +276,11 @@ export default function AddMemberModal({ isOpen, onClose }) {
       return
     }
     
-    // Note: Duplicate email check is handled by the backend
+    // Check for duplicate before submission
+    const hasDuplicate = await checkForDuplicate()
+    if (hasDuplicate) {
+      return // Stop submission if duplicate found
+    }
     
     // Split full name if provided in single field
     const nameParts = formData.firstName.trim().split(' ')
@@ -258,6 +332,149 @@ export default function AddMemberModal({ isOpen, onClose }) {
 
     console.log('Submitting member data:', memberData)
     createMemberMutation.mutate(memberData)
+  }
+
+  const handleAddMemberAndBill = async (e) => {
+    e.preventDefault()
+    
+    // Clear any previous error messages
+    setErrorMessage('')
+    
+    // Basic validation
+    if (!formData.firstName || !formData.firstName.trim()) {
+      toast.error('Full Name is required')
+      return
+    }
+    
+    if (!formData.phone || !formData.phone.trim()) {
+      toast.error('Contact Number is required')
+      return
+    }
+    
+    if (!formData.email || !formData.email.trim()) {
+      toast.error('Email is required')
+      return
+    }
+    
+    if (!formData.gender) {
+      toast.error('Gender is required')
+      return
+    }
+
+    // Email validation - check format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (formData.email && !emailRegex.test(formData.email.trim())) {
+      toast.error('Please enter a valid email address')
+      return
+    }
+    
+    // Check for duplicate before submission
+    const hasDuplicate = await checkForDuplicate()
+    if (hasDuplicate) {
+      return // Stop submission if duplicate found
+    }
+    
+    // Split full name if provided in single field
+    const nameParts = formData.firstName.trim().split(' ')
+    const firstName = nameParts[0] || ''
+    const lastName = nameParts.slice(1).join(' ') || formData.lastName || ''
+    
+    const memberData = {
+      firstName,
+      lastName,
+      phone: `${formData.countryCode}${formData.phone}`,
+      email: formData.email || '',
+      gender: formData.gender,
+      dateOfBirth: formData.dateOfBirth || undefined,
+      address: {
+        street: formData.address
+      },
+      customerType: formData.customerType,
+      source: formData.leadSource,
+      salesRep: formData.salesRep || undefined,
+      memberManager: formData.memberManager || undefined,
+      generalTrainer: formData.generalTrainer || undefined,
+      emergencyContact: {
+        name: formData.emergencyContactName,
+        countryCode: formData.emergencyContactCountryCode,
+        phone: formData.emergencyContactNumber,
+        relationship: formData.emergencyContactRelationship
+      },
+      communicationPreferences: formData.communicationPreferences,
+      profilePicture: formData.profilePicture || undefined,
+      fitnessProfile: {
+        bodyWeight: formData.bodyWeight ? parseFloat(formData.bodyWeight) : undefined,
+        bmi: formData.bmi ? parseFloat(formData.bmi) : undefined,
+        fatPercentage: formData.fatPercentage ? parseFloat(formData.fatPercentage) : undefined,
+        visualFatPercentage: formData.visualFatPercentage ? parseFloat(formData.visualFatPercentage) : undefined,
+        bodyAge: formData.bodyAge ? parseFloat(formData.bodyAge) : undefined,
+        musclePercentage: formData.musclePercentage ? parseFloat(formData.musclePercentage) : undefined,
+        cardiovascularTestReport: formData.cardiovascularTestReport || undefined,
+        muscleStrengthReport: formData.muscleStrengthReport || undefined,
+        muscleEndurance: formData.muscleEndurance ? parseFloat(formData.muscleEndurance) : undefined,
+        coreStrength: formData.coreStrength ? parseFloat(formData.coreStrength) : undefined,
+        flexibility: formData.flexibility ? parseFloat(formData.flexibility) : undefined,
+        height: formData.height ? parseFloat(formData.height) : undefined,
+        age: formData.age ? parseFloat(formData.age) : undefined,
+        gender: formData.gender,
+        name: formData.firstName && formData.lastName ? `${formData.firstName} ${formData.lastName}` : undefined,
+        measuredAt: new Date()
+      }
+    }
+
+    console.log('Submitting member data for Add Member and Bill:', memberData)
+    
+    setIsAddingMemberAndBill(true)
+    
+    // Create member and then open invoice modal
+    try {
+      const response = await api.post('/members', memberData)
+      const createdMember = response?.data?.member
+      
+      if (createdMember && onMemberCreated) {
+        const memberName = `${createdMember.firstName || ''} ${createdMember.lastName || ''}`.trim()
+        const memberPhone = createdMember.phone || ''
+        
+        // Invalidate queries
+        queryClient.invalidateQueries(['members'])
+        queryClient.invalidateQueries(['dashboard-stats'])
+        
+        toast.success('Member created successfully')
+        
+        // Close member modal and open invoice modal with member data
+        onClose()
+        onMemberCreated({
+          id: createdMember._id,
+          name: memberName,
+          phone: memberPhone
+        })
+      }
+    } catch (error) {
+      console.error('Member creation error:', error)
+      const errorMsg = 
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.response?.data?.errorMessage ||
+        (typeof error.response?.data === 'string' ? error.response.data : null) ||
+        error.message ||
+        'Failed to create member'
+      
+      setErrorMessage(errorMsg)
+      toast.error(errorMsg, {
+        duration: 6000,
+        position: 'top-center',
+        style: {
+          background: '#fee2e2',
+          color: '#991b1b',
+          padding: '16px',
+          fontSize: '14px',
+          maxWidth: '500px',
+          zIndex: 10010,
+        },
+      })
+    } finally {
+      setIsAddingMemberAndBill(false)
+    }
   }
 
   const handleChange = (e) => {
@@ -493,11 +710,13 @@ export default function AddMemberModal({ isOpen, onClose }) {
         }}
       >
         {/* Loading Overlay */}
-        {createMemberMutation.isLoading && (
+        {(createMemberMutation.isLoading || isAddingMemberAndBill) && (
           <div className="absolute inset-0 bg-white bg-opacity-90 z-50 flex items-center justify-center">
             <div className="flex flex-col items-center space-y-4">
               <LoadingSpinner size="lg" />
-              <p className="text-gray-600 font-semibold">Creating member...</p>
+              <p className="text-gray-600 font-semibold">
+                {isAddingMemberAndBill ? 'Creating member and opening invoice...' : 'Creating member...'}
+              </p>
             </div>
           </div>
         )}
@@ -1208,16 +1427,24 @@ export default function AddMemberModal({ isOpen, onClose }) {
           {/* Footer Actions */}
           <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 px-8 py-5 -mx-8 -mb-8 shadow-lg flex justify-between items-center">
             <div className="flex space-x-3">
-              {/* <button
+              <button
                 type="button"
-                onClick={() => {
-                  navigate('/clients?action=add-bill')
-                  onClose()
-                }}
-                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
+                onClick={handleAddMemberAndBill}
+                disabled={createMemberMutation.isLoading || isAddingMemberAndBill}
+                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md flex items-center space-x-2"
               >
-                Add Member & Bill
-              </button> */}
+                {(createMemberMutation.isLoading || isAddingMemberAndBill) ? (
+                  <>
+                    <LoadingSpinner size="sm" className="text-white" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    <span>Add Member and Bill</span>
+                  </>
+                )}
+              </button>
             </div>
             <div className="flex space-x-3">
               <button

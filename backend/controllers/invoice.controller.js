@@ -1060,6 +1060,7 @@ export const getInvoice = async (req, res) => {
       .populate('planId', 'name duration')
       .populate('branchId', 'name address')
       .populate('createdBy', 'firstName lastName')
+      .populate('organizationId', 'name email phone address logo')
       .populate({
         path: 'items.serviceId',
         populate: {

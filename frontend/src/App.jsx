@@ -345,7 +345,17 @@ function App() {
         />
         <Route path="*" element={<Navigate to="/not-found" replace />} />
       </Routes>
-      <Toaster position="top-right" />
+      <Toaster 
+        position="top-center" 
+        containerStyle={{
+          zIndex: 10010
+        }}
+        toastOptions={{
+          style: {
+            zIndex: 10010
+          }
+        }}
+      />
     </>
   )
 }

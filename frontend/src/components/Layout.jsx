@@ -125,6 +125,7 @@ export default function Layout() {
   const [showMemberModal, setShowMemberModal] = useState(false)
   const [showStaffModal, setShowStaffModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [invoiceMemberData, setInvoiceMemberData] = useState(null)
   const [showCheckInMenu, setShowCheckInMenu] = useState(false)
   const [showSendMenu, setShowSendMenu] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
@@ -1289,7 +1290,15 @@ export default function Layout() {
       {/* Add Member Modal */}
       <AddMemberModal 
         isOpen={showMemberModal} 
-        onClose={() => setShowMemberModal(false)} 
+        onClose={() => {
+          setShowMemberModal(false)
+          setInvoiceMemberData(null)
+        }}
+        onMemberCreated={(memberData) => {
+          setInvoiceMemberData(memberData)
+          setShowMemberModal(false)
+          setShowInvoiceModal(true)
+        }}
       />
 
       {/* Add Staff Modal */}
@@ -1301,7 +1310,13 @@ export default function Layout() {
       {/* Add Invoice Modal */}
       <AddInvoiceModal 
         isOpen={showInvoiceModal} 
-        onClose={() => setShowInvoiceModal(false)} 
+        onClose={() => {
+          setShowInvoiceModal(false)
+          setInvoiceMemberData(null)
+        }}
+        defaultMemberId={invoiceMemberData?.id}
+        defaultMemberName={invoiceMemberData?.name}
+        defaultMemberPhone={invoiceMemberData?.phone}
       />
     </div>
   )

@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import DateInput from './DateInput'
- import TimeInput from './TimeInput'
+import TimeInput from './TimeInput'
+import LoadingSpinner from './LoadingSpinner'
 
 export default function AddEnquiryModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState('personal')
@@ -129,6 +130,15 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
       <div className={`fixed right-0 top-0 h-full w-3/4 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : 'translate-x-full'
       } overflow-y-auto ${!isOpen ? 'pointer-events-none' : ''}`}>
+        {/* Loading Overlay */}
+        {createEnquiryMutation.isLoading && (
+          <div className="absolute inset-0 bg-white bg-opacity-90 z-50 flex items-center justify-center">
+            <div className="flex flex-col items-center space-y-4">
+              <LoadingSpinner size="lg" />
+              <p className="text-gray-600 font-semibold">Creating enquiry...</p>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 px-8 py-5 flex items-center justify-between z-10 shadow-sm">
           <div>
