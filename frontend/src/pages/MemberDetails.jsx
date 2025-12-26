@@ -10,6 +10,7 @@ import AttendanceTab from '../components/AttendanceTab'
 import DateInput from '../components/DateInput'
 import Breadcrumbs from '../components/Breadcrumbs'
 import RazorpayPayment from '../components/RazorpayPayment'
+import RecordPaymentModal from '../components/RecordPaymentModal'
 import toast from 'react-hot-toast'
 import {
   User,
@@ -1513,12 +1514,14 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                       <div className="grid grid-cols-3 gap-3 mb-4">
                         {item.expiryDate && (
                           <div className="text-center bg-orange-50 rounded-lg p-3">
+                            <p className="text-xs text-gray-600  font-bold   uppercase mb-1">Days Remaining</p>
                             <p className="text-2xl font-bold text-orange-600">{daysRemaining}</p>
                             <p className="text-xs text-gray-600 uppercase mt-1">Day(s)</p>
                           </div>
                         )}
                         {startDate && (
                           <div className="text-center bg-gray-50 rounded-lg p-3">
+                            <p className="text-xs text-gray-600  font-bold   uppercase mb-1">Start Date</p>
                             <p className="text-2xl font-bold text-gray-900">{startDate.day}</p>
                             <p className="text-xs text-gray-600 uppercase mt-1">{startDate.month} '{startDate.year}</p>
                             <p className="text-xs text-gray-500 mt-0.5">{startDate.weekday}</p>
@@ -1526,9 +1529,10 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                         )}
                         {expiryDate && (
                           <div className="text-center bg-gray-50 rounded-lg p-3">
+                            <p className="text-xs font-bold text-gray-600 uppercase mb-1">End Date</p>
                             <p className="text-2xl font-bold text-gray-900">{expiryDate.day}</p>
-                            <p className="text-xs text-gray-600 uppercase mt-1">{expiryDate.month} '{expiryDate.year}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{expiryDate.weekday}</p>
+                            <p className="text-xs font-bold text-gray-600 uppercase mt-1">{expiryDate.month} '{expiryDate.year}</p>
+                            <p className="text-xs font-bold text-gray-500 mt-0.5">{expiryDate.weekday}</p>
                           </div>
                         )}
                         {!daysRemaining && !startDate && !expiryDate && (
@@ -1538,11 +1542,13 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                               <p className="text-xs text-gray-600 uppercase mt-1">Day(s)</p>
                             </div>
                             <div className="text-center bg-gray-50 rounded-lg p-3">
+                              <p className="text-xs text-gray-600 uppercase mb-1">Start Date</p>
                               <p className="text-2xl font-bold text-gray-900">01</p>
                               <p className="text-xs text-gray-600 uppercase mt-1">SEPTEMBER '25</p>
                               <p className="text-xs text-gray-500 mt-0.5">Monday</p>
                             </div>
                             <div className="text-center bg-gray-50 rounded-lg p-3">
+                              <p className="text-xs text-gray-600 uppercase mb-1">End Date</p>
                               <p className="text-2xl font-bold text-gray-900">30</p>
                               <p className="text-xs text-gray-600 uppercase mt-1">NOVEMBER '25</p>
                               <p className="text-xs text-gray-500 mt-0.5">Sunday</p>
@@ -1888,6 +1894,7 @@ function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading })
 // Payments Tab Component
 function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilter, page, setPage, navigate }) {
   const [showPaymentModal, setShowPaymentModal] = useState(null)
+  const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(null)
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -2092,6 +2099,19 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-2">
+                          {pendingAmount > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setShowRecordPaymentModal(invoice)
+                              }}
+                              className="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-xs font-medium"
+                              title="Record Payment"
+                            >
+                              Pay
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.preventDefault()
@@ -2194,6 +2214,19 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
           onSuccess={() => {
             setShowPaymentModal(null)
             // The query will auto-refresh due to invalidation in RazorpayPayment component
+          }}
+        />
+      )}
+
+      {/* Record Payment Modal */}
+      {showRecordPaymentModal && (
+        <RecordPaymentModal
+          invoice={showRecordPaymentModal}
+          isOpen={!!showRecordPaymentModal}
+          onClose={() => setShowRecordPaymentModal(null)}
+          onSuccess={() => {
+            setShowRecordPaymentModal(null)
+            // The query will auto-refresh due to invalidation in RecordPaymentModal component
           }}
         />
       )}

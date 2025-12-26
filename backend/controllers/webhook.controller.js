@@ -68,12 +68,16 @@ export const handleRazorpayWebhook = async (req, res) => {
             reconciledAt: new Date()
           });
 
-          // Update invoice status
+          // Update invoice status and pending amount
           const totalPaid = await Payment.aggregate([
             { $match: { invoiceId: invoice._id, status: { $in: ['completed', 'processing'] } } },
             { $group: { _id: null, total: { $sum: '$amount' } } }
           ]);
           const paidAmount = totalPaid[0]?.total || 0;
+          const pendingAmount = Math.max(0, invoice.total - paidAmount);
+          
+          // Update invoice pending field
+          invoice.pending = pendingAmount;
           
           if (paidAmount >= invoice.total) {
             invoice.status = 'paid';

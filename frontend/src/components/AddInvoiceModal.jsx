@@ -470,6 +470,41 @@ export default function AddInvoiceModal({
     }))
   }
 
+  const calculateEndDateFromStartDate = (startDate, duration) => {
+    if (!startDate || !duration) return null
+    
+    try {
+      const start = new Date(startDate)
+      if (isNaN(start.getTime())) return null
+      
+      // Parse duration string (e.g., "3 months", "30 days", "2 weeks", "1 year")
+      const durationMatch = duration.toString().match(/(\d+)\s*(day|days|week|weeks|month|months|year|years)/i)
+      if (!durationMatch) return null
+      
+      const value = parseInt(durationMatch[1])
+      const unit = durationMatch[2].toLowerCase()
+      
+      const endDate = new Date(start)
+      
+      if (unit === 'day' || unit === 'days') {
+        endDate.setDate(endDate.getDate() + value)
+      } else if (unit === 'week' || unit === 'weeks') {
+        endDate.setDate(endDate.getDate() + value * 7)
+      } else if (unit === 'month' || unit === 'months') {
+        endDate.setMonth(endDate.getMonth() + value)
+      } else if (unit === 'year' || unit === 'years') {
+        endDate.setFullYear(endDate.getFullYear() + value)
+      } else {
+        return null
+      }
+      
+      return endDate.toISOString().split('T')[0]
+    } catch (error) {
+      console.error('Error calculating end date:', error)
+      return null
+    }
+  }
+
   const handleItemChange = (index, field, value) => {
     setFormData(prev => {
       const newItems = [...prev.items]
@@ -478,6 +513,14 @@ export default function AddInvoiceModal({
         newItems[index][parent] = { ...newItems[index][parent], [child]: value }
       } else {
         newItems[index][field] = value
+        
+        // Auto-calculate end date when start date is manually changed
+        if (field === 'startDate' && value && newItems[index].duration) {
+          const calculatedEndDate = calculateEndDateFromStartDate(value, newItems[index].duration)
+          if (calculatedEndDate) {
+            newItems[index].expiryDate = calculatedEndDate
+          }
+        }
       }
       return { ...prev, items: newItems }
     })

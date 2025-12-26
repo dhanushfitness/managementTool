@@ -1,5 +1,9 @@
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import dayjs from 'dayjs'
+import customParseFormat from 'dayjs/plugin/customParseFormat'
+
+// Extend dayjs with custom parse format plugin
+dayjs.extend(customParseFormat)
 
 export default function DateInput({
   value,
@@ -18,7 +22,8 @@ export default function DateInput({
   // Handle change event
   const handleChange = (newValue) => {
     if (onChange) {
-      // Convert dayjs object back to string format (YYYY-MM-DD) for native input compatibility
+      // Convert dayjs object back to string format (YYYY-MM-DD) for backend compatibility
+      // But display format will be DD-MM-YYYY
       const event = {
         target: {
           name: name || '',
@@ -34,7 +39,7 @@ export default function DateInput({
       <DatePicker
         value={dayjsValue}
         onChange={handleChange}
-        format="YYYY-MM-DD"
+        format="DD-MM-YYYY"
         disabled={disabled}
         slotProps={{
           textField: {
@@ -43,6 +48,7 @@ export default function DateInput({
             className: className,
             required: required,
             name: name,
+            placeholder: 'DD-MM-YYYY',
             ...props,
           },
           popper: {

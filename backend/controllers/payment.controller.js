@@ -27,6 +27,29 @@ export const createPayment = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
+    // Calculate current pending amount
+    const totalPaidBefore = await Payment.aggregate([
+      { $match: { invoiceId: invoice._id, status: { $in: ['completed', 'processing'] } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const paidAmountBefore = totalPaidBefore[0]?.total || 0;
+    const pendingAmountBefore = Math.max(0, invoice.total - paidAmountBefore);
+
+    // Validate payment amount doesn't exceed pending amount
+    if (amount > pendingAmountBefore) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Payment amount (₹${amount.toFixed(2)}) cannot exceed pending amount (₹${pendingAmountBefore.toFixed(2)})` 
+      });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Payment amount must be greater than zero' 
+      });
+    }
+
     const receiptNumber = await generateReceiptNumber(req.organizationId);
 
     const payment = await Payment.create({
@@ -45,13 +68,18 @@ export const createPayment = async (req, res) => {
       createdBy: req.user._id
     });
 
-    // Update invoice status
+    // Update invoice status and pending amount
     const totalPaid = await Payment.aggregate([
       { $match: { invoiceId: invoice._id, status: { $in: ['completed', 'processing'] } } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
 
     const paidAmount = totalPaid[0]?.total || 0;
+    const pendingAmount = Math.max(0, invoice.total - paidAmount);
+    
+    // Update invoice pending field
+    invoice.pending = pendingAmount;
+    
     if (paidAmount >= invoice.total) {
       invoice.status = 'paid';
       invoice.paidDate = new Date();
@@ -128,6 +156,7 @@ export const processRazorpayPayment = async (req, res) => {
     // Update invoice
     invoice.status = 'paid';
     invoice.paidDate = new Date();
+    invoice.pending = 0; // Fully paid
     invoice.paymentMethod = 'razorpay';
     invoice.razorpayOrderId = razorpayOrderId;
     invoice.razorpayPaymentId = razorpayPaymentId;
