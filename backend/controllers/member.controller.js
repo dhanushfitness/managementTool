@@ -293,6 +293,8 @@ export const searchMembers = async (req, res) => {
     }
 
     let members;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Start of today
     
     // For member-name, use aggregation to also search full name
     if (searchType === 'member-name' || !searchType) {
@@ -331,28 +333,59 @@ export const searchMembers = async (req, res) => {
             email: 1,
             memberId: 1,
             membershipStatus: 1,
-            profilePicture: 1
+            profilePicture: 1,
+            'currentPlan.endDate': 1
           }
         },
         { $limit: 10 }
       ]);
       
-      // Convert aggregation results to match the format expected by frontend
-      members = members.map(m => ({
-        _id: m._id,
-        firstName: m.firstName,
-        lastName: m.lastName,
-        phone: m.phone,
-        email: m.email,
-        memberId: m.memberId,
-        membershipStatus: m.membershipStatus,
-        profilePicture: m.profilePicture
-      }));
+      // Convert aggregation results and calculate actual membership status
+      members = members.map(m => {
+        // Check if membership has actually expired based on endDate
+        let actualStatus = m.membershipStatus;
+        if (m.currentPlan?.endDate) {
+          const endDate = new Date(m.currentPlan.endDate);
+          endDate.setHours(0, 0, 0, 0);
+          // If endDate has passed, membership is expired regardless of stored status
+          if (endDate < now && actualStatus === 'active') {
+            actualStatus = 'expired';
+          }
+        }
+        
+        return {
+          _id: m._id,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          phone: m.phone,
+          email: m.email,
+          memberId: m.memberId,
+          membershipStatus: actualStatus, // Use calculated status
+          profilePicture: m.profilePicture
+        };
+      });
     } else {
       members = await Member.find(query)
-        .select('firstName lastName phone email memberId membershipStatus profilePicture')
+        .select('firstName lastName phone email memberId membershipStatus profilePicture currentPlan.endDate')
         .limit(10)
         .lean();
+      
+      // Calculate actual membership status for each member
+      members = members.map(m => {
+        let actualStatus = m.membershipStatus;
+        if (m.currentPlan?.endDate) {
+          const endDate = new Date(m.currentPlan.endDate);
+          endDate.setHours(0, 0, 0, 0);
+          // If endDate has passed, membership is expired regardless of stored status
+          if (endDate < now && actualStatus === 'active') {
+            actualStatus = 'expired';
+          }
+        }
+        return {
+          ...m,
+          membershipStatus: actualStatus // Use calculated status
+        };
+      });
     }
 
     console.log(`Search for "${searchTerm}" (type: ${searchType || 'member-name'}) found ${members.length} members`);
