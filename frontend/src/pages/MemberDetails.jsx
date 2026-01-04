@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
@@ -12,6 +12,7 @@ import Breadcrumbs from '../components/Breadcrumbs'
 import RazorpayPayment from '../components/RazorpayPayment'
 import RecordPaymentModal from '../components/RecordPaymentModal'
 import UpgradeMembershipModal from '../components/UpgradeMembershipModal'
+import AddInvoiceModal from '../components/AddInvoiceModal'
 import toast from 'react-hot-toast'
 import {
   User,
@@ -79,6 +80,17 @@ export default function MemberDetails() {
   const [showCallModal, setShowCallModal] = useState(false)
   const [showReferralModal, setShowReferralModal] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  
+  // Image upload and camera states
+  const [showCamera, setShowCamera] = useState(false)
+  const [capturedImage, setCapturedImage] = useState(null)
+  const [cameraError, setCameraError] = useState('')
+  const [cameraLoading, setCameraLoading] = useState(false)
+  const [facingMode, setFacingMode] = useState('user') // 'user' for front, 'environment' for back
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['member', id],
@@ -145,6 +157,8 @@ export default function MemberDetails() {
     muscleEndurance: memberData?.fitnessProfile?.muscleEndurance !== undefined ? memberData.fitnessProfile.muscleEndurance.toString() : '',
     coreStrength: memberData?.fitnessProfile?.coreStrength !== undefined ? memberData.fitnessProfile.coreStrength.toString() : '',
     flexibility: memberData?.fitnessProfile?.flexibility !== undefined ? memberData.fitnessProfile.flexibility.toString() : '',
+    leftHandGripStrength: memberData?.fitnessProfile?.leftHandGripStrength !== undefined ? memberData.fitnessProfile.leftHandGripStrength.toString() : '',
+    rightHandGripStrength: memberData?.fitnessProfile?.rightHandGripStrength !== undefined ? memberData.fitnessProfile.rightHandGripStrength.toString() : '',
     measuredAt: memberData?.fitnessProfile?.measuredAt
       ? new Date(memberData.fitnessProfile.measuredAt).toISOString().split('T')[0]
       : ''
@@ -209,6 +223,161 @@ export default function MemberDetails() {
       [field]: value
     }))
   }
+
+  // Image upload handler
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select a valid image file')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB')
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const imageData = reader.result
+        // Save profile picture immediately
+        updateMutation.mutate({ profilePicture: imageData })
+      }
+      reader.onerror = () => {
+        toast.error('Failed to read image file')
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // Camera cleanup function
+  const cleanupCameraStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+  }
+
+  // Open camera modal
+  const openCameraModal = async (mode = facingMode) => {
+    setShowCamera(true)
+    setCapturedImage(null)
+    setCameraError('')
+    setCameraLoading(true)
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera access is not supported on this browser/device.')
+      setCameraLoading(false)
+      return
+    }
+
+    try {
+      cleanupCameraStream()
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: mode },
+        audio: false
+      })
+
+      streamRef.current = stream
+      
+      // Wait for video element to be available
+      setTimeout(() => {
+        if (videoRef.current && stream) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play().then(() => {
+            setCameraLoading(false)
+          }).catch((err) => {
+            console.error('Error playing video:', err)
+            setCameraError('Failed to start camera preview.')
+            setCameraLoading(false)
+          })
+        }
+      }, 100)
+    } catch (error) {
+      console.error('Error accessing camera:', error)
+      setCameraError('Unable to access camera. Please check permissions and try again.')
+      setCameraLoading(false)
+    }
+  }
+
+  // Stop camera
+  const stopCamera = () => {
+    cleanupCameraStream()
+    setShowCamera(false)
+    setCapturedImage(null)
+    setCameraError('')
+    setCameraLoading(false)
+  }
+
+  // Capture photo from camera
+  const capturePhoto = () => {
+    const video = videoRef.current
+    if (!video) {
+      toast.error('Video element not found.')
+      return
+    }
+
+    if (video.readyState < 2) {
+      toast.error('Camera not ready. Please wait a moment.')
+      return
+    }
+
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      toast.error('Video dimensions not available. Please try again.')
+      return
+    }
+
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const imageData = canvas.toDataURL('image/jpeg', 0.85)
+      setCapturedImage(imageData)
+      toast.success('Photo captured! Review and confirm below.')
+    } catch (error) {
+      console.error('Error capturing photo:', error)
+      toast.error('Failed to capture photo. Please try again.')
+    }
+  }
+
+  // Confirm captured photo and save
+  const confirmCapturedPhoto = () => {
+    if (!capturedImage) return
+    updateMutation.mutate({ profilePicture: capturedImage })
+    stopCamera()
+    toast.success('Profile picture updated successfully!')
+  }
+
+  // Switch camera (front/back)
+  const switchCamera = async () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user'
+    setFacingMode(newMode)
+    cleanupCameraStream()
+    await openCameraModal(newMode)
+  }
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      cleanupCameraStream()
+    }
+  }, [])
+
+  // Handle video stream when camera modal opens
+  useEffect(() => {
+    if (showCamera && streamRef.current && videoRef.current && !videoRef.current.srcObject) {
+      videoRef.current.srcObject = streamRef.current
+      videoRef.current.play().catch(console.error)
+    }
+  }, [showCamera])
 
   const calculateAgeFromDOB = (dobString) => {
     if (!dobString) return undefined
@@ -335,6 +504,8 @@ export default function MemberDetails() {
         muscleEndurance: parseFitnessNumber(fitnessForm.muscleEndurance),
         coreStrength: parseFitnessNumber(fitnessForm.coreStrength),
         flexibility: parseFitnessNumber(fitnessForm.flexibility),
+        leftHandGripStrength: parseFitnessNumber(fitnessForm.leftHandGripStrength),
+        rightHandGripStrength: parseFitnessNumber(fitnessForm.rightHandGripStrength),
         gender: formData.gender || member?.gender || undefined,
         name: fullName,
         measuredAt: measuredAtValue
@@ -461,11 +632,22 @@ export default function MemberDetails() {
                         </div>
                       )}
                       <div className="mt-4 space-y-2">
-                        <button className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium flex items-center justify-center space-x-2">
+                        <label className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium flex items-center justify-center space-x-2 cursor-pointer">
                           <Upload className="w-4 h-4" />
                           <span>Upload Image</span>
-                        </button>
-                        <button className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium flex items-center justify-center space-x-2">
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openCameraModal()}
+                          className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+                        >
                           <Camera className="w-4 h-4" />
                           <span>Capture Image</span>
                         </button>
@@ -989,6 +1171,39 @@ export default function MemberDetails() {
                         </div>
                       )
                     })}
+                  </div>
+
+                  {/* Grip Strength Section */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <h4 className="text-md font-bold text-gray-900 mb-4">Grip Strength</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Left Hand Grip Strength (kg)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={fitnessForm.leftHandGripStrength ?? ''}
+                          onChange={(e) => handleFitnessChange('leftHandGripStrength', e.target.value)}
+                          disabled={!isEditing}
+                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                            !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Right Hand Grip Strength (kg)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={fitnessForm.rightHandGripStrength ?? ''}
+                          onChange={(e) => handleFitnessChange('rightHandGripStrength', e.target.value)}
+                          disabled={!isEditing}
+                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                            !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                          }`}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1919,6 +2134,7 @@ function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading })
 
 // Payments Tab Component
 function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilter, page, setPage, navigate }) {
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(null)
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(null)
   const formatCurrency = (amount) => {
@@ -1977,11 +2193,15 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
         <h1 className="text-3xl font-bold text-gray-900">
           Payments - {member?.firstName?.toUpperCase()} {member?.lastName?.toUpperCase()}
         </h1>
-        {/* <div className="flex items-center space-x-2">
-          <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
-            Product
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowInvoiceModal(true)}
+            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium flex items-center space-x-2"
+          >
+            <FileText className="w-4 h-4" />
+            <span>New Invoice</span>
           </button>
-        </div> */}
+        </div>
       </div>
 
       {/* Filter and Action Bar */}
@@ -2256,6 +2476,20 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
           }}
         />
       )}
+
+      {/* Add Invoice Modal */}
+      <AddInvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={(shouldRefresh) => {
+          setShowInvoiceModal(false)
+          if (shouldRefresh) {
+            // The query will auto-refresh due to invalidation in AddInvoiceModal component
+          }
+        }}
+        defaultMemberId={member?._id}
+        defaultMemberName={member ? `${member.firstName} ${member.lastName}`.trim() : ''}
+        defaultMemberPhone={member?.phone || ''}
+      />
     </div>
   )
 }
@@ -4167,6 +4401,130 @@ function TermsConditionsTab({ member }) {
           </div>
         )}
       </div>
+
+      {/* Camera Modal */}
+      {showCamera && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-[10002] flex items-center justify-center" 
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              stopCamera()
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 overflow-hidden border border-gray-200 relative" 
+            style={{ zIndex: 10003, pointerEvents: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Title Bar */}
+            <div className="bg-gray-100 px-4 py-3 flex items-center justify-between border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Capture Member Photo</h3>
+                <p className="text-xs text-gray-500">Grant camera permissions to click a quick photo from this device.</p>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); stopCamera(); }}
+                className="text-gray-600 hover:text-gray-900 transition-colors p-1 hover:bg-gray-200 rounded z-10"
+                style={{ position: 'relative', zIndex: 10 }}
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Camera Preview Area */}
+            <div className="bg-white p-4">
+              <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: '320px' }}>
+                {capturedImage ? (
+                  <img
+                    src={capturedImage}
+                    alt="Captured preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : cameraError ? (
+                  <div className="flex items-center justify-center h-full text-center px-6">
+                    <p className="text-sm text-gray-200">{cameraError}</p>
+                  </div>
+                ) : (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                    onLoadedMetadata={() => {
+                      if (videoRef.current) {
+                        videoRef.current.play().catch(console.error)
+                      }
+                    }}
+                    onCanPlay={() => {
+                      setCameraLoading(false)
+                    }}
+                  />
+                )}
+                {cameraLoading && !capturedImage && !cameraError && (
+                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                    <p className="text-white text-sm">Requesting camera access…</p>
+                  </div>
+                )}
+                {!capturedImage && !cameraError && (
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      className="bg-white rounded-full p-4 shadow-lg hover:bg-gray-100 transition-colors"
+                      disabled={cameraLoading}
+                    >
+                      <Camera className="w-6 h-6 text-gray-900" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={switchCamera}
+                      className="bg-white rounded-full p-3 shadow-lg hover:bg-gray-100 transition-colors"
+                      disabled={cameraLoading}
+                      title="Switch camera"
+                    >
+                      <Camera className="w-5 h-5 text-gray-900" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="bg-gray-50 px-4 py-3 flex items-center justify-end gap-3 border-t border-gray-200">
+              {capturedImage ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setCapturedImage(null)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Retake
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmCapturedPhoto}
+                    className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    Confirm & Save
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

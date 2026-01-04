@@ -111,14 +111,36 @@ export const createEnquiry = async (req, res) => {
         // Remove followUpDate from enquiryData as it's not in schema
         delete enquiryData.followUpDate;
 
+        // Initialize callLogs array
+        enquiryData.callLogs = [];
+
+        // If message/notes is provided, add it as a call log entry
+        const message = req.body.notes || req.body.message;
+        if (message && message.trim()) {
+          enquiryData.callLogs.push({
+            date: new Date(),
+            status: 'enquiry',
+            notes: message.trim(),
+            staffId: req.body.assignedStaff || req.user._id
+          });
+          // Update lastCallStatus to 'enquiry' when message is provided
+          if (!enquiryData.lastCallStatus || enquiryData.lastCallStatus === 'not-called') {
+            enquiryData.lastCallStatus = 'enquiry';
+          }
+        }
+        // If no message and no lastCallStatus set, default to 'not-called'
+        else if (!enquiryData.lastCallStatus) {
+          enquiryData.lastCallStatus = 'not-called';
+        }
+
         // If follow-up date/time is provided, add to call logs before creating
         if (followUpDate && req.body.assignedStaff) {
-          enquiryData.callLogs = [{
+          enquiryData.callLogs.push({
             date: followUpDate,
             status: 'scheduled',
             notes: 'Follow-up scheduled during enquiry creation',
             staffId: req.body.assignedStaff
-          }];
+          });
         }
 
         enquiry = await Enquiry.create(enquiryData);

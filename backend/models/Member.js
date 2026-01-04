@@ -111,6 +111,8 @@ const memberSchema = new mongoose.Schema({
     muscleEndurance: Number,
     coreStrength: Number,
     flexibility: Number,
+    leftHandGripStrength: Number,
+    rightHandGripStrength: Number,
     height: Number,
     age: Number,
     gender: String,

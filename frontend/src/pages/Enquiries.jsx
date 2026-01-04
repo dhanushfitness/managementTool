@@ -772,8 +772,32 @@ export default function Enquiries() {
                                 <Plus className="w-4 h-4" />
                               </button>
                               {lastCallLog && (
-                                <span className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-lg flex items-center justify-center text-xs font-bold shadow-sm">
+                                <span 
+                                  className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-lg flex items-center justify-center text-xs font-bold shadow-sm cursor-help relative group"
+                                  title="Last Call Log - Hover to see details"
+                                >
                                   LC
+                                  {/* Enhanced tooltip on hover */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                                    <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl max-w-xs whitespace-normal break-words">
+                                      {lastCallLog.status && (
+                                        <div className="font-bold text-orange-400 mb-1 capitalize">
+                                          {lastCallLog.status.replace(/-/g, ' ')}
+                                        </div>
+                                      )}
+                                      <div className="text-white">
+                                        {lastCallLog.notes || lastCallLog.message || 'Call log available'}
+                                      </div>
+                                      {lastCallLog.date && (
+                                        <div className="text-gray-400 text-xs mt-1">
+                                          {new Date(lastCallLog.date).toLocaleString()}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                      <div className="border-4 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                  </div>
                                 </span>
                               )}
                             </div>
