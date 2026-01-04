@@ -11,10 +11,12 @@ import DateInput from '../components/DateInput'
 import Breadcrumbs from '../components/Breadcrumbs'
 import RazorpayPayment from '../components/RazorpayPayment'
 import RecordPaymentModal from '../components/RecordPaymentModal'
+import UpgradeMembershipModal from '../components/UpgradeMembershipModal'
 import toast from 'react-hot-toast'
 import {
   User,
   Calendar,
+  TrendingUp,
   Phone,
   Mail,
   MapPin,
@@ -76,6 +78,7 @@ export default function MemberDetails() {
   const [paymentPage, setPaymentPage] = useState(1)
   const [showCallModal, setShowCallModal] = useState(false)
   const [showReferralModal, setShowReferralModal] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['member', id],
@@ -1086,6 +1089,20 @@ export default function MemberDetails() {
                     <Edit2 className="w-4 h-4" />
                     <span>Edit</span>
                   </button>
+                  {(member?.currentPlan?.planId?._id || member?.currentPlan?.planId) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setShowUpgradeModal(true)
+                      }}
+                      className="px-6 py-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium flex items-center space-x-2"
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      <span>Upgrade Membership</span>
+                    </button>
+                  )}
                   {/* <button className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
                     Sell Product
                   </button> */}
@@ -1161,6 +1178,15 @@ export default function MemberDetails() {
           </div>
         )}
       </div>
+
+      {/* Upgrade Membership Modal */}
+      {showUpgradeModal && member && (
+        <UpgradeMembershipModal
+          isOpen={true}
+          onClose={() => setShowUpgradeModal(false)}
+          member={member}
+        />
+      )}
     </div>
   )
 }

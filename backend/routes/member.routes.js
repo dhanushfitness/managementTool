@@ -10,6 +10,8 @@ import {
   freezeMembership,
   unfreezeMembership,
   upgradeDowngradePlan,
+  calculateUpgradeProration,
+  upgradeMembership,
   getMemberAttendance,
   getMemberInvoices,
   getMemberInvoicesWithPayments,
@@ -47,6 +49,8 @@ router.post('/:memberId/renew', authorize('owner', 'manager', 'staff'), renewMem
 router.post('/:memberId/freeze', authorize('owner', 'manager', 'staff'), freezeMembership);
 router.post('/:memberId/unfreeze', authorize('owner', 'manager', 'staff'), unfreezeMembership);
 router.post('/:memberId/change-plan', authorize('owner', 'manager'), upgradeDowngradePlan);
+router.get('/:memberId/upgrade/proration/:newPlanId', authorize('owner', 'manager', 'staff'), calculateUpgradeProration);
+router.post('/:memberId/upgrade', authorize('owner', 'manager', 'staff'), upgradeMembership);
 
 // Member data
 router.get('/:memberId/attendance', getMemberAttendance);

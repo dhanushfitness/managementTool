@@ -19,4 +19,6 @@ export const renewMembership = (id, data) => api.post(`/members/${id}/renew`, da
 export const searchMembers = (query) => api.get('/members/search', { params: { q: query } })
 export const getMemberTimeSlots = (id) => api.get(`/members/${id}/time-slots`)
 export const setMemberTimeSlots = (id, timeSlots) => api.put(`/members/${id}/time-slots`, { timeSlots })
+export const calculateUpgradeProration = (memberId, newPlanId) => api.get(`/members/${memberId}/upgrade/proration/${newPlanId}`)
+export const upgradeMembership = (memberId, data) => api.post(`/members/${memberId}/upgrade`, data)
 

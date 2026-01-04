@@ -31,6 +31,12 @@ export const activateMembershipFromInvoice = async (invoice) => {
     if (targetItem) {
       const startDate = targetItem.startDate ? new Date(targetItem.startDate) : new Date();
       const endDate = targetItem.expiryDate ? new Date(targetItem.expiryDate) : undefined;
+      
+      // Normalize dates to start of day for comparison
+      const startDateNormalized = new Date(startDate);
+      startDateNormalized.setHours(0, 0, 0, 0);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
 
       const sessions = targetItem.numberOfSessions ? {
         total: targetItem.numberOfSessions,
@@ -38,23 +44,29 @@ export const activateMembershipFromInvoice = async (invoice) => {
         remaining: targetItem.numberOfSessions
       } : undefined;
 
-      await Member.findOneAndUpdate(
-        { _id: invoice.memberId },
-        {
-          $set: {
-            membershipStatus: 'active',
-            currentPlan: {
-              planId: invoice.planId || targetItem.serviceId || undefined,
-              planName: targetItem.description || invoice.planName || 'Membership Plan',
-              startDate,
-              endDate,
-              sessions
+      // Only activate if startDate has arrived or passed
+      // For upgrade invoices with future start dates, wait until the date arrives
+      if (startDateNormalized <= now) {
+        await Member.findOneAndUpdate(
+          { _id: invoice.memberId },
+          {
+            $set: {
+              membershipStatus: 'active',
+              currentPlan: {
+                planId: invoice.planId || targetItem.serviceId || undefined,
+                planName: targetItem.description || invoice.planName || 'Membership Plan',
+                startDate,
+                endDate,
+                sessions
+              }
             }
           }
-        }
-      );
+        );
 
-      console.log(`Membership activated for member ${member.memberId} based on invoice ${invoice.invoiceNumber || invoice._id}`);
+        console.log(`Membership activated for member ${member.memberId} based on invoice ${invoice.invoiceNumber || invoice._id}`);
+      } else {
+        console.log(`Membership activation deferred for member ${member.memberId}. Start date ${startDateNormalized.toISOString()} is in the future. Will activate automatically when date arrives.`);
+      }
     } else {
       // If no items with dates, just activate the membership
       await Member.findOneAndUpdate(

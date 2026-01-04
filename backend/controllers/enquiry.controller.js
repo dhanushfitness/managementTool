@@ -12,74 +12,132 @@ const normalizePhone = (phone) => {
   return phone.replace(/[^\d+]/g, '');
 };
 
-// Generate enquiry ID
+// Generate enquiry ID with collision handling
 const generateEnquiryId = async (organizationId) => {
-  const count = await Enquiry.countDocuments({ organizationId });
-  return `ENQ${String(count + 1).padStart(6, '0')}`;
+  // Find the highest existing enquiryId for this organization
+  const lastEnquiry = await Enquiry.findOne({ organizationId })
+    .sort({ enquiryId: -1 })
+    .select('enquiryId')
+    .lean();
+
+  let nextNumber = 1;
+  
+  if (lastEnquiry && lastEnquiry.enquiryId) {
+    // Extract the number from the last enquiryId (e.g., "ENQ000014" -> 14)
+    const match = lastEnquiry.enquiryId.match(/\d+$/);
+    if (match) {
+      nextNumber = parseInt(match[0], 10) + 1;
+    }
+  }
+
+  // Generate ID and check for collisions (retry up to 10 times)
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  while (attempts < maxAttempts) {
+    const enquiryId = `ENQ${String(nextNumber).padStart(6, '0')}`;
+    
+    // Check if this ID already exists
+    const exists = await Enquiry.findOne({ enquiryId }).select('_id').lean();
+    
+    if (!exists) {
+      return enquiryId;
+    }
+    
+    // If it exists, try the next number
+    nextNumber++;
+    attempts++;
+  }
+  
+  // Fallback: use timestamp-based ID if all attempts fail
+  return `ENQ${Date.now().toString().slice(-6)}`;
 };
 
 export const createEnquiry = async (req, res) => {
   try {
-    const enquiryId = await generateEnquiryId(req.organizationId);
-    
-    // If service is provided, fetch its name (could be Service or Plan)
-    let serviceName = req.body.serviceName;
-    let serviceId = req.body.service;
-    
-    if (serviceId && !serviceName) {
-      // Try to find as Plan first
-      const Plan = (await import('../models/Plan.js')).default;
-      const plan = await Plan.findById(serviceId);
-      if (plan) {
-        serviceName = plan.name;
-        serviceId = plan._id; // Use plan ID for reference
-      } else {
-        // If not found as Plan, try to find as Service
-        const Service = (await import('../models/Service.js')).default;
-        const service = await Service.findById(serviceId);
-        if (service) {
-          serviceName = service.name;
-          // For Service, we don't set serviceId reference (as it expects Plan)
-          // Just save the serviceName
-          serviceId = null;
-        }
-      }
-    }
-    
-    // Handle follow-up date (map followUpDate to expectedClosureDate)
+    // Handle follow-up date (map followUpDate to expectedClosureDate) - declare outside loop
     const followUpDate = req.body.followUpDate ? new Date(req.body.followUpDate) : null;
     
-    const enquiryData = {
-      ...req.body,
-      organizationId: req.organizationId,
-      branchId: req.body.branchId || req.user.branchId,
-      enquiryId,
-      serviceName,
-      expectedClosureDate: followUpDate || req.body.expectedClosureDate,
-      createdBy: req.user._id
-    };
+    // Retry logic for handling duplicate key errors
+    let enquiry;
+    let retries = 0;
+    const maxRetries = 5;
+    
+    while (retries < maxRetries) {
+      try {
+        const enquiryId = await generateEnquiryId(req.organizationId);
+        
+        // If service is provided, fetch its name (could be Service or Plan)
+        let serviceName = req.body.serviceName;
+        let serviceId = req.body.service;
+        
+        if (serviceId && !serviceName) {
+          // Try to find as Plan first
+          const Plan = (await import('../models/Plan.js')).default;
+          const plan = await Plan.findById(serviceId);
+          if (plan) {
+            serviceName = plan.name;
+            serviceId = plan._id; // Use plan ID for reference
+          } else {
+            // If not found as Plan, try to find as Service
+            const Service = (await import('../models/Service.js')).default;
+            const service = await Service.findById(serviceId);
+            if (service) {
+              serviceName = service.name;
+              // For Service, we don't set serviceId reference (as it expects Plan)
+              // Just save the serviceName
+              serviceId = null;
+            }
+          }
+        }
+        
+        const enquiryData = {
+          ...req.body,
+          organizationId: req.organizationId,
+          branchId: req.body.branchId || req.user.branchId,
+          enquiryId,
+          serviceName,
+          expectedClosureDate: followUpDate || req.body.expectedClosureDate,
+          createdBy: req.user._id
+        };
 
-    // Set service reference only if it's a Plan, otherwise null
-    if (serviceId) {
-      enquiryData.service = serviceId;
-    } else {
-      enquiryData.service = null;
+        // Set service reference only if it's a Plan, otherwise null
+        if (serviceId) {
+          enquiryData.service = serviceId;
+        } else {
+          enquiryData.service = null;
+        }
+
+        // Remove followUpDate from enquiryData as it's not in schema
+        delete enquiryData.followUpDate;
+
+        // If follow-up date/time is provided, add to call logs before creating
+        if (followUpDate && req.body.assignedStaff) {
+          enquiryData.callLogs = [{
+            date: followUpDate,
+            status: 'scheduled',
+            notes: 'Follow-up scheduled during enquiry creation',
+            staffId: req.body.assignedStaff
+          }];
+        }
+
+        enquiry = await Enquiry.create(enquiryData);
+        break; // Success, exit retry loop
+      } catch (error) {
+        // Check if it's a duplicate key error
+        if (error.code === 11000 && error.keyPattern && error.keyPattern.enquiryId) {
+          retries++;
+          if (retries >= maxRetries) {
+            throw new Error('Failed to generate unique enquiry ID after multiple attempts. Please try again.');
+          }
+          // Wait a bit before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 50 * retries));
+          continue;
+        }
+        // If it's not a duplicate key error, throw it immediately
+        throw error;
+      }
     }
-
-    // Remove followUpDate from enquiryData as it's not in schema
-    delete enquiryData.followUpDate;
-
-    // If follow-up date/time is provided, add to call logs before creating
-    if (followUpDate && req.body.assignedStaff) {
-      enquiryData.callLogs = [{
-        date: followUpDate,
-        status: 'scheduled',
-        notes: 'Follow-up scheduled during enquiry creation',
-        staffId: req.body.assignedStaff
-      }];
-    }
-
-    const enquiry = await Enquiry.create(enquiryData);
 
     // If follow-up date/time is provided, create FollowUp entry
     if (followUpDate && req.body.assignedStaff) {
@@ -533,9 +591,8 @@ export const importEnquiries = async (req, res) => {
           continue;
         }
 
-        // Generate enquiry ID
-        const enquiryCount = await Enquiry.countDocuments({ organizationId: req.organizationId });
-        const enquiryId = `ENQ${String(enquiryCount + 1 + results.length).padStart(6, '0')}`;
+        // Generate enquiry ID using the improved function
+        const enquiryId = await generateEnquiryId(req.organizationId);
 
         // Create enquiry object
         const enquiryData = {
@@ -554,8 +611,32 @@ export const importEnquiries = async (req, res) => {
           createdBy: req.user._id
         };
 
-        // Create enquiry
-        const enquiry = await Enquiry.create(enquiryData);
+        // Create enquiry with retry logic for duplicate key errors
+        let enquiry;
+        let retries = 0;
+        const maxRetries = 5;
+        
+        while (retries < maxRetries) {
+          try {
+            enquiry = await Enquiry.create(enquiryData);
+            break; // Success, exit retry loop
+          } catch (error) {
+            // Check if it's a duplicate key error
+            if (error.code === 11000 && error.keyPattern && error.keyPattern.enquiryId) {
+              retries++;
+              if (retries >= maxRetries) {
+                throw new Error('Failed to generate unique enquiry ID after multiple attempts.');
+              }
+              // Generate a new ID and retry
+              enquiryData.enquiryId = await generateEnquiryId(req.organizationId);
+              await new Promise(resolve => setTimeout(resolve, 50 * retries));
+              continue;
+            }
+            // If it's not a duplicate key error, throw it immediately
+            throw error;
+          }
+        }
+        
         results.push(enquiry);
       } catch (error) {
         errors.push({ 

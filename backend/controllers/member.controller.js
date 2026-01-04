@@ -885,6 +885,398 @@ export const upgradeDowngradePlan = async (req, res) => {
   }
 };
 
+// Calculate upgrade proration and return upgrade details
+export const calculateUpgradeProration = async (req, res) => {
+  try {
+    const { memberId, newPlanId } = req.params;
+
+    const member = await Member.findOne({
+      _id: memberId,
+      organizationId: req.organizationId
+    }).populate('currentPlan.planId');
+
+    if (!member) {
+      return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    if (!member.currentPlan || !member.currentPlan.planId) {
+      return res.status(400).json({ success: false, message: 'Member does not have an active plan to upgrade from' });
+    }
+
+    const currentPlan = member.currentPlan.planId;
+    const newPlan = await Plan.findById(newPlanId);
+    
+    if (!newPlan) {
+      return res.status(404).json({ success: false, message: 'New plan not found' });
+    }
+
+    if (currentPlan._id.toString() === newPlan._id.toString()) {
+      return res.status(400).json({ success: false, message: 'Cannot upgrade to the same plan' });
+    }
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    const startDate = new Date(member.currentPlan.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(member.currentPlan.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    // Calculate remaining days
+    const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+    const remainingDays = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+    const usedDays = totalDays - remainingDays;
+
+    // Calculate prorated credit for current plan (unused portion)
+    const currentPlanPrice = currentPlan.price || 0;
+    const dailyRate = totalDays > 0 ? currentPlanPrice / totalDays : 0;
+    const creditAmount = remainingDays * dailyRate;
+
+    // New plan price
+    const newPlanPrice = newPlan.price || 0;
+
+    // Calculate upgrade amount (new plan price - credit for unused portion)
+    const upgradeAmount = Math.max(0, newPlanPrice - creditAmount);
+
+    // Calculate new end date (extend from current end date)
+    let newEndDate = new Date(endDate);
+    if (newPlan.type === 'duration' && newPlan.duration) {
+      const { value, unit } = newPlan.duration;
+      switch (unit) {
+        case 'days':
+          newEndDate.setDate(newEndDate.getDate() + value);
+          break;
+        case 'weeks':
+          newEndDate.setDate(newEndDate.getDate() + (value * 7));
+          break;
+        case 'months':
+          newEndDate.setMonth(newEndDate.getMonth() + value);
+          break;
+        case 'years':
+          newEndDate.setFullYear(newEndDate.getFullYear() + value);
+          break;
+      }
+    }
+
+    res.json({
+      success: true,
+      upgradeDetails: {
+        currentPlan: {
+          id: currentPlan._id,
+          name: currentPlan.name || member.currentPlan.planName,
+          price: currentPlanPrice,
+          startDate: member.currentPlan.startDate,
+          endDate: member.currentPlan.endDate,
+          totalDays,
+          remainingDays,
+          usedDays
+        },
+        newPlan: {
+          id: newPlan._id,
+          name: newPlan.name,
+          price: newPlanPrice,
+          duration: newPlan.duration ? `${newPlan.duration.value} ${newPlan.duration.unit}` : null,
+          newEndDate: newEndDate.toISOString()
+        },
+        proration: {
+          creditAmount: Math.round(creditAmount * 100) / 100,
+          upgradeAmount: Math.round(upgradeAmount * 100) / 100,
+          dailyRate: Math.round(dailyRate * 100) / 100
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Calculate upgrade proration error:', error);
+    handleError(error, res, 500);
+  }
+};
+
+// Upgrade membership - creates invoice and updates member plan
+export const upgradeMembership = async (req, res) => {
+  try {
+    const { memberId, newPlanId, paymentModes, discount, discountReason, customerNotes, internalNotes, startDate } = req.body;
+
+    const member = await Member.findOne({
+      _id: memberId,
+      organizationId: req.organizationId
+    }).populate('currentPlan.planId');
+
+    if (!member) {
+      return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    if (!member.currentPlan || !member.currentPlan.planId) {
+      return res.status(400).json({ success: false, message: 'Member does not have an active plan to upgrade from' });
+    }
+
+    const currentPlan = member.currentPlan.planId;
+    const newPlan = await Plan.findById(newPlanId);
+    
+    if (!newPlan || newPlan.organizationId.toString() !== req.organizationId.toString()) {
+      return res.status(404).json({ success: false, message: 'New plan not found' });
+    }
+
+    if (currentPlan._id.toString() === newPlan._id.toString()) {
+      return res.status(400).json({ success: false, message: 'Cannot upgrade to the same plan' });
+    }
+
+    // Check if new plan price is higher (upgrade) or lower (downgrade)
+    const isUpgrade = (newPlan.price || 0) > (currentPlan.price || 0);
+    const upgradeType = isUpgrade ? 'upgrade' : 'downgrade';
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    const currentStartDate = new Date(member.currentPlan.startDate);
+    currentStartDate.setHours(0, 0, 0, 0);
+    const currentEndDate = new Date(member.currentPlan.endDate);
+    currentEndDate.setHours(23, 59, 59, 999);
+    
+    // Calculate remaining days
+    const totalDays = Math.ceil((currentEndDate - currentStartDate) / (1000 * 60 * 60 * 24));
+    const remainingDays = Math.max(0, Math.ceil((currentEndDate - now) / (1000 * 60 * 60 * 24)));
+
+    // Calculate prorated credit for current plan (unused portion)
+    const currentPlanPrice = currentPlan.price || 0;
+    const dailyRate = totalDays > 0 ? currentPlanPrice / totalDays : 0;
+    const creditAmount = remainingDays * dailyRate;
+
+    // New plan price
+    const newPlanPrice = newPlan.price || 0;
+
+    // Calculate upgrade amount (new plan price - credit for unused portion)
+    const upgradeAmount = Math.max(0, newPlanPrice - creditAmount);
+
+    // Use provided startDate or default to day after current plan expires
+    let upgradeStartDate = new Date(currentEndDate);
+    upgradeStartDate.setDate(upgradeStartDate.getDate() + 1); // Day after expiry
+    upgradeStartDate.setHours(0, 0, 0, 0);
+    
+    // If startDate was provided, use it directly
+    if (startDate) {
+      upgradeStartDate = new Date(startDate);
+      upgradeStartDate.setHours(0, 0, 0, 0);
+    }
+
+    // Calculate new end date (extend from upgrade start date)
+    let newEndDate = new Date(upgradeStartDate);
+    if (newPlan.type === 'duration' && newPlan.duration) {
+      const { value, unit } = newPlan.duration;
+      switch (unit) {
+        case 'days':
+          newEndDate.setDate(newEndDate.getDate() + value);
+          break;
+        case 'weeks':
+          newEndDate.setDate(newEndDate.getDate() + (value * 7));
+          break;
+        case 'months':
+          newEndDate.setMonth(newEndDate.getMonth() + value);
+          break;
+        case 'years':
+          newEndDate.setFullYear(newEndDate.getFullYear() + value);
+          break;
+      }
+    }
+
+    // Get organization for tax settings and invoice number generation
+    const organization = await Organization.findById(req.organizationId);
+    const taxRate = newPlan.taxRate || organization?.taxSettings?.taxRate || 0;
+
+    // Generate invoice number (using same method as invoice controller)
+    const maxRetries = 10;
+    let attempts = 0;
+    let invoiceNumber;
+    
+    while (attempts < maxRetries) {
+      const prefix = organization.invoiceSettings?.prefix || 'INV';
+      let number = organization.invoiceSettings?.nextNumber || 1;
+      invoiceNumber = `${prefix}-${String(number).padStart(6, '0')}`;
+      
+      const existingInvoice = await Invoice.findOne({ invoiceNumber });
+      if (!existingInvoice) {
+        organization.invoiceSettings = organization.invoiceSettings || {};
+        organization.invoiceSettings.nextNumber = number + 1;
+        organization.invoiceSettings.prefix = prefix;
+        await organization.save();
+        break;
+      }
+      organization.invoiceSettings.nextNumber = number + 1;
+      await organization.save();
+      attempts++;
+    }
+    
+    if (!invoiceNumber) {
+      return res.status(500).json({ success: false, message: 'Failed to generate invoice number' });
+    }
+
+    // Calculate invoice totals
+    const subtotal = upgradeAmount;
+    const discountAmount = discount ? (discount.type === 'flat' ? discount.value : (subtotal * discount.value / 100)) : 0;
+    const amountAfterDiscount = subtotal - discountAmount;
+    const taxAmount = amountAfterDiscount * taxRate / 100;
+    const total = Math.round(amountAfterDiscount + taxAmount);
+
+    // Create invoice items
+    const invoiceItems = [{
+      description: `${upgradeType === 'upgrade' ? 'Upgrade' : 'Downgrade'} from ${currentPlan.name || member.currentPlan.planName} to ${newPlan.name}`,
+      serviceId: newPlan._id,
+      duration: newPlan.duration ? `${newPlan.duration.value} ${newPlan.duration.unit}` : null,
+      quantity: 1,
+      unitPrice: upgradeAmount,
+      discount: discount ? { ...discount, amount: discountAmount } : undefined,
+      taxRate,
+      taxType: taxRate > 0 ? 'GST' : 'No tax',
+      amount: amountAfterDiscount,
+      taxAmount,
+      total,
+      startDate: upgradeStartDate, // Start date selected by user or day after expiry
+      expiryDate: newEndDate,
+      numberOfSessions: newPlan.sessions || null
+    }];
+
+    const invoice = await Invoice.create({
+      organizationId: req.organizationId,
+      branchId: member.branchId || req.user.branchId,
+      invoiceNumber,
+      memberId: member._id,
+      planId: newPlan._id,
+      type: upgradeType,
+      invoiceType: 'service',
+      isProForma: false,
+      items: invoiceItems,
+      subtotal: amountAfterDiscount,
+      discount: discount ? { ...discount, amount: discountAmount } : undefined,
+      tax: {
+        rate: taxRate,
+        amount: taxAmount
+      },
+      total,
+      pending: total,
+      status: 'draft',
+      currency: organization?.currency || 'INR',
+      discountReason: discountReason || undefined,
+      customerNotes: customerNotes || undefined,
+      internalNotes: internalNotes || `Membership ${upgradeType}: ${currentPlan.name || member.currentPlan.planName} → ${newPlan.name}. Credit applied: ₹${Math.round(creditAmount * 100) / 100}`,
+      createdBy: req.user._id
+    });
+
+    // Create payment records if payment modes provided
+    let hasPendingRazorpayPayment = false;
+    if (paymentModes && paymentModes.length > 0) {
+      const Payment = (await import('../models/Payment.js')).default;
+      
+      for (const pm of paymentModes) {
+        const method = pm?.method;
+        const amount = parseFloat(pm?.amount) || 0;
+
+        if (!method || amount <= 0) continue;
+
+        // Generate receipt number
+        const paymentCount = await Payment.countDocuments({ organizationId: req.organizationId });
+        const receiptNumber = `RCP${String(paymentCount + 1).padStart(6, '0')}`;
+        const isRazorpay = method === 'razorpay';
+        if (isRazorpay) {
+          hasPendingRazorpayPayment = true;
+        }
+
+        await Payment.create({
+          organizationId: req.organizationId,
+          branchId: invoice.branchId,
+          invoiceId: invoice._id,
+          memberId: member._id,
+          amount,
+          currency: invoice.currency,
+          paymentMethod: method,
+          receiptNumber,
+          status: isRazorpay ? 'pending' : 'completed',
+          paidAt: !isRazorpay ? new Date() : undefined,
+          createdBy: req.user._id
+        });
+      }
+
+      // Update invoice status based on payments
+      const totalPaid = await Payment.aggregate([
+        { $match: { invoiceId: invoice._id, status: { $in: ['completed', 'processing'] } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]);
+
+      const paidAmount = totalPaid[0]?.total || 0;
+      const pendingAmount = Math.max(0, total - paidAmount);
+      invoice.pending = pendingAmount;
+      
+      if (paidAmount >= total) {
+        invoice.status = 'paid';
+        invoice.paidDate = new Date();
+      } else if (paidAmount > 0) {
+        invoice.status = 'partial';
+      } else {
+        invoice.status = 'sent';
+      }
+      await invoice.save();
+    }
+
+    // For upgrade, don't immediately update member's plan
+    // The invoice will be activated automatically when paid via activateMembershipFromInvoice
+    // The startDate in the invoice item is set to current plan's endDate, so it will activate at the right time
+    // Only activate membership if invoice is fully paid and startDate has arrived or passed
+    if (invoice.status === 'paid' && !hasPendingRazorpayPayment) {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      
+      // Get start date from invoice item
+      const invoiceItem = invoice.items && invoice.items[0];
+      const invoiceStartDate = invoiceItem?.startDate ? new Date(invoiceItem.startDate) : null;
+      
+      if (invoiceStartDate) {
+        invoiceStartDate.setHours(0, 0, 0, 0);
+        
+        // Only activate if start date has arrived
+        if (invoiceStartDate <= now) {
+          try {
+            const { activateMembershipFromInvoice } = await import('../utils/membership.js');
+            await activateMembershipFromInvoice(invoice);
+          } catch (membershipError) {
+            console.error('Failed to activate membership after upgrade:', membershipError);
+          }
+        } else {
+          // Start date is in the future - membership will be activated when startDate arrives
+          console.log(`Upgrade invoice ${invoice.invoiceNumber} paid but start date is in the future. Will activate on ${invoiceStartDate.toISOString()}`);
+        }
+      }
+    }
+
+    // Create audit log
+    await AuditLog.create({
+      organizationId: req.organizationId,
+      userId: req.user._id,
+      action: `membership.${upgradeType}d`,
+      entityType: 'Member',
+      entityId: member._id,
+      details: {
+        fromPlan: currentPlan.name || member.currentPlan.planName,
+        toPlan: newPlan.name,
+        invoiceId: invoice._id,
+        upgradeAmount
+      }
+    });
+
+    res.json({
+      success: true,
+      invoice,
+      member,
+      message: `Membership ${upgradeType}d successfully`,
+      upgradeDetails: {
+        creditAmount: Math.round(creditAmount * 100) / 100,
+        upgradeAmount: Math.round(upgradeAmount * 100) / 100,
+        newEndDate: newEndDate.toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Upgrade membership error:', error);
+    handleError(error, res, 500);
+  }
+};
+
 export const getMemberAttendance = async (req, res) => {
   try {
     const { memberId } = req.params;
