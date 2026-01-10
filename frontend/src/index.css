@@ -3,14 +3,15 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+  html,
+  body {
     @apply bg-gray-50 text-gray-900;
     overflow-x: hidden;
     max-width: 100%;
     margin: 0;
     padding: 0;
   }
-  
+
   body {
     width: 100%;
     position: relative;
@@ -21,21 +22,186 @@
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors;
   }
-  
+
   .btn-primary {
     @apply bg-primary-600 text-white hover:bg-primary-700;
   }
-  
+
   .btn-secondary {
     @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
   }
-  
+
   .input {
     @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500;
   }
-  
+
   .card {
     @apply bg-white rounded-lg shadow-md p-6;
   }
+
+  /* Tablet/iPad Optimizations for Horizontal Orientation */
+
+  /* Enhanced touch targets for tablets */
+  .tablet-touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Optimized spacing for tablet screens */
+  @media (min-width: 768px) and (max-width: 1280px) and (orientation: landscape) {
+    .tablet-container {
+      @apply max-w-full px-4;
+    }
+
+    .tablet-grid-stats {
+      @apply grid-cols-3 gap-3;
+    }
+
+    .tablet-action-bar {
+      @apply flex-wrap gap-2;
+    }
+
+    .tablet-table-wrapper {
+      @apply overflow-x-auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tablet-text-sm {
+      @apply text-sm;
+    }
+
+    .tablet-compact-padding {
+      @apply px-3 py-2;
+    }
+
+    /* Ensure buttons are touch-friendly */
+    button,
+    a {
+      @apply min-h-[44px];
+    }
+
+    /* Optimize table for tablets */
+    table {
+      @apply text-sm;
+    }
+
+    /* Better spacing on cards */
+    .card {
+      @apply p-4;
+    }
+
+    /* Compact headers */
+    h1 {
+      @apply text-2xl;
+    }
+
+    h2 {
+      @apply text-xl;
+    }
+  }
+
+  /* iPad Pro specific optimizations (1024px - 1366px) */
+  @media (min-width: 1024px) and (max-width: 1366px) and (orientation: landscape) {
+    .ipad-pro-optimize {
+      @apply max-w-full;
+    }
+
+    .ipad-pro-grid {
+      @apply gap-4;
+    }
+
+    /* Larger touch targets for iPad */
+    button,
+    a {
+      @apply min-h-[48px];
+    }
+  }
+
+  /* Smaller tablets (768px - 1024px) */
+  @media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {
+    .small-tablet-compact {
+      @apply px-2 py-1.5;
+    }
+
+    /* More compact spacing */
+    .space-y-6 > * + * {
+      @apply mt-4;
+    }
+
+    /* Slightly smaller text */
+    .text-3xl {
+      @apply text-2xl;
+    }
+
+    .text-4xl {
+      @apply text-3xl;
+    }
+  }
+
+  /* Smooth scrolling for touch devices */
+  @media (hover: none) and (pointer: coarse) {
+    * {
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+
+    /* Remove hover states on touch devices */
+    .hover\:shadow-lg:hover {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+  }
 }
 
+/* Tablet-specific utilities */
+@layer utilities {
+  /* Hide scrollbar but keep functionality on tablets */
+  @media (min-width: 768px) and (max-width: 1280px) {
+    .tablet-scrollbar-hide {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+    }
+
+    .tablet-scrollbar-hide::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+
+    .tablet-scrollbar-hide::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .tablet-scrollbar-hide::-webkit-scrollbar-thumb {
+      background-color: rgba(156, 163, 175, 0.3);
+      border-radius: 3px;
+    }
+
+    .tablet-scrollbar-hide::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(156, 163, 175, 0.5);
+    }
+  }
+
+  /* Prevent text selection on touch for UI elements */
+  .no-select-touch {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Touch-friendly spacing */
+  .touch-spacing-y {
+    @apply space-y-3;
+  }
+
+  /* Responsive font sizing for tablets */
+  @media (min-width: 768px) and (max-width: 1280px) {
+    .tablet-responsive-text {
+      font-size: clamp(0.875rem, 1.5vw, 1rem);
+    }
+
+    .tablet-responsive-heading {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+    }
+  }
+}

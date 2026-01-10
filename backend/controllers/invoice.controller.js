@@ -477,18 +477,6 @@ export const createInvoice = async (req, res) => {
         return res.status(404).json({ success: false, message: 'Member not found' });
       }
 
-      // First check: If member has active membership, prevent invoice creation
-      const hasActivePlan = member.membershipStatus === 'active' && member.currentPlan?.endDate && new Date(member.currentPlan.endDate) > new Date();
-      const planSessionRemaining = member.currentPlan?.sessions?.remaining > 0;
-
-      if (hasActivePlan || planSessionRemaining) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot create invoice: Member has an active membership (${member.currentPlan?.planName || 'membership'}) ending on ${member.currentPlan?.endDate ? new Date(member.currentPlan.endDate).toLocaleDateString() : 'unknown date'}. Only expired members can receive new invoices. Please wait for the membership to expire before creating a new invoice.`
-        });
-      }
-
-      // Second check: If membership is expired, allow invoice creation even if there's a paid invoice
       // Only prevent if there's an active (unpaid/partial) invoice
       const activeInvoice = await Invoice.findOne({
         memberId,
@@ -502,9 +490,6 @@ export const createInvoice = async (req, res) => {
           message: `Cannot create invoice: Member already has an active unpaid invoice (${activeInvoice.invoiceNumber}) with status "${activeInvoice.status}". Please complete or cancel the existing invoice before creating a new one.`
         });
       }
-
-      // If member has expired membership and no active unpaid invoices, allow invoice creation
-      // (Even if they have a paid invoice, that's fine - they can create a renewal invoice)
     }
 
     // Calculate totals
@@ -1303,11 +1288,64 @@ export const deleteInvoice = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
 
-    if (invoice.status === 'paid') {
-      return res.status(400).json({ success: false, message: 'Cannot delete paid invoice' });
-    }
+    const memberId = invoice.memberId;
 
+    // Delete the invoice
     await Invoice.deleteOne({ _id: invoice._id });
+
+    // If the invoice had a member, check if they have any remaining invoices
+    // If not, clear their current plan and set status to inactive
+    if (memberId) {
+      const remainingInvoices = await Invoice.countDocuments({
+        memberId: memberId,
+        organizationId: req.organizationId,
+        status: { $ne: 'cancelled' }
+      });
+
+      // If no more invoices, clear the member's current plan
+      if (remainingInvoices === 0) {
+        await Member.findByIdAndUpdate(memberId, {
+          $unset: { currentPlan: 1 },
+          membershipStatus: 'inactive'
+        });
+      } else {
+        // If there are remaining invoices, recalculate the current plan from the most recent active invoice
+        const latestInvoice = await Invoice.findOne({
+          memberId: memberId,
+          organizationId: req.organizationId,
+          status: { $ne: 'cancelled' }
+        })
+        .sort({ createdAt: -1 })
+        .populate('planId');
+
+        if (latestInvoice && latestInvoice.items && latestInvoice.items.length > 0) {
+          // Find the first item with dates to set as current plan
+          const planItem = latestInvoice.items.find(item => item.startDate && item.expiryDate);
+          
+          if (planItem) {
+            const endDate = new Date(planItem.expiryDate);
+            const isActive = endDate >= new Date();
+            
+            await Member.findByIdAndUpdate(memberId, {
+              currentPlan: {
+                planId: latestInvoice.planId?._id,
+                planName: planItem.description || latestInvoice.planId?.name,
+                startDate: planItem.startDate,
+                endDate: planItem.expiryDate,
+                sessions: planItem.sessions || { used: 0 }
+              },
+              membershipStatus: isActive ? 'active' : 'inactive'
+            });
+          } else {
+            // No plan item with dates found, clear current plan
+            await Member.findByIdAndUpdate(memberId, {
+              $unset: { currentPlan: 1 },
+              membershipStatus: 'inactive'
+            });
+          }
+        }
+      }
+    }
 
     res.json({ success: true, message: 'Invoice deleted successfully' });
   } catch (error) {

@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getMembers, createMember, deleteMember } from '../api/members'
 import toast from 'react-hot-toast'
-import { Plus, Search, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2, Loader2 } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function Members() {
   const [search, setSearch] = useState('')
@@ -157,7 +158,17 @@ export default function Members() {
             height: '100vh'
           }}
         >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full relative">
+            {/* Loading Overlay */}
+            {createMutation.isPending && (
+              <div className="absolute inset-0 bg-white bg-opacity-90 z-50 flex items-center justify-center rounded-lg">
+                <div className="flex flex-col items-center space-y-4">
+                  <LoadingSpinner size="lg" />
+                  <p className="text-gray-600 font-semibold">Creating member...</p>
+                </div>
+              </div>
+            )}
+            
             <h2 className="text-2xl font-bold mb-4">Add New Member</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">

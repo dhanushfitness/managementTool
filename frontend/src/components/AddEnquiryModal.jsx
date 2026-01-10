@@ -131,7 +131,7 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
         isOpen ? 'translate-x-0' : 'translate-x-full'
       } overflow-y-auto ${!isOpen ? 'pointer-events-none' : ''}`}>
         {/* Loading Overlay */}
-        {createEnquiryMutation.isLoading && (
+        {createEnquiryMutation.isPending && (
           <div className="absolute inset-0 bg-white bg-opacity-90 z-50 flex items-center justify-center">
             <div className="flex flex-col items-center space-y-4">
               <LoadingSpinner size="lg" />
@@ -499,10 +499,10 @@ export default function AddEnquiryModal({ isOpen, onClose }) {
             </button>
             <button
               type="submit"
-              disabled={createEnquiryMutation.isLoading}
+              disabled={createEnquiryMutation.isPending}
               className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md flex items-center space-x-2"
             >
-              {createEnquiryMutation.isLoading ? (
+              {createEnquiryMutation.isPending ? (
                 <>
                   <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
                   <span>Saving...</span>

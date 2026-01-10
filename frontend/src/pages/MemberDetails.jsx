@@ -38,6 +38,7 @@ import {
   DollarSign,
   Eye,
   AlertCircle,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -545,7 +546,7 @@ export default function MemberDetails() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 tablet-container">
       {/* Breadcrumb */}
       <Breadcrumbs
         items={[
@@ -556,22 +557,22 @@ export default function MemberDetails() {
       />
 
       {/* Main Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="border-b border-gray-200">
-          <div className="flex space-x-1 overflow-x-auto px-4">
+          <div className="flex space-x-1 overflow-x-auto px-3 md:px-4 tablet-scrollbar- hide no-select-touch">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  className={`flex items-center space-x-2 px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch-target ${
                     activeTab === tab.id
                       ? 'border-orange-500 text-orange-600'
                       : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span>{tab.label}</span>
                 </button>
               )
@@ -581,19 +582,19 @@ export default function MemberDetails() {
 
         {/* Tab Content */}
         {activeTab === 'profile' && (
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             {/* Page Title and Action Buttons */}
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-3xl font-bold text-gray-900">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 tablet-responsive-heading">
                 Profile - {member.firstName?.toUpperCase()} {member.lastName?.toUpperCase()}
               </h1>
             </div>
 
             {/* Sub Tabs */}
-            <div className="flex space-x-4 mb-6 border-b border-gray-200">
+            <div className="flex space-x-3 md:space-x-4 mb-4 md:mb-6 border-b border-gray-200 overflow-x-auto tablet-scrollbar-hide">
               <button
                 onClick={() => setActiveSubTab('personal')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch -target ${
                   activeSubTab === 'personal'
                     ? 'border-orange-500 text-orange-600'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -603,7 +604,7 @@ export default function MemberDetails() {
               </button>
               <button
                 onClick={() => setActiveSubTab('fitness')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch-target ${
                   activeSubTab === 'fitness'
                     ? 'border-orange-500 text-orange-600'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -614,26 +615,26 @@ export default function MemberDetails() {
             </div>
 
             {activeSubTab === 'personal' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {/* Left Column */}
-                <div className="space-y-6">
+                <div className="space-y-4 md:space-y-6">
                   {/* Profile Picture Section */}
-                  <div className="flex items-start space-x-6">
-                    <div className="flex-shrink-0">
+                  <div className="flex flex-col md:flex-row items-start md:space-x-6 space-y-4 md:space-y-0">
+                    <div className="flex-shrink-0 mx-auto md:mx-0">
                       {member.profilePicture ? (
                         <img
                           src={member.profilePicture}
                           alt={`${member.firstName} ${member.lastName}`}
-                          className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
+                          className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-gray-200"
                         />
                       ) : (
-                        <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-200">
-                          <User className="w-16 h-16 text-gray-400" />
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-200">
+                          <User className="w-12 h-12 md:w-16 md:h-16 text-gray-400" />
                         </div>
                       )}
-                      <div className="mt-4 space-y-2">
-                        <label className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium flex items-center justify-center space-x-2 cursor-pointer">
-                          <Upload className="w-4 h-4" />
+                      <div className="mt-3 md:mt-4 space-y-2">
+                        <label className="w-full px-3 md:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs md:text-sm font-medium flex items-center justify-center space-x-2 cursor-pointer tablet-touch-target">
+                          <Upload className="w-3.5 h-3.5 md:w-4 md:h-4" />
                           <span>Upload Image</span>
                           <input
                             ref={fileInputRef}
@@ -646,27 +647,27 @@ export default function MemberDetails() {
                         <button
                           type="button"
                           onClick={() => openCameraModal()}
-                          className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+                          className="w-full px-3 md:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs md:text-sm font-medium flex items-center justify-center space-x-2 tablet-touch-target"
                         >
-                          <Camera className="w-4 h-4" />
+                          <Camera className="w-3.5 h-3.5 md:w-4 md:h-4" />
                           <span>Capture Image</span>
                         </button>
                       </div>
                     </div>
 
                     {/* Personal Details Form */}
-                    <div className="flex-1 space-y-4">
+                    <div className="flex-1 space-y-3 md:space-y-4">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-1.5 md:mb-2">
                           Full Name <span className="text-red-500">*</span>
                         </label>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                           <input
                             type="text"
                             value={formData.firstName}
                             onChange={(e) => handleChange('firstName', e.target.value)}
                             disabled={!isEditing}
-                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
+                            className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 tablet-touch-target"
                             placeholder="First Name"
                           />
                           <input
@@ -674,7 +675,7 @@ export default function MemberDetails() {
                             value={formData.lastName}
                             onChange={(e) => handleChange('lastName', e.target.value)}
                             disabled={!isEditing}
-                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
+                            className="flex-1 px-3 md:px-4 py-2 md:py-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 tablet-touch-target"
                             placeholder="Last Name"
                           />
                         </div>
@@ -2134,9 +2135,26 @@ function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading })
 
 // Payments Tab Component
 function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilter, page, setPage, navigate }) {
+  const queryClient = useQueryClient()
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(null)
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(null)
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(null) // { invoice: {...}, show: true }
+  
+  // Delete invoice mutation
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: (invoiceId) => api.delete(`/invoices/${invoiceId}`),
+    onSuccess: () => {
+      toast.success('Invoice deleted successfully')
+      queryClient.invalidateQueries(['member-invoices'])
+      queryClient.invalidateQueries(['invoices'])
+      setDeleteConfirmModal(null)
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to delete invoice')
+    }
+  })
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -2149,6 +2167,16 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
   const formatDate = (date) => {
     if (!date) return '-'
     return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+  }
+
+  const handleDeleteClick = (invoice) => {
+    setDeleteConfirmModal({ invoice, show: true })
+  }
+
+  const handleDeleteConfirm = () => {
+    if (deleteConfirmModal?.invoice?._id) {
+      deleteInvoiceMutation.mutate(deleteConfirmModal.invoice._id)
+    }
   }
 
   const getPaymentModeDisplay = (invoice) => {
@@ -2396,6 +2424,17 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                           >
                             <Mail className="w-4 h-4" />
                           </button>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleDeleteClick(invoice)
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Delete Invoice"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -2490,6 +2529,82 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
         defaultMemberName={member ? `${member.firstName} ${member.lastName}`.trim() : ''}
         defaultMemberPhone={member?.phone || ''}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal?.show && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            margin: 0,
+            padding: 0,
+            width: '100vw',
+            height: '100vh'
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border-2 border-gray-200">
+            <div className="p-6">
+              <div className="flex items-start space-x-4 mb-6">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-red-200 rounded-xl flex items-center justify-center border-2 border-red-300">
+                    <AlertTriangle className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-black text-gray-900 mb-2">
+                    Delete Invoice Permanently?
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    This will permanently delete invoice <strong>#{deleteConfirmModal.invoice?.invoiceNumber}</strong>.
+                  </p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Invoice Amount: <strong>{formatCurrency(deleteConfirmModal.invoice?.total)}</strong>
+                  </p>
+                  <p className="text-sm font-bold text-red-600">
+                    This action cannot be undone!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDeleteConfirmModal(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                >
+                  <XIcon className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setDeleteConfirmModal(null)}
+                  disabled={deleteInvoiceMutation.isPending}
+                  className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleteInvoiceMutation.isPending}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 font-semibold shadow-lg"
+                >
+                  {deleteInvoiceMutation.isPending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete Invoice</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

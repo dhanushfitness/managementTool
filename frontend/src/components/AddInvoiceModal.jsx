@@ -158,23 +158,7 @@ export default function AddInvoiceModal({
     setActiveInvoiceWarning('')
     
     try {
-      // First check member status
-      const memberResponse = await getMemberApi(memberId)
-      const member = memberResponse?.data?.member
-      
-      // Check if membership is actually active (using real-time expiry check)
-      if (member && isMembershipActuallyActive(member)) {
-        const endDate = member.currentPlan?.endDate 
-          ? new Date(member.currentPlan.endDate).toLocaleDateString() 
-          : 'unknown date'
-        setActiveInvoiceWarning(
-          `Cannot create invoice: Member has an active membership (${member.currentPlan?.planName || 'membership'}) ending on ${endDate}. Only expired members can receive new invoices.`
-        )
-        setIsCheckingActiveInvoice(false)
-        return false
-      }
-
-      // If membership is expired, only check for unpaid/partial invoices
+      // Only check for unpaid/partial invoices
       const response = await api.get('/invoices', {
         params: {
           memberId,
@@ -248,26 +232,6 @@ export default function AddInvoiceModal({
     if (memberSearchBlurTimeout.current) {
       clearTimeout(memberSearchBlurTimeout.current)
       memberSearchBlurTimeout.current = null
-    }
-    
-    // Check if member has active membership - prevent invoice creation for active members
-    // Use real-time expiry check instead of just stored status
-    if (isMembershipActuallyActive(member)) {
-      const endDate = member.currentPlan?.endDate 
-        ? new Date(member.currentPlan.endDate).toLocaleDateString() 
-        : 'unknown date'
-      setActiveInvoiceWarning(`Cannot create invoice: Member has an active membership (${member.currentPlan?.planName || 'membership'}) ending on ${endDate}. Only expired members can receive new invoices.`)
-      setFormData(prev => ({
-        ...prev,
-        memberId: '',
-        memberName: '',
-        memberPhone: ''
-      }))
-      setMemberSearch('')
-      setMemberSearchResults([])
-      setSelectedMemberIndex(-1)
-      toast.error('Cannot create invoice for active members. Only expired members can receive new invoices.')
-      return
     }
     
     const canProceed = await checkActiveInvoice(member._id)
@@ -398,24 +362,6 @@ export default function AddInvoiceModal({
     if (!formData.memberId) {
       toast.error('Please select a member')
       return
-    }
-
-    // Verify member status - prevent creating invoices for active members
-    // Use real-time expiry check instead of just stored status
-    try {
-      const memberResponse = await getMemberApi(formData.memberId)
-      const member = memberResponse?.data?.member
-      if (member && isMembershipActuallyActive(member)) {
-        const endDate = member.currentPlan?.endDate 
-          ? new Date(member.currentPlan.endDate).toLocaleDateString() 
-          : 'unknown date'
-        toast.error(`Cannot create invoice: Member has an active membership (${member.currentPlan?.planName || 'membership'}) ending on ${endDate}. Only expired members can receive new invoices.`)
-        setActiveInvoiceWarning(`Cannot create invoice: Member has an active membership (${member.currentPlan?.planName || 'membership'}) ending on ${endDate}. Please wait for the membership to expire before creating a new invoice.`)
-        return
-      }
-    } catch (error) {
-      console.error('Error fetching member details:', error)
-      // Continue with submission if we can't verify, backend will handle it
     }
 
     // Check for active invoice before submission
@@ -862,7 +808,7 @@ export default function AddInvoiceModal({
           </div>
 
           {/* Loading Overlay */}
-          {createInvoiceMutation.isLoading && (
+          {createInvoiceMutation.isPending && (
             <div className="absolute inset-0 bg-white bg-opacity-90 z-50 flex items-center justify-center rounded-2xl">
               <div className="flex flex-col items-center space-y-4">
                 <LoadingSpinner size="lg" />
