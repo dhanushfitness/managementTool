@@ -20,6 +20,17 @@ import {
   Filter,
   X
 } from 'lucide-react'
+import { exercises as staticExercises } from '../data/exercises'
+
+// Helper for video URLs
+const findStaticVideoUrl = (name) => {
+  if (!name) return null;
+  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const found = staticExercises.find(ex => 
+      ex.name.toLowerCase().replace(/[^a-z0-9]/g, '') === normalized
+  );
+  return found?.videoUrl || null;
+}
 
 // Helper function to get exercise image URL from frontend public/exercises folder
 const getExerciseImageUrl = (exerciseName) => {
@@ -535,41 +546,29 @@ export default function MemberDashboard() {
                         background: 'rgba(255, 255, 255, 0.1)'
                       }}>
                         {(() => {
-                          // Get image from public/exercises folder first, then fallback to database imageUrl
-                          let imageUrl = getExerciseImageUrl(exercise.name)
-                          
-                          // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
-                          if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-                            if (exercise.imageUrl.startsWith('http://') || exercise.imageUrl.startsWith('https://')) {
-                              imageUrl = exercise.imageUrl
-                            } else {
-                              // Relative path - prepend backend URL
-                              const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
-                              imageUrl = `${backendUrl}${exercise.imageUrl.startsWith('/') ? '' : '/'}${exercise.imageUrl}`
-                            }
-                          }
-                          
-                          // Final fallback to default image
-                          if (!imageUrl) {
-                            imageUrl = '/exercises/Push Ups.jpg'
-                          }
-                          
-                          return imageUrl ? (
-                            <>
+                          const videoUrl = exercise.videoUrl || findStaticVideoUrl(exercise.name)
+                          let videoId = null
+                          try {
+                             if (videoUrl?.includes('shorts/')) videoId = videoUrl.split('shorts/')[1].split('?')[0]
+                             else if (videoUrl?.includes('youtu.be/')) videoId = videoUrl.split('youtu.be/')[1].split('?')[0]
+                             else if (videoUrl?.includes('v=')) videoId = videoUrl.split('v=')[1].split('&')[0]
+                          } catch (e) { console.error(e) }
+
+                          const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null
+
+                          return thumbnailUrl ? (
+                            <div className="relative w-full h-full group">
                               <img
-                                src={imageUrl}
+                                src={thumbnailUrl}
                                 alt={exercise.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none'
-                                  const fallback = e.target.nextElementSibling
-                                  if (fallback) fallback.style.display = 'flex'
-                                }}
+                                className="w-full h-full object-cover opacity-90"
                               />
-                              <div className="w-full h-full flex items-center justify-center" style={{ display: 'none' }}>
-                                <Dumbbell className="w-8 h-8 text-gray-400" />
-                              </div>
-                            </>
+                               <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                   <div className="bg-white/20 rounded-full p-1 backdrop-blur-sm">
+                                     <Play className="w-4 h-4 text-white" fill="currentColor" />
+                                   </div>
+                               </div>
+                            </div>
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <Dumbbell className="w-8 h-8 text-gray-400" />
@@ -660,17 +659,32 @@ export default function MemberDashboard() {
   )
 }
 
+// Video embed helper
+const getEmbedUrl = (url) => {
+  if (!url) return null;
+  try {
+    if (url.includes('youtube.com/shorts/')) return `https://www.youtube.com/embed/${url.split('youtube.com/shorts/')[1].split('?')[0]}`;
+    if (url.includes('youtu.be/')) return `https://www.youtube.com/embed/${url.split('youtu.be/')[1].split('?')[0]}`;
+    if (url.includes('youtube.com/watch')) {
+      const vParam = url.split('v=')[1];
+      if (vParam) return `https://www.youtube.com/embed/${vParam.split('&')[0]}`;
+    }
+  } catch (e) { console.error('Error parsing video URL:', e); }
+  return url; 
+}
+
 // Exercise Detail Modal Component
 function ExerciseDetailModal({ assignment, onClose, onComplete, onProgressUpdate, isCompleting }) {
+  const [isPlaying, setIsPlaying] = useState(false)
   const exercise = assignment.exerciseId
   if (!exercise) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4" style={{
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{
       background: 'rgba(0, 0, 0, 0.7)',
       backdropFilter: 'blur(4px)'
     }}>
-      <div className="backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto" style={{
+      <div className="backdrop-blur-xl rounded-3xl w-full max-w-md max-h-[85vh] overflow-y-auto" style={{
         background: 'rgba(26, 35, 50, 0.95)',
         border: '1px solid rgba(255, 255, 255, 0.2)',
         boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
@@ -695,47 +709,59 @@ function ExerciseDetailModal({ assignment, onClose, onComplete, onProgressUpdate
             background: 'rgba(255, 255, 255, 0.1)'
           }}>
             {(() => {
-              // Get image from public/exercises folder first, then fallback to database imageUrl
-              let imageUrl = getExerciseImageUrl(exercise.name)
-              
-              // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
-              if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-                if (exercise.imageUrl.startsWith('http://') || exercise.imageUrl.startsWith('https://')) {
-                  imageUrl = exercise.imageUrl
-                } else {
-                  // Relative path - prepend backend URL
-                  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
-                  imageUrl = `${backendUrl}${exercise.imageUrl.startsWith('/') ? '' : '/'}${exercise.imageUrl}`
-                }
-              }
-              
-              // Final fallback to default image
-              if (!imageUrl) {
-                imageUrl = '/exercises/Push Ups.jpg'
-              }
-              
-              return imageUrl ? (
-                <>
-                  <img
-                    src={imageUrl}
-                    alt={exercise.name}
-                    className="w-full h-64 object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                      const fallback = e.target.nextElementSibling
-                      if (fallback) fallback.style.display = 'flex'
-                    }}
-                  />
-                  <div className="w-full h-64 flex items-center justify-center" style={{ display: 'none' }}>
-                    <Dumbbell className="w-20 h-20 text-gray-400" />
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-64 flex items-center justify-center">
-                  <Dumbbell className="w-20 h-20 text-gray-400" />
-                </div>
-              )
-            })()}
+                          const videoUrl = exercise.videoUrl || findStaticVideoUrl(exercise.name)
+                          let videoId = null
+                          try {
+                             if (videoUrl?.includes('shorts/')) videoId = videoUrl.split('shorts/')[1].split('?')[0]
+                             else if (videoUrl?.includes('youtu.be/')) videoId = videoUrl.split('youtu.be/')[1].split('?')[0]
+                             else if (videoUrl?.includes('v=')) videoId = videoUrl.split('v=')[1].split('&')[0]
+                          } catch (e) { console.error(e) }
+
+                          const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null
+
+                          if (isPlaying && videoUrl) {
+                            return (
+                               <div className="w-full h-64 bg-black">
+                                  <iframe 
+                                    width="100%" 
+                                    height="100%" 
+                                    src={`${getEmbedUrl(videoUrl)}?autoplay=1&rel=0`} 
+                                    title={exercise.name}
+                                    frameBorder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowFullScreen
+                                    className="w-full h-full"
+                                  />
+                               </div>
+                            )
+                          }
+
+                          return thumbnailUrl ? (
+                            <div 
+                              className="relative w-full h-64 group cursor-pointer"
+                              onClick={() => setIsPlaying(true)}
+                            >
+                              <img
+                                src={thumbnailUrl}
+                                alt={exercise.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                                <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                  <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
+                                </div>
+                              </div>
+                                <div className="absolute bottom-4 right-4 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-lg text-sm font-medium text-white flex items-center gap-2">
+                                  <Play className="w-4 h-4" />
+                                  Watch Video
+                                </div>
+                            </div>
+                          ) : (
+                            <div className="w-full h-64 flex items-center justify-center">
+                              <Dumbbell className="w-20 h-20 text-gray-400" />
+                            </div>
+                          )
+                        })()}
           </div>
 
           {/* Exercise Name */}

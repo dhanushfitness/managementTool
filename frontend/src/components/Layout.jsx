@@ -110,6 +110,7 @@ const navigation = [
   { name: 'Enquiries', href: '/enquiries', icon: HelpCircle, hasSubmenu: false },
   // { name: 'Marketing', href: '/marketing', icon: Megaphone, hasSubmenu: true },
   { name: 'Client', href: '/clients', icon: Users, hasSubmenu: true },
+  { name: 'Templates', href: '/exercise-templates', icon: Dumbbell, hasSubmenu: false },
   { name: 'Staff', href: '/staff', icon: UserCog, hasSubmenu: false },
   // { name: 'Reports', href: '/reports', icon: BarChart3, hasSubmenu: true },
   { name: 'Setup', href: '/setup', icon: Settings, hasSubmenu: true },

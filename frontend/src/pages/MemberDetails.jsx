@@ -13,6 +13,7 @@ import RazorpayPayment from '../components/RazorpayPayment'
 import RecordPaymentModal from '../components/RecordPaymentModal'
 import UpgradeMembershipModal from '../components/UpgradeMembershipModal'
 import AddInvoiceModal from '../components/AddInvoiceModal'
+import { exercises as staticExercises } from '../data/exercises'
 import toast from 'react-hot-toast'
 import {
   User,
@@ -47,11 +48,71 @@ import {
   Dumbbell,
   Play,
   CheckCircle,
-  Clock,
   Trash2,
   QrCode,
-  X as XIcon
+  X as XIcon,
+  Loader,
+  Utensils,
+  Copy
 } from 'lucide-react'
+
+// EMPTY
+
+function DietTab({ member }) {
+  const [dietPlan, setDietPlan] = useState(member?.dietPlan || '')
+  const queryClient = useQueryClient()
+
+  const updateDietMutation = useMutation({
+    mutationFn: (data) => updateMember(member._id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['member', member._id])
+      toast.success('Diet plan updated successfully')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to update diet plan')
+    }
+  })
+
+  // Sync state with member prop if it changes
+  useEffect(() => {
+    setDietPlan(member?.dietPlan || '')
+  }, [member])
+
+  const handleSave = () => {
+    updateDietMutation.mutate({ dietPlan })
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Diet Plan</h2>
+          <p className="text-sm text-gray-500 mt-1">Create a nutrition plan for the member</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={updateDietMutation.isLoading}
+          className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+        >
+          {updateDietMutation.isLoading ? <Loader className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5" />}
+          <span>Save Plan</span>
+        </button>
+      </div>
+      <div className="p-6">
+        <textarea
+          value={dietPlan}
+          onChange={(e) => setDietPlan(e.target.value)}
+          placeholder="Enter the diet plan details here..."
+          className="w-full h-[600px] p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none font-mono text-sm leading-relaxed"
+          spellCheck="false"
+        />
+        <div className="mt-2 text-right text-xs text-gray-400">
+          Last saved: {member.updatedAt ? new Date(member.updatedAt).toLocaleDateString() + ' ' + new Date(member.updatedAt).toLocaleTimeString() : 'Never'}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const countryCodes = [
   { code: '+91', country: 'India' },
@@ -197,7 +258,8 @@ export default function MemberDetails() {
       whatsapp: member?.communicationPreferences?.whatsapp ?? true
     },
     customerType: member?.customerType || 'individual',
-    source: member?.source || 'walk-in'
+    source: member?.source || 'walk-in',
+    dietPlan: member?.dietPlan || ''
   })
 
   const [fitnessForm, setFitnessForm] = useState(buildFitnessFormState(member))
@@ -448,7 +510,8 @@ export default function MemberDetails() {
           whatsapp: member.communicationPreferences?.whatsapp ?? true
         },
         customerType: member.customerType || 'individual',
-        source: member.source || 'walk-in'
+        source: member.source || 'walk-in',
+        dietPlan: member.dietPlan || ''
       })
       setFitnessForm(buildFitnessFormState(member))
     }
@@ -512,7 +575,8 @@ export default function MemberDetails() {
         measuredAt: measuredAtValue
       },
       customerType: formData.customerType,
-      source: formData.source
+      source: formData.source,
+      dietPlan: formData.dietPlan
     }
     updateMutation.mutate(updateData)
   }
@@ -537,6 +601,7 @@ export default function MemberDetails() {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'workout', label: 'Workout', icon: Dumbbell },
+    { id: 'diet', label: 'Diet', icon: Utensils },
     { id: 'service-card', label: 'Service Card', icon: CreditCard },
     { id: 'payments', label: 'Payments', icon: DollarSign },
     { id: 'call-log', label: 'Call Log', icon: PhoneCall },
@@ -999,10 +1064,21 @@ export default function MemberDetails() {
                           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
                         />
                       </div> */}
-                    </div>
+                  {/* Diet Plan */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Diet Plan</h3>
+                    <textarea
+                      value={formData.dietPlan}
+                      onChange={(e) => handleChange('dietPlan', e.target.value)}
+                      disabled={!isEditing}
+                      rows={6}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
+                      placeholder="Enter diet plan details..."
+                      style={{ minHeight: '150px' }}
+                    />
                   </div>
-
-                  {/* IDs Section */}
+                </div>
+              </div>
                   {/* <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">IDs</h3>
                     <div className="space-y-4">
@@ -1378,6 +1454,10 @@ export default function MemberDetails() {
 
         {activeTab === 'workout' && (
           <WorkoutTab member={member} />
+        )}
+
+        {activeTab === 'diet' && (
+          <DietTab member={member} />
         )}
 
         {activeTab === 'attendance' && (
@@ -3585,6 +3665,38 @@ const getExerciseImageUrl = (exerciseName) => {
 }
 
 // Workout Tab Component
+const getEmbedUrl = (url) => {
+  if (!url) return null;
+  
+  try {
+    // Handle YouTube Shorts
+    if (url.includes('youtube.com/shorts/')) {
+      const videoId = url.split('youtube.com/shorts/')[1].split('?')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    // Handle youtu.be
+    if (url.includes('youtu.be/')) {
+      const videoId = url.split('youtu.be/')[1].split('?')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    // Handle standard youtube watch
+    if (url.includes('youtube.com/watch')) {
+      // Handle simple v param manually to avoid URL object issues in some environments if url is partial
+      const vParam = url.split('v=')[1];
+      if (vParam) {
+        const videoId = vParam.split('&')[0];
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+  } catch (e) {
+    console.error('Error parsing video URL:', e);
+  }
+  
+  return url; 
+}
+
 function WorkoutTab({ member }) {
   const [exercises, setExercises] = useState([])
   const [selectedExercise, setSelectedExercise] = useState(null)
@@ -3593,12 +3705,36 @@ function WorkoutTab({ member }) {
   const [weekDay, setWeekDay] = useState(new Date().getDay())
   const [selectedAssignmentDay, setSelectedAssignmentDay] = useState(null)
   const [activeExerciseTab, setActiveExerciseTab] = useState('all')
+  const [playingVideo, setPlayingVideo] = useState(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const searchTimeoutRef = useRef(null)
   const queryClient = useQueryClient()
-
-  const { data: exercisesData, isLoading: exercisesLoading } = useQuery({
-    queryKey: ['exercises'],
-    queryFn: () => api.get('/exercises').then(res => res.data)
+  
+  // Template Logic
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  
+  const { data: templatesData } = useQuery({
+    queryKey: ['exercise-templates'],
+    queryFn: () => api.get('/exercise-templates').then(res => res.data),
+    enabled: showTemplateModal
   })
+  
+  const assignTemplateMutation = useMutation({
+    mutationFn: (templateId) => api.post('/exercise-templates/assign', {
+      templateId,
+      memberId: member._id
+    }),
+    onSuccess: () => {
+      toast.success('Template assigned successfully')
+      setShowTemplateModal(false)
+      queryClient.invalidateQueries(['member-exercises', member._id])
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to assign template')
+    }
+  })
+
+  const { data: exercisesData, isLoading: exercisesLoading } = { data: { exercises: staticExercises }, isLoading: false }
 
   const { data: assignmentsData, isLoading: assignmentsLoading } = useQuery({
     queryKey: ['member-exercises', member._id, weekDay],
@@ -3723,7 +3859,13 @@ function WorkoutTab({ member }) {
     const isCardio = selectedExercise.category === 'cardio'
     
     const assignmentData = {
-      exerciseId: selectedExercise._id,
+      exerciseId: selectedExercise._id, // Might be undefined for static exercises
+      name: selectedExercise.name,
+      category: selectedExercise.category,
+      muscleGroups: selectedExercise.muscleGroups,
+      description: selectedExercise.description,
+      imageUrl: selectedExercise.imageUrl,
+      videoUrl: selectedExercise.videoUrl, // Add videoUrl here
       weekDay: selectedAssignmentDay,
       weekNumber: null, // null means repeats every week
       isRecurring: true, // Always recurring
@@ -3785,6 +3927,13 @@ function WorkoutTab({ member }) {
             QR Code
           </button>
           <button
+            onClick={() => setShowTemplateModal(true)}
+            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center gap-2"
+          >
+            <Copy className="w-4 h-4" />
+            Use Template
+          </button>
+          <button
             onClick={handleOpenAssignModal}
             className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
           >
@@ -3835,33 +3984,60 @@ function WorkoutTab({ member }) {
                 ? exercise.imageUrl 
                 : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`
             }
+            // Fallback to static data for videoUrl if missing in DB
+            const staticExercise = staticExercises.find(e => 
+              e.name.toLowerCase() === exercise.name.toLowerCase() || 
+              e.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === exercise.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+            )
+            const videoUrl = exercise.videoUrl || staticExercise?.videoUrl
+
+            // Get video ID for thumbnail
+            let videoId = null
+            if (videoUrl) {
+              try {
+                if (videoUrl.includes('shorts/')) videoId = videoUrl.split('shorts/')[1].split('?')[0]
+                else if (videoUrl.includes('youtu.be/')) videoId = videoUrl.split('youtu.be/')[1].split('?')[0]
+                else if (videoUrl.includes('v=')) videoId = videoUrl.split('v=')[1].split('&')[0]
+              } catch (e) { console.error(e) }
+            }
+            
+            const thumbnailUrl = videoId 
+              ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` 
+              : null
 
             return (
               <div key={assignment._id} className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex gap-4">
                   {/* Image on Left */}
-                  {exerciseImageUrl && (
-                    <div className="flex-shrink-0 w-40 h-40 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
-                      <img
-                        src={exerciseImageUrl}
-                        alt={exercise.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none'
-                          e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
-                        }}
-                      />
-                    </div>
-                  )}
+                  {/* Video/Image on Left */}
+                  <div className="flex-shrink-0 w-56 aspect-video rounded-lg overflow-hidden border border-gray-200 bg-black relative group">
+                    <img
+                      src={thumbnailUrl || exerciseImageUrl || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80'}
+                      alt={exercise.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback to static image if thumbnail fails
+                         if (thumbnailUrl && exerciseImageUrl && e.target.src !== exerciseImageUrl) {
+                            e.target.src = exerciseImageUrl
+                         } else {
+                            e.target.style.display = 'none'
+                             e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
+                         }
+                      }}
+                    />
+                    {videoUrl && (
+                      <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded flex items-center gap-1">
+                        <Play className="w-3 h-3" />
+                        Video
+                      </div>
+                    )}
+                  </div>
                   
                   {/* Details on Right */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-bold text-gray-900 mb-1">{exercise.name}</h3>
-                        {exercise.description && (
-                          <p className="text-sm text-gray-600 line-clamp-2">{exercise.description}</p>
-                        )}
                       </div>
                       <button
                         onClick={() => {
@@ -3920,6 +4096,63 @@ function WorkoutTab({ member }) {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Template Selection Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+             onClick={() => setShowTemplateModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+               onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <h3 className="text-xl font-bold text-gray-900">Select Workout Template</h3>
+              <button onClick={() => setShowTemplateModal(false)} className="text-gray-400 hover:text-gray-600">
+                <XIcon className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {templatesData?.templates?.length === 0 ? (
+                 <p className="text-center text-gray-500 py-8">No templates found. Create one in the Templates section.</p>
+              ) : (
+                <div className="space-y-3">
+                  {templatesData?.templates?.map(template => (
+                    <button
+                      key={template._id}
+                      onClick={() => assignTemplateMutation.mutate(template._id)}
+                      disabled={assignTemplateMutation.isLoading}
+                      className="w-full text-left p-4 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all group relative overflow-hidden"
+                    >
+                      <div className="relative z-10 flex justify-between items-center">
+                        <div>
+                          <h4 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                            {template.name}
+                          </h4>
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">{template.description}</p>
+                          <div className="flex gap-2 mt-2">
+                             <span className="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600">
+                               {template.category}
+                             </span>
+                             <span className="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600">
+                               {template.exercises?.length || 0} exercises
+                             </span>
+                          </div>
+                        </div>
+                        {assignTemplateMutation.isLoading ? (
+                          <Loader className="w-5 h-5 text-indigo-500 animate-spin" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                             <Plus className="w-5 h-5" />
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -4015,7 +4248,7 @@ function WorkoutTab({ member }) {
             height: '100vh'
           }}
         >
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900">
                 {selectedExercise ? `Assign: ${selectedExercise.name}` : 'Select Exercise'}
@@ -4067,24 +4300,41 @@ function WorkoutTab({ member }) {
                     type="text"
                     placeholder="Search exercises..."
                     onChange={(e) => {
-                      const searchTerm = e.target.value.toLowerCase()
-                      let baseExercises = exercisesData?.exercises || []
+                      const rawValue = e.target.value
+                      const searchTerm = rawValue.toLowerCase().replace(/[^a-z0-9]/g, '')
+                      setIsSearching(true)
                       
-                      // First filter by active tab
-                      if (activeExerciseTab !== 'all') {
-                        baseExercises = filterExercisesByTab(baseExercises, activeExerciseTab, true)
+                      // Clear previous timeout
+                      if (searchTimeoutRef.current) {
+                        clearTimeout(searchTimeoutRef.current)
                       }
                       
-                      // Then filter by search term
-                      if (searchTerm) {
-                        setExercises(baseExercises.filter(ex => 
-                          ex.name.toLowerCase().includes(searchTerm) ||
-                          ex.category?.toLowerCase().includes(searchTerm) ||
-                          ex.muscleGroups?.some(mg => mg.toLowerCase().includes(searchTerm))
-                        ))
-                      } else {
-                        setExercises(baseExercises)
-                      }
+                      // Debounce search
+                      searchTimeoutRef.current = setTimeout(() => {
+                        let baseExercises = exercisesData?.exercises || []
+                        
+                        // First filter by active tab
+                        if (activeExerciseTab !== 'all') {
+                          baseExercises = filterExercisesByTab(baseExercises, activeExerciseTab, true)
+                        }
+                        
+                        // Then filter by search term
+                        if (searchTerm) {
+                          setExercises(baseExercises.filter(ex => {
+                            const normalizedName = ex.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+                            const normalizedCategory = ex.category?.toLowerCase() || ''
+                            
+                            return (
+                              normalizedName.includes(searchTerm) ||
+                              normalizedCategory.includes(searchTerm) ||
+                              ex.muscleGroups?.some(mg => mg.toLowerCase().includes(searchTerm))
+                            )
+                          }))
+                        } else {
+                          setExercises(baseExercises)
+                        }
+                        setIsSearching(false)
+                      }, 500)
                     }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   />
@@ -4112,63 +4362,114 @@ function WorkoutTab({ member }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-2 min-h-[500px] relative">
                   {typeof selectedAssignmentDay !== 'number' ? (
-                    <div className="col-span-full text-center py-12 text-gray-500">
-                      Pick a week day to start assigning exercises.
+                    <div className="col-span-full flex flex-col items-center justify-center min-h-[500px] text-gray-500">
+                      <p>Pick a week day to start assigning exercises.</p>
                     </div>
-                  ) : exercisesLoading ? (
-                    <div className="col-span-full text-center py-12 text-gray-500">Loading exercises...</div>
+                  ) : exercisesLoading || isSearching ? (
+                    <div className="col-span-full flex flex-col items-center justify-center min-h-[500px] text-gray-500">
+                      <Loader className="w-10 h-10 text-orange-500 animate-spin mb-4" />
+                      <p>{isSearching ? 'Searching...' : 'Loading exercises...'}</p>
+                    </div>
                   ) : exercises.length === 0 ? (
-                    <div className="col-span-full text-center py-12 text-gray-500">
+                    <div className="col-span-full flex flex-col items-center justify-center min-h-[500px] text-gray-500">
                       <p className="mb-2">No exercises available</p>
-                      <p className="text-xs text-gray-400">Run the seed script to add exercises: npm run seed:exercises</p>
+                      <p className="text-xs text-gray-400">Try a different search term or category</p>
                     </div>
                   ) : (
                     exercises.map((exercise) => {
-                      // Get image from public/exercises folder first, then fallback to database imageUrl
+                      const hasVideo = !!exercise.videoUrl
+                      const uniqueId = exercise._id || exercise.name
+                      const isPlaying = playingVideo === uniqueId
+                      
+                      // Get video ID for thumbnail
+                      let videoId = null
+                      if (hasVideo) {
+                        try {
+                          if (exercise.videoUrl.includes('shorts/')) videoId = exercise.videoUrl.split('shorts/')[1].split('?')[0]
+                          else if (exercise.videoUrl.includes('youtu.be/')) videoId = exercise.videoUrl.split('youtu.be/')[1].split('?')[0]
+                          else if (exercise.videoUrl.includes('v=')) videoId = exercise.videoUrl.split('v=')[1].split('&')[0]
+                        } catch (e) { console.error(e) }
+                      }
+                      
+                      const thumbnailUrl = videoId 
+                        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` 
+                        : null
+
+                      // Fallback image logic
                       let imageUrl = getExerciseImageUrl(exercise.name)
-                      
-                      // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
                       if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-                        if (exercise.imageUrl.startsWith('http://') || exercise.imageUrl.startsWith('https://')) {
-                          imageUrl = exercise.imageUrl
-                        } else {
-                          // Relative path - prepend backend URL
-                          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
-                          imageUrl = `${backendUrl}${exercise.imageUrl.startsWith('/') ? '' : '/'}${exercise.imageUrl}`
-                        }
+                        if (exercise.imageUrl.startsWith('http')) imageUrl = exercise.imageUrl
+                        else imageUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`
                       }
-                      
-                      // Final fallback to default image
-                      if (!imageUrl) {
-                        imageUrl = 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80'
-                      }
-                      
+                      if (!imageUrl) imageUrl = 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80'
+
                       return (
-                        <button
-                          key={exercise._id}
+                        <div
+                          key={uniqueId}
                           onClick={() => handleAssign(exercise)}
-                          className="group relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-orange-500 hover:shadow-lg transition-all duration-300 flex flex-col"
+                          className="group relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-orange-500 hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer"
                         >
-                          <div className="w-full rounded-t-xl overflow-hidden bg-gray-100 flex items-center justify-center">
-                            <img
-                              src={imageUrl}
-                              alt={exercise.name}
-                              className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-300"
-                              style={{ maxHeight: '600px', minHeight: '300px' }}
-                              onError={(e) => {
-                                // Fallback to a default image if the original fails
-                                e.target.src = 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80'
-                              }}
-                            />
+                          {/* Video/Image Area - Aspect Ratio 16:9 */}
+                          <div className="relative w-full aspect-video bg-black">
+                            {hasVideo && isPlaying ? (
+                              <iframe 
+                                width="100%" 
+                                height="100%" 
+                                src={`${getEmbedUrl(exercise.videoUrl)}?autoplay=1&mute=1&rel=0&modestbranding=1`} 
+                                title={exercise.name}
+                                frameBorder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowFullScreen
+                                className="w-full h-full"
+                              />
+                            ) : hasVideo ? (
+                              <div 
+                                className="relative w-full h-full"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPlayingVideo(uniqueId)
+                                }}
+                              >
+                                <img
+                                  src={thumbnailUrl || imageUrl}
+                                  alt={exercise.name}
+                                  className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
+                                  <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                    <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
+                                  </div>
+                                </div>
+                                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 text-white text-xs font-medium rounded">
+                                  Video
+                                </div>
+                              </div>
+                            ) : (
+                              <img
+                                src={imageUrl}
+                                alt={exercise.name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                           </div>
-                          <div className="p-4 bg-gradient-to-b from-white to-gray-50">
-                            <h4 className="font-semibold text-gray-900 text-center text-sm leading-tight line-clamp-2 group-hover:text-orange-600 transition-colors">
+                            <div 
+                              className="absolute inset-0 flex items-center justify-center bg-gray-100 -z-10" 
+                              style={{ display: 'none' }}
+                            >
+                              <Dumbbell className="w-12 h-12 text-gray-400" />
+                            </div>
+
+                          <div className="p-4 bg-white flex items-center justify-between">
+                            <h4 className="font-bold text-gray-900 text-lg leading-tight line-clamp-1 group-hover:text-orange-600 transition-colors">
                               {exercise.name}
                             </h4>
+                            <span className="text-xs font-medium px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full capitalize">
+                              {exercise.muscleGroups?.[0] || 'General'}
+                            </span>
                           </div>
-                        </button>
+                        </div>
                       )
                     })
                   )}

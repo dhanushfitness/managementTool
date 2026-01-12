@@ -351,7 +351,7 @@ export const deleteExercise = async (req, res) => {
 // Assign exercise to member
 export const assignExerciseToMember = async (req, res) => {
   try {
-    const { memberId, exerciseId, weekDay, weekNumber, sets, reps, weight, restTime, order, notes, variationId, isRecurring, duration, distance } = req.body;
+    const { memberId, exerciseId, weekDay, weekNumber, sets, reps, weight, restTime, order, notes, variationId, isRecurring, duration, distance, name, category, muscleGroups, description, imageUrl, videoUrl } = req.body;
 
     // Verify member exists
     const member = await Member.findOne({
@@ -363,14 +363,49 @@ export const assignExerciseToMember = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
-    // Verify exercise exists
-    const exercise = await Exercise.findOne({
-      _id: exerciseId,
-      organizationId: req.organizationId
-    });
+    // Find or create exercise
+    let exercise;
+    
+    if (exerciseId) {
+      exercise = await Exercise.findOne({
+        _id: exerciseId,
+        organizationId: req.organizationId
+      });
+    } else if (name) {
+      // Try to find by name
+      const normalizedName = normalizeExerciseName(name);
+      exercise = await Exercise.findOne({
+        name: normalizedName,
+        organizationId: req.organizationId
+      });
+      
+      // If not found, create it
+      if (!exercise) {
+        exercise = await Exercise.create({
+          organizationId: req.organizationId,
+          name: normalizedName,
+          category: category || 'other',
+          muscleGroups: muscleGroups || [],
+          description: description,
+          imageUrl: imageUrl, // Use the proper image URL
+          videoUrl: videoUrl, // Add videoUrl here
+          createdBy: req.user._id,
+          isActive: true
+        });
+        
+        // Log creation
+        await AuditLog.create({
+          organizationId: req.organizationId,
+          userId: req.user._id,
+          action: 'exercise.created_during_assignment',
+          entityType: 'Exercise',
+          entityId: exercise._id
+        });
+      }
+    }
 
     if (!exercise) {
-      return res.status(404).json({ success: false, message: 'Exercise not found' });
+      return res.status(404).json({ success: false, message: 'Exercise not found and could not be created' });
     }
 
     // If variationId is provided, verify it exists
@@ -384,7 +419,7 @@ export const assignExerciseToMember = async (req, res) => {
     const assignment = await MemberExerciseAssignment.create({
       organizationId: req.organizationId,
       memberId,
-      exerciseId,
+      exerciseId: exercise._id,
       weekDay: parseInt(weekDay),
       weekNumber: weekNumber ? parseInt(weekNumber) : null, // null means repeats every week
       isRecurring: isRecurring !== undefined ? isRecurring : true, // Default to recurring

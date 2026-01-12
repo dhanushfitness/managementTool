@@ -235,6 +235,10 @@ const memberSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  dietPlan: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

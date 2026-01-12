@@ -32,17 +32,13 @@ const memberExerciseAssignmentSchema = new mongoose.Schema({
     type: Boolean, // If true, exercise repeats every week regardless of weekNumber
     default: true
   },
-  variationId: {
-    type: String, // ID of the exercise variation to use (if null, use default exercise values)
-    default: null
-  },
   sets: {
     type: Number,
-    default: null // If null, use exercise default or variation default
+    default: null // If null, use exercise default
   },
   reps: {
     type: String,
-    default: null // If null, use exercise default or variation default
+    default: null // If null, use exercise default
   },
   weight: {
     type: String, // Weight for this specific assignment
@@ -50,7 +46,7 @@ const memberExerciseAssignmentSchema = new mongoose.Schema({
   },
   restTime: {
     type: String,
-    default: null // If null, use exercise default or variation default
+    default: null // If null, use exercise default
   },
   duration: {
     type: Number, // Duration in minutes (for cardio exercises)
@@ -100,4 +96,5 @@ memberExerciseAssignmentSchema.index({ organizationId: 1, memberId: 1 });
 const MemberExerciseAssignment = mongoose.model('MemberExerciseAssignment', memberExerciseAssignmentSchema);
 
 export default MemberExerciseAssignment;
+
 

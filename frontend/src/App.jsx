@@ -112,6 +112,8 @@ import MemberDashboard from './pages/MemberDashboard'
 import MemberProgress from './pages/MemberProgress'
 import MemberProfile from './pages/MemberProfile'
 import InvoicePrint from './pages/InvoicePrint'
+import Exercises from './pages/Exercises'
+import ExerciseTemplates from './pages/ExerciseTemplates'
 import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
@@ -325,6 +327,8 @@ function App() {
           <Route path="branches" element={<BranchManagement />} />
           <Route path="taskboard" element={<Taskboard />} />
           <Route path="leaderboard" element={<Leaderboard />} />
+          <Route path="exercises" element={<Exercises />} />
+          <Route path="exercise-templates" element={<ExerciseTemplates />} />
           <Route path="*" element={<Navigate to="/not-found" replace />} />
         </Route>
         <Route
