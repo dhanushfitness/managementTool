@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { 
-  Dumbbell, 
-  Plus, 
+import {
+  Dumbbell,
+  Plus,
   Search,
   Filter,
   Grid,
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = ['All', 'strength', 'cardio', 'flexibility', 'other'];
-const MUSCLE_GROUPS = ['All', 'chest', 'back', 'shoulders', 'legs', 'biceps', 'triceps', 'abs', 'core', 'full-body'];
+const MUSCLE_GROUPS = ['All', 'chest', 'back', 'shoulders', 'legs', 'biceps', 'triceps', 'abs', 'core', 'full-body', 'warm-up', 'cool-down'];
 const DIFFICULTIES = ['All', 'beginner', 'intermediate', 'advanced'];
 
 export default function Exercises() {
@@ -41,10 +41,10 @@ export default function Exercises() {
   // Filter exercises
   const filteredExercises = exercises.filter(exercise => {
     const matchesSearch = exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         exercise.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      exercise.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || exercise.category === selectedCategory;
-    const matchesMuscleGroup = selectedMuscleGroup === 'All' || 
-                              exercise.muscleGroups?.includes(selectedMuscleGroup);
+    const matchesMuscleGroup = selectedMuscleGroup === 'All' ||
+      exercise.muscleGroups?.includes(selectedMuscleGroup);
     const matchesDifficulty = selectedDifficulty === 'All' || exercise.difficulty === selectedDifficulty;
 
     return matchesSearch && matchesCategory && matchesMuscleGroup && matchesDifficulty;
@@ -79,15 +79,15 @@ export default function Exercises() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
       <div className="sticky top-0 z-40 backdrop-blur-xl border-b border-white/10"
-           style={{ background: 'rgba(15, 23, 42, 0.8)' }}>
+        style={{ background: 'rgba(15, 23, 42, 0.8)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center"
-                   style={{
-                     background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-                     boxShadow: '0 8px 32px rgba(139, 92, 246, 0.4)'
-                   }}>
+                style={{
+                  background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                  boxShadow: '0 8px 32px rgba(139, 92, 246, 0.4)'
+                }}>
                 <Dumbbell className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -95,19 +95,18 @@ export default function Exercises() {
                 <p className="text-sm text-gray-400">{filteredExercises.length} exercises available</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
-                  showFilters 
-                    ? 'bg-violet-600 text-white' 
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${showFilters
+                    ? 'bg-violet-600 text-white'
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                }`}>
+                  }`}>
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
               </button>
-              
+
               <div className="flex items-center gap-1 bg-white/10 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('grid')}
@@ -159,7 +158,7 @@ export default function Exercises() {
                     ))}
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Muscle Group</label>
                   <select
@@ -171,7 +170,7 @@ export default function Exercises() {
                     ))}
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Difficulty</label>
                   <select
@@ -202,7 +201,7 @@ export default function Exercises() {
             <p className="text-gray-500">Try adjusting your search or filters</p>
           </div>
         ) : (
-          <div className={viewMode === 'grid' 
+          <div className={viewMode === 'grid'
             ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
             : 'space-y-4'
           }>
@@ -211,7 +210,7 @@ export default function Exercises() {
                 key={exercise._id}
                 className="group relative rounded-2xl overflow-hidden bg-white/5 border border-white/10 hover:border-violet-500/50 transition-all hover:shadow-2xl hover:shadow-violet-500/20"
                 style={{ backdropFilter: 'blur(10px)' }}>
-                
+
                 {/* Exercise Image */}
                 <div className="relative h-48 overflow-hidden bg-gradient-to-br from-violet-900/20 to-purple-900/20">
                   <img
@@ -223,13 +222,13 @@ export default function Exercises() {
                     }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
-                  
+
                   {/* Difficulty Badge */}
                   <div className="absolute top-3 right-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold
                       ${exercise.difficulty === 'beginner' ? 'bg-green-500/90 text-white' :
                         exercise.difficulty === 'intermediate' ? 'bg-yellow-500/90 text-white' :
-                        'bg-red-500/90 text-white'}`}>
+                          'bg-red-500/90 text-white'}`}>
                       {exercise.difficulty}
                     </span>
                   </div>
@@ -293,9 +292,9 @@ export default function Exercises() {
       {/* Exercise Detail Modal */}
       {selectedExercise && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-             onClick={() => setSelectedExercise(null)}>
+          onClick={() => setSelectedExercise(null)}>
           <div className="max-w-2xl w-full bg-slate-900 rounded-2xl border border-white/10 max-h-[90vh] overflow-y-auto"
-               onClick={(e) => e.stopPropagation()}>
+            onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-slate-900 border-b border-white/10 p-6 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-white">{selectedExercise.name}</h2>
               <button
@@ -304,7 +303,7 @@ export default function Exercises() {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               <img
                 src={getExerciseImage(selectedExercise)}
@@ -314,7 +313,7 @@ export default function Exercises() {
                   e.target.src = '/exercises/Push Ups.jpg';
                 }}
               />
-              
+
               <div>
                 <h3 className="text-lg font-semibold text-white mb-2">Description</h3>
                 <p className="text-gray-300">{selectedExercise.description || 'No description available'}</p>

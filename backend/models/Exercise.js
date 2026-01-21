@@ -23,7 +23,7 @@ const exerciseSchema = new mongoose.Schema({
   },
   muscleGroups: [{
     type: String,
-    enum: ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'abs', 'biceps', 'triceps', 'full-body', 'other']
+    enum: ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'abs', 'biceps', 'triceps', 'full-body', 'other', 'neck', 'glutes', 'calves', 'obliques', 'hamstrings', 'quads', 'groin', 'hips', 'rest', 'mind', 'warm-up', 'cool-down']
   }],
   difficulty: {
     type: String,

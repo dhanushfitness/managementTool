@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Download, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
   Plus,
   AlertCircle,
   DollarSign,
@@ -62,7 +62,7 @@ export default function PendingCollectionsReport() {
   // Fetch pending collections
   const { data: collectionsData, isLoading, refetch } = useQuery({
     queryKey: ['pending-collections', filters, search, page],
-    queryFn: () => getPendingCollections({ 
+    queryFn: () => getPendingCollections({
       ...filters,
       search: search || undefined,
       page,
@@ -72,10 +72,10 @@ export default function PendingCollectionsReport() {
   })
 
   const invoices = collectionsData?.data?.invoices || []
-  const summary = collectionsData?.data?.summary || { 
-    serviceNonPTPending: 0, 
-    servicePTPending: 0, 
-    productPending: 0 
+  const summary = collectionsData?.data?.summary || {
+    serviceNonPTPending: 0,
+    servicePTPending: 0,
+    productPending: 0
   }
   const pagination = collectionsData?.data?.pagination || { page: 1, pages: 1, total: 0 }
 
@@ -148,7 +148,7 @@ export default function PendingCollectionsReport() {
     if (location.state?.auto) {
       handleSearch()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state])
 
   if (isLoading && hasSearched) {
@@ -167,7 +167,7 @@ export default function PendingCollectionsReport() {
             <span className="text-gray-300">/</span>
             <span className="text-orange-600 font-semibold">Pending Collections</span>
           </nav>
-          
+
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Pending Collections</h1>
             <p className="text-gray-600 mt-1">Track and manage outstanding payment collections</p>
@@ -197,7 +197,7 @@ export default function PendingCollectionsReport() {
         {/* Service Non-PT Pending */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
-          
+
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Service Non-PT</h2>
@@ -205,7 +205,7 @@ export default function PendingCollectionsReport() {
                 <AlertCircle className="h-5 w-5 text-white" />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <p className="text-xs text-gray-600 font-medium">Payments Pending</p>
               <p className="text-3xl font-black text-red-600">₹{formatCurrency(summary.serviceNonPTPending)}</p>
@@ -216,7 +216,7 @@ export default function PendingCollectionsReport() {
         {/* Service PT Pending */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
-          
+
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Service PT</h2>
@@ -224,7 +224,7 @@ export default function PendingCollectionsReport() {
                 <Target className="h-5 w-5 text-white" />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <p className="text-xs text-gray-600 font-medium">Payments Pending</p>
               <p className="text-3xl font-black text-blue-600">₹{formatCurrency(summary.servicePTPending)}</p>
@@ -235,7 +235,7 @@ export default function PendingCollectionsReport() {
         {/* Product Pending */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-gray-200 p-6 shadow-sm hover:shadow-lg transition-all group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/40 rounded-full blur-2xl"></div>
-          
+
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider">Products</h2>
@@ -243,7 +243,7 @@ export default function PendingCollectionsReport() {
                 <Package className="h-5 w-5 text-white" />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <p className="text-xs text-gray-600 font-medium">Payments Pending</p>
               <p className="text-3xl font-black text-purple-600">₹{formatCurrency(summary.productPending)}</p>
@@ -457,7 +457,7 @@ export default function PendingCollectionsReport() {
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Member Name</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Contact</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">GST No</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Pro Forma Invoice</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Tax Invoice</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Sequence</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Cancelled</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Service</th>
@@ -469,7 +469,7 @@ export default function PendingCollectionsReport() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {invoices.map((invoice, invoiceIndex) => 
+                  {invoices.map((invoice, invoiceIndex) =>
                     (invoice.items || []).map((item, itemIndex) => (
                       <tr key={`${invoice._id}-${itemIndex}`} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all">
                         <td className="px-4 py-3">

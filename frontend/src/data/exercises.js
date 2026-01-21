@@ -183,6 +183,155 @@ export const exercises = [
   { name: "Box Jumps", category: "strength", muscleGroups: ["legs", "explosive"], videoUrl: "https://youtu.be/52r_Ul5k03g?si=4A7rXmd7jDvNn-9x" },
   { name: "Sled Push", category: "strength", muscleGroups: ["legs", "full-body"], videoUrl: "https://youtu.be/QwscR2BhdEg?si=Z6M4ldX3SiupU4C6" },
   { name: "Sled Pull", category: "strength", muscleGroups: ["legs", "full-body"], videoUrl: "https://youtube.com/shorts/JwhWHKzHqso?si=2IixQB7JDrs_6-mA" },
+
+  // Triceps Exercises
+  { name: "Bench Dips", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/larQGD02ndE?si=HjHOrekySXKJ04j5" },
+  { name: "Parallel Bar Dips", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtube.com/shorts/GcUDt7nxKTM?si=7RdChJXvlm_joZ3P" },
+  { name: "Close-Grip Push-Ups", category: "strength", muscleGroups: ["triceps", "chest"], videoUrl: "https://youtu.be/uv41503qvd0?si=seIcHARP9AmJcJtG" },
+  { name: "Diamond Push-Ups", category: "strength", muscleGroups: ["triceps", "chest"], videoUrl: "https://youtube.com/shorts/pwF2nXU-WWE?si=yDyz-PZPU72vOniY" },
+  { name: "Close-Grip Barbell Bench Press", category: "strength", muscleGroups: ["triceps", "chest"], videoUrl: "https://youtu.be/DzA2xZhDGeo?si=w4BhCrlVEtm4wbGE" },
+  { name: "EZ-Bar Skull Crushers", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/eluOhtYkm-0?si=wOSLSwy6gyoiXns7" },
+  { name: "Barbell Skull Crushers", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/l3rHYPtMUo8?si=4awKotXJLNjFIO0g" },
+  { name: "JM Press", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/Tih5iHyELsE?si=-Pw-zbmOkxQdtBJ9" },
+  { name: "Overhead Dumbbell Triceps Extension", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/a9oPnZReIRE?si=faKWUtzakZRyjOXz" },
+  { name: "Single-Arm Dumbbell Overhead Extension", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/lUKXtm-i21U?si=1-yjcIn4q7FrwXg4" },
+  { name: "Dumbbell Skull Crushers", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/1BDGIcMTSXc?si=xwrpcPQSbPUE2P3P" },
+  { name: "Dumbbell Kickbacks", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/3ao9J4vvEXA?si=1_Hlgy2Yej3Tl_o-" },
+  { name: "Neutral-Grip Dumbbell Press", category: "strength", muscleGroups: ["triceps", "chest"], videoUrl: "https://youtu.be/fZuQpjhaR_M?si=XfpX1QG6Q6f0LDxO" },
+  { name: "Cable Pushdown (Straight Bar)", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/LXkCrxn3caQ?si=Et5AK3B9o96TZId_" },
+  { name: "Rope Pushdown", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtube.com/shorts/EPn02tZL68U?si=DmBqxi503eMMP850" },
+  { name: "Reverse-Grip Pushdown", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/GqK6WrZEyEk?si=bMzfTuWYCn6sxOqo" },
+  { name: "Overhead Cable Triceps Extension", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/KvrP8c6eVBc?si=dxcWZScdv4DCc70G" },
+  { name: "Single-Arm Cable Pushdown", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/V6uVYGlpz8E?si=OHgbgHXczPd7_BlJ" },
+  { name: "Resistance Band Triceps Extension", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtube.com/shorts/BUNwoDeKj3o?si=TgSVdcN7_O6-VEh1" },
+  { name: "Tate Press", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/9Lpwk3nLve8?si=W3Yej43x0nIPccCe" },
+  { name: "Bodyweight Triceps Extension (TRX / Bar)", category: "strength", muscleGroups: ["triceps"], videoUrl: "https://youtu.be/VKqhVPiLh00?si=fsnbHFWRvHkwFlQX" },
+
+  // Ab Exercises
+  { name: "Crunches", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtu.be/NnVhqMQRvmM?si=pQfZ2XY0Zb_BSANF" },
+  { name: "Sit-Ups", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtu.be/onaQ0v_J5uU?si=1l24kuemQTjnGsBY" },
+  { name: "Reverse Crunches", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtu.be/XY8KzdDcMFg?si=WhwtU-BpJOLWv0x1" },
+  { name: "Leg Raises", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtu.be/JB2oyawG9KI?si=9ZmKosccVzoRflx8" },
+  { name: "Hanging Leg Raises", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtu.be/Yrtvs-nEnk0?si=28wjljSfxEkt1SW5" },
+  { name: "Flutter Kicks", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtu.be/ZB1SwBRVLCc?si=jQGATdWqskIi7uUn" },
+  { name: "Scissor Kicks", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtu.be/CcvAr4JYo0U?si=4XK2bSz9YsWsBB5Q" },
+  { name: "Mountain Climbers", category: "cardio", muscleGroups: ["abs", "core", "full-body"], videoUrl: "https://youtu.be/kLh-uczlPLg?si=2CvovUf2aoI4wS7G" },
+  { name: "Russian Twists", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/Tau0hsW8iR0?si=GdYCg_5b9HQSSKXx" },
+  { name: "Bicycle Crunches", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/wnuLak2onoA?si=8PHlB-kBAFV8qFhH" },
+  { name: "Side Crunches", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/q0QyCrpiNgI?si=TEvvRqYtVjhindQv" },
+  { name: "Heel Touches", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/RQRKLIpwIJs?si=1TejwvsSz8CwBLBp" },
+  { name: "Side Plank Dips", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/9dNL_mtObGQ?si=th6PyYzGEmLIrOxt" },
+  { name: "Plank", category: "strength", muscleGroups: ["core", "abs"], videoUrl: "https://youtu.be/pvIjsG5Svck?si=DbTAZw2biHDLCJEm" },
+  { name: "Side Plank", category: "strength", muscleGroups: ["core", "obliques"], videoUrl: "https://youtu.be/N_s9em1xTqU?si=tZ7A1j96JGBCsEKc" },
+  { name: "Plank Shoulder Taps", category: "strength", muscleGroups: ["core", "shoulders"], videoUrl: "https://youtu.be/8rgurWd-PB8?si=eMO74sQ4K5qw13wN" },
+  { name: "Hollow Body Hold", category: "strength", muscleGroups: ["core", "abs"], videoUrl: "https://youtu.be/EsnM8eBtazU?si=SCRMIbB5L1n8OLC2" },
+  { name: "Dead Bug", category: "strength", muscleGroups: ["core", "abs"], videoUrl: "https://youtu.be/jbWmbhElf3Q?si=C32N50FhwhhB0gB4" },
+  { name: "Bird Dog", category: "strength", muscleGroups: ["core", "back"], videoUrl: "https://youtu.be/vzU5xrs1gMQ?si=GwpkfkViMOz-NWO8" },
+  { name: "Cable Crunch", category: "strength", muscleGroups: ["abs"], videoUrl: "https://youtube.com/shorts/ByZJuk85YuE?si=_W83Do83eZ7Hg6xx" },
+  { name: "Cable Woodchopper (High to Low)", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/gcGNypjIQDo?si=THwb9AafwVK_Gd9I" },
+  { name: "Reverse Cable Woodchopper (Low to High)", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/mvvu8imyMFs?si=FQTaHOnhjacREozT" },
+  { name: "Pallof Press", category: "strength", muscleGroups: ["core", "abs"], videoUrl: "https://youtu.be/HXrLaqNIkTs?si=cvhTEes8JlhW_lo3" },
+  { name: "Weighted Crunch", category: "strength", muscleGroups: ["abs"], videoUrl: "https://youtu.be/cbwLMF7oJGI?si=RF_OFUDbmB8lKbgM" },
+  { name: "Decline Sit-Ups", category: "strength", muscleGroups: ["abs"], videoUrl: "https://youtu.be/N7hf1_vcX5w?si=Mj5ZPEPOoVU1UMH8" },
+  { name: "Medicine Ball Slams", category: "cardio", muscleGroups: ["abs", "full-body"], videoUrl: "https://youtu.be/CkO1mfSBvv4?si=Fa5A31w_y3W-L1rp" },
+  { name: "Medicine Ball Russian Twists", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/2_MsoqTpIJ8?si=ttrHkMz86kbdG7_A" },
+  { name: "Ab Wheel Rollouts", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtu.be/zCsW9L2qi-0?si=tZrJeSSbiFviuDfk" },
+  { name: "Hanging Windshield Wipers", category: "strength", muscleGroups: ["abs", "obliques"], videoUrl: "https://youtu.be/q-5xzuVDZ0o?si=ovQjAeTUPfcS6LZ7" },
+  { name: "L-Sit Hold", category: "strength", muscleGroups: ["abs", "core"], videoUrl: "https://youtube.com/shorts/11B3alBjq-U?si=mu7Y5AqHBxOcjIdG" },
+  { name: "V-Ups", category: "strength", muscleGroups: ["abs"], videoUrl: "https://youtu.be/NxkukiEoh3g?si=zfM0KJMQfdwkGhrJ" },
+
+  // General Full-Body Warm-Up
+  { name: "Marching in Place", category: "cardio", muscleGroups: ["full-body", "warm-up"], videoUrl: "https://youtu.be/6uqztDO_7kQ?si=-Z7Pmy9G67ns5vNG" },
+  { name: "Jumping Jacks", category: "cardio", muscleGroups: ["full-body", "warm-up"], videoUrl: "https://youtu.be/ILw0xV9FjbI?si=MWO1H_TEa0LmIqPu" },
+  { name: "High Knees", category: "cardio", muscleGroups: ["full-body", "legs", "warm-up"], videoUrl: "https://youtu.be/ZNDHivUg7vA?si=79QasmKMhkn7Psex" },
+  { name: "Butt Kicks", category: "cardio", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/-dtvAxibgYQ?si=eTXBzYVs-MjQa_YG" },
+  { name: "Spot Jogging", category: "cardio", muscleGroups: ["full-body", "warm-up"], videoUrl: "https://youtu.be/f8PzF8bhYoo?si=pyEfdsvPoOWAEYqJ" },
+  { name: "Skipping Rope", category: "cardio", muscleGroups: ["full-body", "legs", "warm-up"], videoUrl: "https://youtube.com/shorts/t4RasXe_BM4?si=MPyIiRbRUVLgf2OX" },
+
+  // Neck Warm-Up
+  { name: "Neck Flexion & Extension", category: "other", muscleGroups: ["neck", "warm-up"], videoUrl: "https://youtu.be/6k9VQNN8B5U?si=V1-rZvR_TpbBzwdD" },
+  { name: "Neck Side Bends", category: "other", muscleGroups: ["neck", "warm-up"], videoUrl: "https://youtu.be/vsqsLmm4ZuM?si=HmwyIwdHzfL2ykaj" },
+  { name: "Neck Rotations", category: "other", muscleGroups: ["neck", "warm-up"], videoUrl: "https://youtu.be/UbHEH6t_OJQ?si=38ZbHSveYPik9_A6" },
+
+  // Shoulder & Arm Warm-Up
+  { name: "Arm Circles (Small & Large)", category: "other", muscleGroups: ["shoulders", "warm-up"], videoUrl: "https://youtu.be/UVMEnIaY8aU?si=LmTkOTA93BDakfYz" },
+  { name: "Shoulder Rolls", category: "other", muscleGroups: ["shoulders", "warm-up"], videoUrl: "https://youtu.be/X7NtgY9kCCM?si=l4r3nvgC-btI7dVr" },
+  { name: "Arm Swings (Front–Back)", category: "other", muscleGroups: ["shoulders", "chest", "warm-up"], videoUrl: "https://youtu.be/z45Bhzinm60?si=kACk5iIJjLotk9uQ" },
+  { name: "Cross-Body Arm Swings", category: "other", muscleGroups: ["shoulders", "chest", "warm-up"], videoUrl: "https://youtu.be/3xTdpyuQ8G4?si=dU987B8_UGk4cCGf" },
+  { name: "Band Pull-Apart", category: "other", muscleGroups: ["shoulders", "back", "warm-up"], videoUrl: "https://youtu.be/smSSXITNpCI?si=j0xKPcXJV-iBZp4P" },
+
+  // Upper Body Mobility
+  { name: "Torso Twists", category: "other", muscleGroups: ["core", "back", "warm-up"], videoUrl: "https://youtu.be/h6XyzlM8m24?si=pIxstxJyAt8Xuy9_" },
+  { name: "Standing Side Bends", category: "other", muscleGroups: ["core", "obliques", "warm-up"], videoUrl: "https://youtu.be/wY9nQ-yfRwo?si=eKsJGOOOGvp7_3c9" },
+  { name: "Cat–Cow Stretch", category: "other", muscleGroups: ["back", "core", "warm-up"], videoUrl: "https://youtu.be/LIVJZZyZ2qM?si=BEJrpHq4RrnHVxfK" },
+  { name: "Shoulder Dislocates (Band/Stick)", category: "other", muscleGroups: ["shoulders", "warm-up"], videoUrl: "https://youtu.be/SL8VAYpmpCQ?si=OER3CMP5VSh1jx-g" },
+
+  // Hip & Lower Body Warm-Up
+  { name: "Hip Circles", category: "other", muscleGroups: ["legs", "glutes", "warm-up"], videoUrl: "https://youtu.be/qkrJXGVj_OQ?si=CvFXO5YZsuRqJqIH" },
+  { name: "Leg Swings (Front–Back)", category: "other", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/E68-pMl1Im8?si=bv32xEYiOnaYCOVf" },
+  { name: "Leg Swings (Side–Side)", category: "other", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/ZNpRO--nSN8?si=jNejmqC04dVZFSfs" },
+  { name: "Hip Openers", category: "other", muscleGroups: ["legs", "glutes", "warm-up"], videoUrl: "https://youtube.com/shorts/lIqGcqrIj6w?si=o8d_41T0MQkFSvw0" },
+  { name: "Walking Lunges", category: "other", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/DlhojghkaQ0?si=G4AW3tE-GUIMPbaw" },
+
+  // Knee & Ankle Warm-Up
+  { name: "Knee Circles", category: "other", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/92owncvIHlY?si=4e7xnrmxNlNkICKI" },
+  { name: "Ankle Circles", category: "other", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/S9eZNjKr2gI?si=sq5FN4gIE1LmwPA4" },
+  { name: "Heel-Toe Walk", category: "other", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/DnPpm_VKqhI?si=cqH2acaiezPRDBxI" },
+  { name: "Calf Raises", category: "strength", muscleGroups: ["calves", "warm-up"], videoUrl: "https://youtu.be/eMTy3qylqnE?si=IUF17TSGu7Ft7GlY" },
+
+  // Dynamic Stretching (Pre-Workout)
+  { name: "Bodyweight Squats", category: "strength", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/l83R5PblSMA?si=iQ3_r95O6aOK6cfZ" },
+  { name: "Inch Worms", category: "other", muscleGroups: ["full-body", "warm-up"], videoUrl: "https://youtu.be/ZY2ji_Ho0dA?si=g29HdS64E76u9ffH" },
+  { name: "World's Greatest Stretch", category: "other", muscleGroups: ["full-body", "warm-up"], videoUrl: "https://youtu.be/-CiWQ2IvY34?si=mUdK_S2QYhmJFvj_" },
+  { name: "Lateral Lunges", category: "strength", muscleGroups: ["legs", "warm-up"], videoUrl: "https://youtu.be/rvqLVxYqEvo?si=eaTG0Wkh-HYfwnBL" },
+
+  // Activation Warm-Up (Muscle Prep)
+  { name: "Glute Bridges", category: "strength", muscleGroups: ["glutes", "legs", "warm-up"], videoUrl: "https://youtu.be/Xp33YgPZgns?si=YH7xS8ObrsuwzNq-" },
+  { name: "Mini Band Walks", category: "strength", muscleGroups: ["glutes", "legs", "warm-up"], videoUrl: "https://youtu.be/8-cOyxSCoVE?si=CKxf2QNFpU0u1UhN" },
+  { name: "Plank Hold", category: "strength", muscleGroups: ["core", "warm-up"], videoUrl: "https://youtu.be/PWd2VXg2Mpk?si=xL_LU2K-5gZrOTlA" },
+  { name: "Scapular Push-Ups", category: "strength", muscleGroups: ["shoulders", "back", "warm-up"], videoUrl: "https://youtu.be/huGj4aBk9C4?si=ETVzt9QpRH2NWZRN" },
+
+  // Cool-Down & Recovery Exercises
+  { name: "Slow Walking", category: "cardio", muscleGroups: ["full-body", "cool-down"], videoUrl: "https://youtube.com/shorts/0jxuHIUwolk?si=cIhTe4s3iTG1Dyvh" },
+  { name: "Easy Spot Jog", category: "cardio", muscleGroups: ["full-body", "cool-down"], videoUrl: "https://youtu.be/f8PzF8bhYoo?si=vv3Gs8yyFvUQFAz4" },
+  { name: "Stationary Cycling (Slow)", category: "cardio", muscleGroups: ["legs", "cool-down"], videoUrl: "https://youtube.com/shorts/dieOsJlsvpM?si=QRlIvglpioReEHmk" },
+
+  // Upper Body Stretching
+  { name: "Neck Stretch (Forward / Side)", category: "flexibility", muscleGroups: ["neck", "cool-down"], videoUrl: "https://youtube.com/shorts/6Tr3GLfySYo?si=g2-6cym28ThVDn4t" },
+  { name: "Shoulder Stretch (Cross-Body)", category: "flexibility", muscleGroups: ["shoulders", "cool-down"], videoUrl: "https://youtube.com/shorts/aIq0fLi8iak?si=4_y8wblErUMpuiDW" },
+  { name: "Overhead Triceps Stretch", category: "flexibility", muscleGroups: ["triceps", "cool-down"], videoUrl: "https://youtu.be/zzvDO56B0HE?si=VS3jfj7Ojf93oK9b" },
+  { name: "Chest Opener Stretch", category: "flexibility", muscleGroups: ["chest", "cool-down"], videoUrl: "https://youtube.com/shorts/crnw1IKWNZY?si=BlQIs0YBr3ybFLxQ" },
+  { name: "Upper Back Stretch", category: "flexibility", muscleGroups: ["back", "cool-down"], videoUrl: "https://youtube.com/shorts/BtUTVjozCEk?si=jZoWpqJ-38lSjpm-" },
+
+  // Arm & Forearm Stretching
+  { name: "Biceps Stretch", category: "flexibility", muscleGroups: ["biceps", "cool-down"], videoUrl: "https://youtube.com/shorts/VIOYPKNQ13Y?si=PRNR0s_pF42t0khc" },
+  { name: "Triceps Stretch", category: "flexibility", muscleGroups: ["triceps", "cool-down"], videoUrl: "https://youtu.be/zzvDO56B0HE?si=Dd25e_q0JONpjqOw" },
+  { name: "Wrist Flexor Stretch", category: "flexibility", muscleGroups: ["arms", "cool-down"], videoUrl: "https://youtu.be/R7dI2ZcbiMI?si=uz2vWb5QT9W-VwzF" },
+  { name: "Wrist Extensor Stretch", category: "flexibility", muscleGroups: ["arms", "cool-down"], videoUrl: "https://youtu.be/i-JV2PsFzWA?si=BguEqx0-uzTmmpqy" },
+
+  // Back & Core Stretching
+  { name: "Cat Stretch", category: "flexibility", muscleGroups: ["back", "cool-down"], videoUrl: "https://youtu.be/Y-s5X4yKPCs?si=gGxq9Z23pXyk8oDf" },
+  { name: "Child’s Pose", category: "flexibility", muscleGroups: ["back", "full-body", "cool-down"], videoUrl: "https://youtu.be/_ZX_zTOBgp8?si=n8-LTXX-ZGGhKk0I" },
+  { name: "Seated Forward Bend", category: "flexibility", muscleGroups: ["back", "hamstrings", "cool-down"], videoUrl: "https://youtu.be/SLIaql7h6RQ?si=CsAwJimSCyM9KeaD" },
+  { name: "Cobra Stretch", category: "flexibility", muscleGroups: ["back", "abs", "cool-down"], videoUrl: "https://youtu.be/JDcdhTuycOI?si=hfMO8L9NrzQDPCfx" },
+  { name: "Supine Spinal Twist", category: "flexibility", muscleGroups: ["back", "cool-down"], videoUrl: "https://youtu.be/TeAhhVD2q1c?si=DEWF1w3UvinjiH39" },
+
+  // Lower Body Stretching
+  { name: "Standing Quad Stretch", category: "flexibility", muscleGroups: ["legs", "quads", "cool-down"], videoUrl: "https://youtu.be/ob1tvmQUQZ0?si=2Z395xiqLwnPF9Yv" },
+  { name: "Hamstring Stretch", category: "flexibility", muscleGroups: ["legs", "hamstrings", "cool-down"], videoUrl: "https://youtu.be/HFPbNaMzW3M?si=GWbM2OEfmaoFzQzN" },
+  { name: "Calf Stretch", category: "flexibility", muscleGroups: ["legs", "calves", "cool-down"], videoUrl: "https://youtube.com/shorts/TCnziUWGTf4?si=alD-7n58Nc2z5SKD" },
+  { name: "Glute Stretch", category: "flexibility", muscleGroups: ["legs", "glutes", "cool-down"], videoUrl: "https://youtube.com/shorts/NURGHgR7PDw?si=VfLGTd4pC1ZxH2Nq" },
+  { name: "Hip Flexor Stretch", category: "flexibility", muscleGroups: ["legs", "cool-down"], videoUrl: "https://youtube.com/shorts/ZQXGUfGmgKc?si=GDcSd6lmnErqLOdg" },
+
+  // Floor-Based Relaxation Stretches
+  { name: "Butterfly Stretch", category: "flexibility", muscleGroups: ["legs", "groin", "cool-down"], videoUrl: "https://youtu.be/4J7kbCmPScQ?si=_KuCWwZGgMbq5fnN" },
+  { name: "Happy Baby Pose", category: "flexibility", muscleGroups: ["legs", "hips", "cool-down"], videoUrl: "https://youtu.be/DsuQQMzFU-4?si=upfN9QuINHmJWp4g" },
+  { name: "Legs-Up-The-Wall Pose", category: "flexibility", muscleGroups: ["legs", "rest", "cool-down"], videoUrl: "https://youtu.be/h2UrHSo9Pdk?si=2SRV2vI3NDe1XYx2" },
+
+  // Breathing & Relaxation
+  { name: "Diaphragmatic Breathing", category: "other", muscleGroups: ["core", "mind", "cool-down"], videoUrl: "https://youtu.be/qhcBjSirMss?si=k2IiI0OBewgpzF2W" },
+  { name: "Box Breathing", category: "other", muscleGroups: ["core", "mind", "cool-down"], videoUrl: "https://youtu.be/c753Zw9Wloc?si=sFz_rjLYPU9ysBY0" },
+  { name: "Supine Relaxation (Shavasana)", category: "other", muscleGroups: ["full-body", "cool-down"], videoUrl: "https://youtube.com/shorts/9ZsTLblha9o?si=jFBnBIYxU6CB07IJ" },
 ];
 
 export const getExercises = () => {

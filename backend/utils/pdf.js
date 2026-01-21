@@ -61,7 +61,7 @@ export const generateInvoicePDF = async (invoice) => {
       doc.fontSize(28).font('Helvetica-Bold')
         .fillColor('#FFFFFF')
         .text(
-          invoice.isProForma ? 'Pro Forma Invoice' : 'Invoice',
+          invoice.isProForma ? 'Tax Invoice' : 'Tax Invoice',
           { align: 'center', y: logoY + 70 }
         );
       

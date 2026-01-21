@@ -48,7 +48,7 @@ export default function CancelledInvoicesReport() {
   // Fetch cancelled invoices
   const { data: invoicesData, isLoading, refetch } = useQuery({
     queryKey: ['cancelled-invoices', filters, search, page],
-    queryFn: () => getCancelledInvoices({ 
+    queryFn: () => getCancelledInvoices({
       ...filters,
       search: search || undefined,
       page,
@@ -58,10 +58,10 @@ export default function CancelledInvoicesReport() {
   })
 
   const invoices = invoicesData?.data?.invoices || []
-  const summary = invoicesData?.data?.summary || { 
-    serviceNonPTSales: 0, 
-    servicePTSales: 0, 
-    productSales: 0 
+  const summary = invoicesData?.data?.summary || {
+    serviceNonPTSales: 0,
+    servicePTSales: 0,
+    productSales: 0
   }
   const pagination = invoicesData?.data?.pagination || { page: 1, pages: 1, total: 0 }
 
@@ -374,7 +374,7 @@ export default function CancelledInvoicesReport() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Member Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Contact Number</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">GST No</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pro Forma Invoice No.</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Tax Invoice No.</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Yoactiv Ref No.</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Sequence</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Cancelled Paid Invoice</th>
@@ -392,14 +392,14 @@ export default function CancelledInvoicesReport() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">TDS Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pending</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pay Mode</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Pro Forma Invoice Details</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Tax Invoice Details</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Cancelled By</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Reason</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Delete</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {invoices.map((invoice, invoiceIndex) => 
+                  {invoices.map((invoice, invoiceIndex) =>
                     (invoice.items || []).map((item, itemIndex) => (
                       <tr key={`${invoice._id}-${itemIndex}`} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -488,11 +488,11 @@ export default function CancelledInvoicesReport() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {invoice.paymentMethod === 'razorpay' ? 'Online Payment' :
-                           invoice.paymentMethod === 'cash' ? 'Cash' :
-                           invoice.paymentMethod === 'card' ? 'Card' :
-                           invoice.paymentMethod === 'upi' ? 'UPI' :
-                           invoice.paymentMethod === 'bank_transfer' ? 'Bank Transfer' :
-                           invoice.paymentMethod || '-'}
+                            invoice.paymentMethod === 'cash' ? 'Cash' :
+                              invoice.paymentMethod === 'card' ? 'Card' :
+                                invoice.paymentMethod === 'upi' ? 'UPI' :
+                                  invoice.paymentMethod === 'bank_transfer' ? 'Bank Transfer' :
+                                    invoice.paymentMethod || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <div className="flex items-center gap-2">

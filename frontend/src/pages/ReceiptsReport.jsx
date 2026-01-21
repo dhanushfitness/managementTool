@@ -28,7 +28,7 @@ export default function ReceiptsReport() {
   // Fetch receipts
   const { data: receiptsData, isLoading, refetch } = useQuery({
     queryKey: ['receipts', filters, search, page],
-    queryFn: () => getReceipts({ 
+    queryFn: () => getReceipts({
       ...filters,
       search: search || undefined,
       page,
@@ -265,7 +265,7 @@ export default function ReceiptsReport() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">S.No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Sequence</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Receipt No</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Pro Forma Invoice No</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Tax Invoice No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Invoice No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Member ID</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Member Name</th>
@@ -279,7 +279,7 @@ export default function ReceiptsReport() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {receipts.flatMap((receipt, receiptIndex) => 
+                  {receipts.flatMap((receipt, receiptIndex) =>
                     (receipt.invoice?.items || []).map((item, itemIndex) => (
                       <tr key={`${receipt._id}-${itemIndex}`} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

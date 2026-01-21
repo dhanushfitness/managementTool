@@ -94,7 +94,7 @@ function DietTab({ member }) {
           disabled={updateDietMutation.isLoading}
           className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
         >
-          {updateDietMutation.isLoading ? <Loader className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5" />}
+          {updateDietMutation.isLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
           <span>Save Plan</span>
         </button>
       </div>
@@ -127,11 +127,11 @@ export default function MemberDetails() {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
-  
+
   // Check URL params for tab
   const searchParams = new URLSearchParams(location.search)
   const initialTab = searchParams.get('tab') || 'profile'
-  
+
   const [activeTab, setActiveTab] = useState(initialTab)
   const [activeSubTab, setActiveSubTab] = useState('personal')
   const [activeServiceTab, setActiveServiceTab] = useState('individual')
@@ -143,7 +143,7 @@ export default function MemberDetails() {
   const [showReferralModal, setShowReferralModal] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
-  
+
   // Image upload and camera states
   const [showCamera, setShowCamera] = useState(false)
   const [capturedImage, setCapturedImage] = useState(null)
@@ -175,10 +175,10 @@ export default function MemberDetails() {
   // Fetch member invoices with payments for payments tab
   const { data: paymentsData, isLoading: paymentsLoading } = useQuery({
     queryKey: ['member-invoices-payments', id, paymentFilter, paymentPage],
-    queryFn: () => getMemberInvoicesWithPayments(id, { 
-      filter: paymentFilter, 
-      page: paymentPage, 
-      limit: 20 
+    queryFn: () => getMemberInvoicesWithPayments(id, {
+      filter: paymentFilter,
+      page: paymentPage,
+      limit: 20
     }).then(res => res.data),
     enabled: activeTab === 'payments'
   })
@@ -296,7 +296,7 @@ export default function MemberDetails() {
         toast.error('Please select a valid image file')
         return
       }
-      
+
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast.error('Image size should be less than 5MB')
@@ -329,7 +329,9 @@ export default function MemberDetails() {
 
   // Open camera modal
   const openCameraModal = async (mode = facingMode) => {
+    console.log('🎥 Opening camera modal...');
     setShowCamera(true)
+    console.log('📸 showCamera state set to true');
     setCapturedImage(null)
     setCameraError('')
     setCameraLoading(true)
@@ -347,21 +349,11 @@ export default function MemberDetails() {
         audio: false
       })
 
+      console.log('✅ Camera stream obtained');
       streamRef.current = stream
-      
-      // Wait for video element to be available
-      setTimeout(() => {
-        if (videoRef.current && stream) {
-          videoRef.current.srcObject = stream
-          videoRef.current.play().then(() => {
-            setCameraLoading(false)
-          }).catch((err) => {
-            console.error('Error playing video:', err)
-            setCameraError('Failed to start camera preview.')
-            setCameraLoading(false)
-          })
-        }
-      }, 100)
+
+      // The useEffect below (lines 438-443) will handle assigning the stream to the video element
+      // once the modal is rendered and videoRef.current is available
     } catch (error) {
       console.error('Error accessing camera:', error)
       setCameraError('Unable to access camera. Please check permissions and try again.')
@@ -437,8 +429,18 @@ export default function MemberDetails() {
   // Handle video stream when camera modal opens
   useEffect(() => {
     if (showCamera && streamRef.current && videoRef.current && !videoRef.current.srcObject) {
+      console.log('🎬 Assigning stream to video element in useEffect');
       videoRef.current.srcObject = streamRef.current
-      videoRef.current.play().catch(console.error)
+      videoRef.current.play()
+        .then(() => {
+          console.log('▶️ Video playing successfully');
+          setCameraLoading(false)
+        })
+        .catch((err) => {
+          console.error('❌ Error playing video:', err)
+          setCameraError('Failed to start camera preview.')
+          setCameraLoading(false)
+        })
     }
   }, [showCamera])
 
@@ -631,11 +633,10 @@ export default function MemberDetails() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch-target ${
-                    activeTab === tab.id
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                  }`}
+                  className={`flex items-center space-x-2 px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch-target ${activeTab === tab.id
+                    ? 'border-orange-500 text-orange-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    }`}
                 >
                   <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   <span>{tab.label}</span>
@@ -659,21 +660,19 @@ export default function MemberDetails() {
             <div className="flex space-x-3 md:space-x-4 mb-4 md:mb-6 border-b border-gray-200 overflow-x-auto tablet-scrollbar-hide">
               <button
                 onClick={() => setActiveSubTab('personal')}
-                className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch -target ${
-                  activeSubTab === 'personal'
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch -target ${activeSubTab === 'personal'
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 Personal Information
               </button>
               <button
                 onClick={() => setActiveSubTab('fitness')}
-                className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch-target ${
-                  activeSubTab === 'fitness'
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap tablet-touch-target ${activeSubTab === 'fitness'
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 Fitness Profile
               </button>
@@ -1064,21 +1063,21 @@ export default function MemberDetails() {
                           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
                         />
                       </div> */}
-                  {/* Diet Plan */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Diet Plan</h3>
-                    <textarea
-                      value={formData.dietPlan}
-                      onChange={(e) => handleChange('dietPlan', e.target.value)}
-                      disabled={!isEditing}
-                      rows={6}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
-                      placeholder="Enter diet plan details..."
-                      style={{ minHeight: '150px' }}
-                    />
+                      {/* Diet Plan */}
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Diet Plan</h3>
+                        <textarea
+                          value={formData.dietPlan}
+                          onChange={(e) => handleChange('dietPlan', e.target.value)}
+                          disabled={!isEditing}
+                          rows={6}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50"
+                          placeholder="Enter diet plan details..."
+                          style={{ minHeight: '150px' }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
                   {/* <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="text-lg font-bold text-gray-900 mb-4">IDs</h3>
                     <div className="space-y-4">
@@ -1186,9 +1185,8 @@ export default function MemberDetails() {
                         value={fitnessForm.measuredAt}
                         onChange={(e) => handleFitnessChange('measuredAt', e.target.value)}
                         disabled={!isEditing}
-                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                          !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
-                        }`}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${!isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                          }`}
                       />
                     </div>
                   </div>
@@ -1238,9 +1236,8 @@ export default function MemberDetails() {
                             value={fitnessForm[field] ?? ''}
                             onChange={(e) => handleFitnessChange(field, e.target.value)}
                             disabled={fieldDisabled}
-                            className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                              fieldDisabled ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
-                            }`}
+                            className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${fieldDisabled ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                              }`}
                           />
                           {helper && (
                             <p className="text-xs text-gray-500 mt-1">{helper}</p>
@@ -1262,9 +1259,8 @@ export default function MemberDetails() {
                           value={fitnessForm.leftHandGripStrength ?? ''}
                           onChange={(e) => handleFitnessChange('leftHandGripStrength', e.target.value)}
                           disabled={!isEditing}
-                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                            !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
-                          }`}
+                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${!isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                            }`}
                         />
                       </div>
                       <div>
@@ -1275,9 +1271,8 @@ export default function MemberDetails() {
                           value={fitnessForm.rightHandGripStrength ?? ''}
                           onChange={(e) => handleFitnessChange('rightHandGripStrength', e.target.value)}
                           disabled={!isEditing}
-                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                            !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
-                          }`}
+                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${!isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                            }`}
                         />
                       </div>
                     </div>
@@ -1291,9 +1286,8 @@ export default function MemberDetails() {
                         value={fitnessForm.cardiovascularTestReport}
                         onChange={(e) => handleFitnessChange('cardiovascularTestReport', e.target.value)}
                         disabled={!isEditing}
-                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none ${
-                          !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
-                        }`}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none ${!isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                          }`}
                       />
                     </div>
                     <div>
@@ -1303,9 +1297,8 @@ export default function MemberDetails() {
                         value={fitnessForm.muscleStrengthReport}
                         onChange={(e) => handleFitnessChange('muscleStrengthReport', e.target.value)}
                         disabled={!isEditing}
-                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none ${
-                          !isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
-                        }`}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none ${!isEditing ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'bg-white'
+                          }`}
                       />
                     </div>
                   </div>
@@ -1411,8 +1404,8 @@ export default function MemberDetails() {
         )}
 
         {activeTab === 'service-card' && (
-          <ServiceCardTab 
-            member={member} 
+          <ServiceCardTab
+            member={member}
             invoices={invoicesData?.invoices || []}
             isLoading={invoicesLoading}
             activeServiceTab={activeServiceTab}
@@ -1572,7 +1565,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
     .reduce((sum, inv) => sum + (inv.pending || 0), 0)
 
   // Get relationship since date (with dummy data if missing)
-  const relationshipSince = member?.createdAt 
+  const relationshipSince = member?.createdAt
     ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
     : invoices.length === 0 ? '05-11-2025' : '-'
 
@@ -1637,11 +1630,10 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
             {/* Current Membership Status */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
               <p className="text-xs font-medium text-green-700 mb-2">Current Membership Status</p>
-              <p className={`text-xl font-bold ${
-                actualMembershipStatus === 'active' ? 'text-green-700' : 
-                actualMembershipStatus === 'pending' ? 'text-red-600' : 
-                'text-gray-900'
-              }`}>
+              <p className={`text-xl font-bold ${actualMembershipStatus === 'active' ? 'text-green-700' :
+                actualMembershipStatus === 'pending' ? 'text-red-600' :
+                  'text-gray-900'
+                }`}>
                 {actualMembershipStatus ? actualMembershipStatus.charAt(0).toUpperCase() + actualMembershipStatus.slice(1) : 'Pending'}
               </p>
             </div>
@@ -1691,18 +1683,17 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
       {/* Recent Purchased Services */}
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-4">Recent purchased services</h2>
-        
+
         {/* Active/Expired Tabs */}
         <div className="flex space-x-4 mb-4 border-b border-gray-200">
           {['active', 'expired'].map((status) => (
             <button
               key={status}
               onClick={() => setActiveServiceStatus(status)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${
-                activeServiceStatus === status
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${activeServiceStatus === status
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               {status}
             </button>
@@ -1724,7 +1715,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                         No Active Memberships
                       </h3>
                       <p className="text-sm text-gray-500 max-w-md">
-                        This member does not have any active memberships at the moment. 
+                        This member does not have any active memberships at the moment.
                         {expiredServices.length > 0 && ' You can check expired services in the Expired tab.'}
                       </p>
                     </div>
@@ -1757,14 +1748,14 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
               const isActive = item.expiryDate ? new Date(item.expiryDate) >= new Date() : true
 
               // Get service name and variation from member's currentPlan if available, otherwise from invoice
-              const serviceName = member?.currentPlan?.planId?.serviceName || 
-                                 invoice.planId?.serviceName || 
-                                 'Gym Membership'
-              const serviceVariationName = member?.currentPlan?.planId?.name || 
-                                          invoice.planId?.name || 
-                                          item.serviceId?.name || 
-                                          item.description || 
-                                          'N/A'
+              const serviceName = member?.currentPlan?.planId?.serviceName ||
+                invoice.planId?.serviceName ||
+                'Gym Membership'
+              const serviceVariationName = member?.currentPlan?.planId?.name ||
+                invoice.planId?.name ||
+                item.serviceId?.name ||
+                item.description ||
+                'N/A'
 
               // Format duration display
               const formatDurationDisplay = (duration) => {
@@ -1797,7 +1788,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                           </p>
                         </div>
                       </div>
-                      
+
                       <div>
                         <p className="text-xs font-medium text-gray-600 mb-1.5">Service Id</p>
                         <p className="text-base font-bold text-gray-900">{invoice.invoiceNumber || 'N/A'}</p>
@@ -1813,9 +1804,8 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                       <div className="flex items-center space-x-6 pt-4 border-t border-gray-200">
                         <div>
                           <p className="text-xs font-medium text-gray-600 mb-1.5">Status</p>
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                            isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
                             {isActive ? 'Active' : 'Expired'}
                           </span>
                         </div>
@@ -1880,7 +1870,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                       </div>
                       <div className="space-y-2">
                         {(startDate || expiryDate || (!startDate && !expiryDate)) && (
-                          <button 
+                          <button
                             onClick={() => setDateChangeModal({ isOpen: true, invoice, itemIndex: 0 })}
                             className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs font-medium"
                           >
@@ -1891,7 +1881,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
                           const usedFreezeDays = member?.totalFreezeDaysUsed || 0
                           const remainingFreezeDays = 30 - usedFreezeDays
                           return (
-                            <button 
+                            <button
                               onClick={() => setFreezeModal({ isOpen: true, invoice, itemIndex: 0 })}
                               className="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-xs font-medium flex items-center justify-between"
                             >
@@ -1925,7 +1915,7 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
         </div>
 
         {displayedServices.length > 0 && (
-          <button className="mt-4 px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium">                              
+          <button className="mt-4 px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium">
             Load More
           </button>
         )}
@@ -1992,7 +1982,7 @@ function DateChangeModal({ invoice, itemIndex, onClose, onSave, isLoading }) {
   }
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       style={{
         position: 'fixed',
@@ -2085,7 +2075,7 @@ function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading })
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    
+
     if (!startDate || !endDate) {
       toast.error('Please select both start and end dates')
       return
@@ -2100,7 +2090,7 @@ function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading })
     }
 
     const days = calculateFreezeDays(startDate, endDate)
-    
+
     if (days <= 0) {
       toast.error('Invalid date range')
       return
@@ -2115,7 +2105,7 @@ function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading })
   }
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       style={{
         position: 'fixed',
@@ -2220,7 +2210,7 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
   const [showPaymentModal, setShowPaymentModal] = useState(null)
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(null)
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null) // { invoice: {...}, show: true }
-  
+
   // Delete invoice mutation
   const deleteInvoiceMutation = useMutation({
     mutationFn: (invoiceId) => api.delete(`/invoices/${invoiceId}`),
@@ -2389,7 +2379,7 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
               <tr>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Purchased</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Pro Forma Invoice No.</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Tax Invoice No.</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Tax</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Net</th>
@@ -2398,7 +2388,7 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Pending</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Mode</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Write Off</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Pro Forma Invoice Details</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 uppercase tracking-wider">Tax Invoice Details</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -2415,7 +2405,7 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                   const paidAmount = invoice.totalPaid || 0
                   const pendingAmount = invoice.pending || Math.max(0, invoice.total - paidAmount)
                   const isPaid = paidAmount >= invoice.total
-                  
+
                   return (
                     <tr key={invoice._id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4 text-sm text-gray-900">
@@ -2612,7 +2602,7 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmModal?.show && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
           style={{
             position: 'fixed',
@@ -2698,7 +2688,7 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
   const [expandedCall, setExpandedCall] = useState(null)
   const [editingCall, setEditingCall] = useState(null)
   const [updateForm, setUpdateForm] = useState({})
-  
+
   const { data: staffData } = useQuery({
     queryKey: ['staff-list'],
     queryFn: () => api.get('/staff').then(res => res.data)
@@ -2706,7 +2696,7 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['member-calls', member._id, callTypeFilter, statusFilter, startDate, endDate],
-    queryFn: () => getMemberCalls(member._id, { 
+    queryFn: () => getMemberCalls(member._id, {
       callType: callTypeFilter !== 'all' ? callTypeFilter : undefined,
       status: statusFilter !== 'all' ? statusFilter : undefined,
       startDate,
@@ -2792,9 +2782,9 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
 
   const formatDateTime = (date) => {
     if (!date) return '-'
-    return new Date(date).toLocaleString('en-GB', { 
-      day: '2-digit', 
-      month: '2-digit', 
+    return new Date(date).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
@@ -2927,7 +2917,7 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
                 {member?.firstName?.toUpperCase()} {member?.lastName?.toUpperCase()} - {member?.phone}
               </h3>
             </div>
-            
+
             <div className="flex flex-col items-center justify-center py-8">
               <button
                 onClick={() => setShowCallModal(true)}
@@ -2948,7 +2938,7 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
             {/* Contact History Header */}
             <div className="p-4 border-b border-gray-200">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Contact History</h2>
-              
+
               {/* Filters */}
               <div className="flex flex-wrap items-center gap-3">
                 <select
@@ -2961,7 +2951,7 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
                     <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
-                
+
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -3033,12 +3023,12 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
                                 </div>
                               )}
                             </div>
-                            
+
                             <div className="flex-1">
                               <div className="flex items-center space-x-2 mb-1">
                                 <p className="text-xs text-gray-600">Scheduled by: {scheduledBy}</p>
                               </div>
-                              
+
                               <div className="flex items-center space-x-2 mb-2">
                                 <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium border border-gray-200">
                                   {callTypeLabel}
@@ -3171,8 +3161,8 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
 
       {/* Add Call Modal */}
       {showCallModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" 
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={(e) => e.target === e.currentTarget && setShowCallModal(false)}
           style={{
             position: 'fixed',
@@ -3346,21 +3336,19 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
           <div className="flex space-x-4">
             <button
               onClick={() => setActiveSubTab('referred-by')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeSubTab === 'referred-by'
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeSubTab === 'referred-by'
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               Referred By {memberName}
             </button>
             <button
               onClick={() => setActiveSubTab('referrer')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeSubTab === 'referrer'
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeSubTab === 'referrer'
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               {memberName}'s Referrer
             </button>
@@ -3398,12 +3386,12 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {referrals.map((referral, index) => {
-                  const referralName = referral.referredMemberId 
+                  const referralName = referral.referredMemberId
                     ? `${referral.referredMemberId.firstName} ${referral.referredMemberId.lastName}`
                     : referral.name || 'N/A'
                   const referralEmail = referral.referredMemberId?.email || referral.email || '-'
                   const referralPhone = referral.referredMemberId?.phone || referral.phone || '-'
-                  
+
                   return (
                     <tr key={referral._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
@@ -3412,12 +3400,11 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{referral.countryCode || '+91'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{referralPhone}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          referral.status === 'converted' ? 'bg-green-100 text-green-700' :
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${referral.status === 'converted' ? 'bg-green-100 text-green-700' :
                           referral.status === 'contacted' ? 'bg-blue-100 text-blue-700' :
-                          referral.status === 'declined' ? 'bg-red-100 text-red-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
+                            referral.status === 'declined' ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-700'
+                          }`}>
                           {referral.status || 'pending'}
                         </span>
                       </td>
@@ -3432,8 +3419,8 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
 
       {/* Add Referral Modal */}
       {showReferralModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" 
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={(e) => e.target === e.currentTarget && setShowReferralModal(false)}
           style={{
             position: 'fixed',
@@ -3454,7 +3441,7 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit}>
               <div className="p-6">
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -3520,7 +3507,7 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
                   </table>
                 </div>
               </div>
-              
+
               <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end space-x-3">
                 <button
                   type="button"
@@ -3552,7 +3539,7 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
 // Helper function to get exercise image URL from frontend public/exercises folder
 const getExerciseImageUrl = (exerciseName) => {
   if (!exerciseName) return null
-  
+
   // Normalize exercise name for matching
   const normalizeName = (name) => {
     return name.toUpperCase()
@@ -3560,9 +3547,9 @@ const getExerciseImageUrl = (exerciseName) => {
       .replace(/\s+/g, '-')
       .trim()
   }
-  
+
   const normalizedName = normalizeName(exerciseName)
-  
+
   // Map exercise names to image files in public/exercises folder
   const exerciseImageMap = {
     'PUSH-UPS': 'Push Ups.jpg',
@@ -3624,31 +3611,31 @@ const getExerciseImageUrl = (exerciseName) => {
     'ROWING': 'seated rowing.jpg',
     'ELLIPTICAL': 'elliptical.jpg',
   }
-  
+
   // Try to find exact match first
   if (exerciseImageMap[normalizedName]) {
     return `/exercises/${exerciseImageMap[normalizedName]}`
   }
-  
+
   // Try partial matching - check if any key is contained in the normalized name or vice versa
   for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
     if (normalizedName.includes(key) || key.includes(normalizedName)) {
       return `/exercises/${imageFile}`
     }
   }
-  
+
   // Try word-based matching - check if significant words match
   const exerciseWords = normalizedName.split('-').filter(w => w.length > 3)
   for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
     const keyWords = key.split('-').filter(w => w.length > 3)
-    const matchingWords = exerciseWords.filter(word => 
+    const matchingWords = exerciseWords.filter(word =>
       keyWords.some(keyWord => keyWord.includes(word) || word.includes(keyWord))
     )
     if (matchingWords.length >= 1) {
       return `/exercises/${imageFile}`
     }
   }
-  
+
   // Final fallback: try to match by first significant word in image filename
   if (exerciseWords.length > 0) {
     const firstWord = exerciseWords[0]
@@ -3659,7 +3646,7 @@ const getExerciseImageUrl = (exerciseName) => {
       }
     }
   }
-  
+
   // Ultimate fallback: return a default image that should always exist
   return `/exercises/Push Ups.jpg`
 }
@@ -3667,20 +3654,20 @@ const getExerciseImageUrl = (exerciseName) => {
 // Workout Tab Component
 const getEmbedUrl = (url) => {
   if (!url) return null;
-  
+
   try {
     // Handle YouTube Shorts
     if (url.includes('youtube.com/shorts/')) {
       const videoId = url.split('youtube.com/shorts/')[1].split('?')[0];
       return `https://www.youtube.com/embed/${videoId}`;
     }
-    
+
     // Handle youtu.be
     if (url.includes('youtu.be/')) {
       const videoId = url.split('youtu.be/')[1].split('?')[0];
       return `https://www.youtube.com/embed/${videoId}`;
     }
-    
+
     // Handle standard youtube watch
     if (url.includes('youtube.com/watch')) {
       // Handle simple v param manually to avoid URL object issues in some environments if url is partial
@@ -3693,8 +3680,8 @@ const getEmbedUrl = (url) => {
   } catch (e) {
     console.error('Error parsing video URL:', e);
   }
-  
-  return url; 
+
+  return url;
 }
 
 function WorkoutTab({ member }) {
@@ -3709,16 +3696,16 @@ function WorkoutTab({ member }) {
   const [isSearching, setIsSearching] = useState(false)
   const searchTimeoutRef = useRef(null)
   const queryClient = useQueryClient()
-  
+
   // Template Logic
   const [showTemplateModal, setShowTemplateModal] = useState(false)
-  
+
   const { data: templatesData } = useQuery({
     queryKey: ['exercise-templates'],
     queryFn: () => api.get('/exercise-templates').then(res => res.data),
     enabled: showTemplateModal
   })
-  
+
   const assignTemplateMutation = useMutation({
     mutationFn: (templateId) => api.post('/exercise-templates/assign', {
       templateId,
@@ -3752,7 +3739,7 @@ function WorkoutTab({ member }) {
 
   const filterExercisesByTab = (allExercises, tab, returnArray = false) => {
     if (!allExercises) return returnArray ? [] : null
-    
+
     let filtered = []
     if (tab === 'all') {
       filtered = allExercises
@@ -3772,8 +3759,12 @@ function WorkoutTab({ member }) {
       filtered = allExercises.filter(ex => ex.muscleGroups?.includes('triceps'))
     } else if (tab === 'abs') {
       filtered = allExercises.filter(ex => ex.muscleGroups?.includes('abs'))
+    } else if (tab === 'warm up') {
+      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('warm-up'))
+    } else if (tab === 'cool down') {
+      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('cool-down'))
     }
-    
+
     if (returnArray) {
       return filtered
     } else {
@@ -3839,25 +3830,25 @@ function WorkoutTab({ member }) {
       toast.error('Pick a day to assign this exercise')
       return
     }
-    
+
     // Check for duplicate assignment - same exercise on same day
-    const isDuplicate = assignments.some(assignment => 
-      assignment.exerciseId?._id === selectedExercise._id && 
+    const isDuplicate = assignments.some(assignment =>
+      assignment.exerciseId?._id === selectedExercise._id &&
       assignment.weekDay === selectedAssignmentDay
     )
-    
+
     if (isDuplicate) {
       toast.error('This exercise is already assigned for this day')
       return
     }
-    
+
     const formData = new FormData(e.target)
     const variationId = formData.get('variationId')
     const variation = selectedExercise.variations?.find(v => v._id === variationId)
-    
+
     // Check if this is a cardio exercise
     const isCardio = selectedExercise.category === 'cardio'
-    
+
     const assignmentData = {
       exerciseId: selectedExercise._id, // Might be undefined for static exercises
       name: selectedExercise.name,
@@ -3873,7 +3864,7 @@ function WorkoutTab({ member }) {
       order: 0,
       notes: null
     }
-    
+
     if (isCardio) {
       // For cardio exercises, use duration and distance
       const duration = formData.get('duration')
@@ -3895,7 +3886,7 @@ function WorkoutTab({ member }) {
       assignmentData.duration = null
       assignmentData.distance = null
     }
-    
+
     assignExerciseMutation.mutate(assignmentData)
   }
 
@@ -3977,16 +3968,16 @@ function WorkoutTab({ member }) {
 
             // Get image from public/exercises folder first, then fallback to database imageUrl
             let exerciseImageUrl = getExerciseImageUrl(exercise.name)
-            
+
             // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
             if (!exerciseImageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-              exerciseImageUrl = exercise.imageUrl?.startsWith('http') 
-                ? exercise.imageUrl 
+              exerciseImageUrl = exercise.imageUrl?.startsWith('http')
+                ? exercise.imageUrl
                 : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`
             }
             // Fallback to static data for videoUrl if missing in DB
-            const staticExercise = staticExercises.find(e => 
-              e.name.toLowerCase() === exercise.name.toLowerCase() || 
+            const staticExercise = staticExercises.find(e =>
+              e.name.toLowerCase() === exercise.name.toLowerCase() ||
               e.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === exercise.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
             )
             const videoUrl = exercise.videoUrl || staticExercise?.videoUrl
@@ -4000,9 +3991,9 @@ function WorkoutTab({ member }) {
                 else if (videoUrl.includes('v=')) videoId = videoUrl.split('v=')[1].split('&')[0]
               } catch (e) { console.error(e) }
             }
-            
-            const thumbnailUrl = videoId 
-              ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` 
+
+            const thumbnailUrl = videoId
+              ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
               : null
 
             return (
@@ -4017,12 +4008,12 @@ function WorkoutTab({ member }) {
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         // Fallback to static image if thumbnail fails
-                         if (thumbnailUrl && exerciseImageUrl && e.target.src !== exerciseImageUrl) {
-                            e.target.src = exerciseImageUrl
-                         } else {
-                            e.target.style.display = 'none'
-                             e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
-                         }
+                        if (thumbnailUrl && exerciseImageUrl && e.target.src !== exerciseImageUrl) {
+                          e.target.src = exerciseImageUrl
+                        } else {
+                          e.target.style.display = 'none'
+                          e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
+                        }
                       }}
                     />
                     {videoUrl && (
@@ -4032,7 +4023,7 @@ function WorkoutTab({ member }) {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Details on Right */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between mb-3">
@@ -4102,19 +4093,19 @@ function WorkoutTab({ member }) {
       {/* Template Selection Modal */}
       {showTemplateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-             onClick={() => setShowTemplateModal(false)}>
+          onClick={() => setShowTemplateModal(false)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
-               onClick={e => e.stopPropagation()}>
+            onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
               <h3 className="text-xl font-bold text-gray-900">Select Workout Template</h3>
               <button onClick={() => setShowTemplateModal(false)} className="text-gray-400 hover:text-gray-600">
                 <XIcon className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-6">
               {templatesData?.templates?.length === 0 ? (
-                 <p className="text-center text-gray-500 py-8">No templates found. Create one in the Templates section.</p>
+                <p className="text-center text-gray-500 py-8">No templates found. Create one in the Templates section.</p>
               ) : (
                 <div className="space-y-3">
                   {templatesData?.templates?.map(template => (
@@ -4131,19 +4122,19 @@ function WorkoutTab({ member }) {
                           </h4>
                           <p className="text-sm text-gray-500 mt-1 line-clamp-1">{template.description}</p>
                           <div className="flex gap-2 mt-2">
-                             <span className="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600">
-                               {template.category}
-                             </span>
-                             <span className="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600">
-                               {template.exercises?.length || 0} exercises
-                             </span>
+                            <span className="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600">
+                              {template.category}
+                            </span>
+                            <span className="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600">
+                              {template.exercises?.length || 0} exercises
+                            </span>
                           </div>
                         </div>
                         {assignTemplateMutation.isLoading ? (
                           <Loader className="w-5 h-5 text-indigo-500 animate-spin" />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                             <Plus className="w-5 h-5" />
+                            <Plus className="w-5 h-5" />
                           </div>
                         )}
                       </div>
@@ -4158,7 +4149,7 @@ function WorkoutTab({ member }) {
 
       {/* QR Code Modal */}
       {showQRModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           style={{
             position: 'fixed',
@@ -4182,12 +4173,12 @@ function WorkoutTab({ member }) {
                 <XIcon className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <p className="text-sm text-gray-600 text-center">
                 Scan this QR code with your phone to automatically log in and view your workout plan
               </p>
-              
+
               {qrCodeUrl ? (
                 <div className="flex justify-center p-4 bg-gray-50 rounded-lg">
                   <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
@@ -4204,12 +4195,12 @@ function WorkoutTab({ member }) {
                   <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                 </div>
               )}
-              
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-800 font-semibold mb-1">Member Email:</p>
                 <p className="text-sm text-blue-900">{member?.email || 'N/A'}</p>
               </div>
-              
+
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -4234,7 +4225,7 @@ function WorkoutTab({ member }) {
 
       {/* Assign Exercise Modal */}
       {showAssignModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           style={{
             position: 'fixed',
@@ -4278,11 +4269,10 @@ function WorkoutTab({ member }) {
                           key={day}
                           type="button"
                           onClick={() => setSelectedAssignmentDay(index)}
-                          className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                            isSelected
-                              ? 'bg-orange-500 text-white border-orange-500 shadow-md'
-                              : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'
-                          }`}
+                          className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${isSelected
+                            ? 'bg-orange-500 text-white border-orange-500 shadow-md'
+                            : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'
+                            }`}
                         >
                           <span className="block">{day}</span>
                         </button>
@@ -4303,27 +4293,27 @@ function WorkoutTab({ member }) {
                       const rawValue = e.target.value
                       const searchTerm = rawValue.toLowerCase().replace(/[^a-z0-9]/g, '')
                       setIsSearching(true)
-                      
+
                       // Clear previous timeout
                       if (searchTimeoutRef.current) {
                         clearTimeout(searchTimeoutRef.current)
                       }
-                      
+
                       // Debounce search
                       searchTimeoutRef.current = setTimeout(() => {
                         let baseExercises = exercisesData?.exercises || []
-                        
+
                         // First filter by active tab
                         if (activeExerciseTab !== 'all') {
                           baseExercises = filterExercisesByTab(baseExercises, activeExerciseTab, true)
                         }
-                        
+
                         // Then filter by search term
                         if (searchTerm) {
                           setExercises(baseExercises.filter(ex => {
                             const normalizedName = ex.name.toLowerCase().replace(/[^a-z0-9]/g, '')
                             const normalizedCategory = ex.category?.toLowerCase() || ''
-                            
+
                             return (
                               normalizedName.includes(searchTerm) ||
                               normalizedCategory.includes(searchTerm) ||
@@ -4343,18 +4333,17 @@ function WorkoutTab({ member }) {
                 {/* Exercise Tabs */}
                 <div className="mb-4 border-b border-gray-200">
                   <div className="flex space-x-1 overflow-x-auto">
-                    {['all', 'cardio', 'chest', 'back', 'shoulder', 'lower body', 'biceps', 'triceps', 'abs'].map((tab) => (
+                    {['all', 'cardio', 'chest', 'back', 'shoulder', 'lower body', 'biceps', 'triceps', 'abs', 'warm up', 'cool down'].map((tab) => (
                       <button
                         key={tab}
                         onClick={() => {
                           setActiveExerciseTab(tab)
                           filterExercisesByTab(exercisesData?.exercises || [], tab)
                         }}
-                        className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors capitalize ${
-                          activeExerciseTab === tab
-                            ? 'border-orange-500 text-orange-600'
-                            : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                        }`}
+                        className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors capitalize ${activeExerciseTab === tab
+                          ? 'border-orange-500 text-orange-600'
+                          : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                          }`}
                       >
                         {tab === 'lower body' ? 'Lower Body' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                       </button>
@@ -4382,7 +4371,7 @@ function WorkoutTab({ member }) {
                       const hasVideo = !!exercise.videoUrl
                       const uniqueId = exercise._id || exercise.name
                       const isPlaying = playingVideo === uniqueId
-                      
+
                       // Get video ID for thumbnail
                       let videoId = null
                       if (hasVideo) {
@@ -4392,9 +4381,9 @@ function WorkoutTab({ member }) {
                           else if (exercise.videoUrl.includes('v=')) videoId = exercise.videoUrl.split('v=')[1].split('&')[0]
                         } catch (e) { console.error(e) }
                       }
-                      
-                      const thumbnailUrl = videoId 
-                        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` 
+
+                      const thumbnailUrl = videoId
+                        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
                         : null
 
                       // Fallback image logic
@@ -4414,18 +4403,18 @@ function WorkoutTab({ member }) {
                           {/* Video/Image Area - Aspect Ratio 16:9 */}
                           <div className="relative w-full aspect-video bg-black">
                             {hasVideo && isPlaying ? (
-                              <iframe 
-                                width="100%" 
-                                height="100%" 
-                                src={`${getEmbedUrl(exercise.videoUrl)}?autoplay=1&mute=1&rel=0&modestbranding=1`} 
+                              <iframe
+                                width="100%"
+                                height="100%"
+                                src={`${getEmbedUrl(exercise.videoUrl)}?autoplay=1&mute=1&rel=0&modestbranding=1`}
                                 title={exercise.name}
-                                frameBorder="0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
                                 className="w-full h-full"
                               />
                             ) : hasVideo ? (
-                              <div 
+                              <div
                                 className="relative w-full h-full"
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -4454,12 +4443,12 @@ function WorkoutTab({ member }) {
                               />
                             )}
                           </div>
-                            <div 
-                              className="absolute inset-0 flex items-center justify-center bg-gray-100 -z-10" 
-                              style={{ display: 'none' }}
-                            >
-                              <Dumbbell className="w-12 h-12 text-gray-400" />
-                            </div>
+                          <div
+                            className="absolute inset-0 flex items-center justify-center bg-gray-100 -z-10"
+                            style={{ display: 'none' }}
+                          >
+                            <Dumbbell className="w-12 h-12 text-gray-400" />
+                          </div>
 
                           <div className="p-4 bg-white flex items-center justify-between">
                             <h4 className="font-bold text-gray-900 text-lg leading-tight line-clamp-1 group-hover:text-orange-600 transition-colors">
@@ -4598,8 +4587,8 @@ function TermsConditionsTab({ member }) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
-    agreementDate: member?.termsAndConditions?.agreementDate 
-      ? new Date(member.termsAndConditions.agreementDate).toISOString().split('T')[0] 
+    agreementDate: member?.termsAndConditions?.agreementDate
+      ? new Date(member.termsAndConditions.agreementDate).toISOString().split('T')[0]
       : '',
     terms: member?.termsAndConditions?.terms || '',
     conditions: member?.termsAndConditions?.conditions || '',
@@ -4629,8 +4618,8 @@ function TermsConditionsTab({ member }) {
   useEffect(() => {
     if (member?.termsAndConditions) {
       setFormData({
-        agreementDate: member.termsAndConditions.agreementDate 
-          ? new Date(member.termsAndConditions.agreementDate).toISOString().split('T')[0] 
+        agreementDate: member.termsAndConditions.agreementDate
+          ? new Date(member.termsAndConditions.agreementDate).toISOString().split('T')[0]
           : '',
         terms: member.termsAndConditions.terms || '',
         conditions: member.termsAndConditions.conditions || '',
@@ -4650,8 +4639,8 @@ function TermsConditionsTab({ member }) {
 
   const handleCancel = () => {
     setFormData({
-      agreementDate: member?.termsAndConditions?.agreementDate 
-        ? new Date(member.termsAndConditions.agreementDate).toISOString().split('T')[0] 
+      agreementDate: member?.termsAndConditions?.agreementDate
+        ? new Date(member.termsAndConditions.agreementDate).toISOString().split('T')[0]
         : '',
       terms: member?.termsAndConditions?.terms || '',
       conditions: member?.termsAndConditions?.conditions || '',
@@ -4712,12 +4701,12 @@ function TermsConditionsTab({ member }) {
             />
           ) : (
             <p className="text-gray-900">
-              {termsData.agreementDate 
-                ? new Date(termsData.agreementDate).toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })
+              {termsData.agreementDate
+                ? new Date(termsData.agreementDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })
                 : 'Not set'}
             </p>
           )}
@@ -4808,7 +4797,7 @@ function TermsConditionsTab({ member }) {
               {termsData.acceptedBy && (
                 <div>
                   <span className="font-medium">Accepted By:</span>{' '}
-                  {typeof termsData.acceptedBy === 'object' 
+                  {typeof termsData.acceptedBy === 'object'
                     ? `${termsData.acceptedBy.firstName} ${termsData.acceptedBy.lastName}`
                     : 'N/A'}
                 </div>
@@ -4820,8 +4809,8 @@ function TermsConditionsTab({ member }) {
 
       {/* Camera Modal */}
       {showCamera && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-[10002] flex items-center justify-center" 
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[10002] flex items-center justify-center"
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -4829,8 +4818,9 @@ function TermsConditionsTab({ member }) {
             }
           }}
         >
-          <div 
-            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 overflow-hidden border border-gray-200 relative" 
+          {console.log('🎬 Camera modal is rendering, showCamera:', showCamera)}
+          <div
+            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 overflow-hidden border border-gray-200 relative"
             style={{ zIndex: 10003, pointerEvents: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -4849,7 +4839,7 @@ function TermsConditionsTab({ member }) {
                 <XIcon className="w-5 h-5" />
               </button>
             </div>
-            
+
             {/* Camera Preview Area */}
             <div className="bg-white p-4">
               <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: '320px' }}>

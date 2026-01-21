@@ -3082,7 +3082,7 @@ export const exportServiceSalesReport = async (req, res) => {
     }
 
     // Generate CSV
-    const headers = ['S.No', 'Pro Forma Invoice No.', 'Sale Type', 'Service Name', 'Service Variations', 'Quantity', 'List Price', 'Discount Value', 'Total Amount'];
+    const headers = ['S.No', 'Tax Invoice No.', 'Sale Type', 'Service Name', 'Service Variations', 'Quantity', 'List Price', 'Discount Value', 'Total Amount'];
     let csvContent = headers.join(',') + '\n';
 
     bookings.forEach((booking, index) => {
@@ -6370,7 +6370,7 @@ export const exportBackdatedBillsReport = async (req, res) => {
 
     const headers = [
       'S.No', 'Purchase Date', 'Bill Type', 'Branch Location', 'Member ID',
-      'Member Name', 'Contact Number', 'GST No', 'Pro Forma Invoice No.',
+      'Member Name', 'Contact Number', 'GST No', 'Tax Invoice No.',
       'Yoactiv Ref No.', 'Sequence', 'Cancelled Paid Invoice', 'Description Service',
       'Start Date', 'End Date', 'PT Name', 'Sales Rep Name', 'General Trainer'
     ];
@@ -6758,7 +6758,7 @@ export const exportDiscountReport = async (req, res) => {
 
     const headers = [
       'S.No', 'Purchase Date', 'Member ID', 'Member Name', 'Contact Number',
-      'Sequence', 'GST No', 'Pro Forma Invoice No.', 'Sales Rep Name', 'GT',
+      'Sequence', 'GST No', 'Tax Invoice No.', 'Sales Rep Name', 'GT',
       'Service Description', 'Start Date', 'End Date', 'Created By',
       'Discount Reason', 'Amount', 'Discount', 'Net Amount'
     ];

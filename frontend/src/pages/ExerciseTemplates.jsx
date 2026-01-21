@@ -3,9 +3,9 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { 
-  Clipboard, 
-  Plus, 
+import {
+  Clipboard,
+  Plus,
   Search,
   Edit2,
   Trash2,
@@ -14,7 +14,7 @@ import {
   Calendar,
   Dumbbell,
   X,
-  Loader, 
+  Loader,
   Check,
   ChevronDown,
   ChevronUp,
@@ -27,7 +27,7 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 const getExerciseImageUrl = (exerciseName) => {
   if (!exerciseName) return null
   const normalizedName = exerciseName.toUpperCase().replace(/[^A-Z0-9]/g, '')
-  
+
   // Basic static map for common exercises - expanded map would be ideal but using fallback logic primarily
   const exerciseImageMap = {
     'BENCH-PRESS': 'bench press.jpg',
@@ -43,9 +43,9 @@ const getExerciseImageUrl = (exerciseName) => {
     'TREADMILL': 'Treadmill.jpg',
     'ELLIPTICAL': 'elliptical.jpg',
   }
-  
+
   if (exerciseImageMap[normalizedName]) return `/exercises/${exerciseImageMap[normalizedName]}`
-  
+
   // Try partial matching
   for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
     if (normalizedName.includes(key) || key.includes(normalizedName)) return `/exercises/${imageFile}`
@@ -67,7 +67,7 @@ const getEmbedUrl = (url) => {
       if (vParam) return `https://www.youtube.com/embed/${vParam.split('&')[0]}`;
     }
   } catch (e) { console.error('Error parsing video URL:', e); }
-  return url; 
+  return url;
 }
 
 export default function ExerciseTemplates() {
@@ -77,7 +77,7 @@ export default function ExerciseTemplates() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [expandedTemplate, setExpandedTemplate] = useState(null);
-  
+
   // Create Modal State
   const [activeExerciseTab, setActiveExerciseTab] = useState('all');
   const [exercisePickerSearch, setExercisePickerSearch] = useState('');
@@ -102,6 +102,15 @@ export default function ExerciseTemplates() {
       result = exercisesList.filter(ex => {
         const cat = ex.category?.toLowerCase() || '';
         const muscle = ex.muscleGroups?.join(' ').toLowerCase() || '';
+
+        // Handle special cases for warm up and cool down
+        if (tab === 'warm up') {
+          return muscle.includes('warm-up');
+        }
+        if (tab === 'cool down') {
+          return muscle.includes('cool-down');
+        }
+
         return cat.includes(tab) || muscle.includes(tab);
       });
     }
@@ -117,15 +126,15 @@ export default function ExerciseTemplates() {
     const rawValue = val;
     const searchTerm = rawValue.toLowerCase().replace(/[^a-z0-9]/g, '');
     setIsSearching(true);
-    
+
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    
+
     searchTimeoutRef.current = setTimeout(() => {
       let base = exercises;
       if (activeExerciseTab !== 'all') {
         base = filterExercisesByTab(exercises, activeExerciseTab, true);
       }
-      
+
       if (searchTerm) {
         setFilteredExercisesList(base.filter(ex => {
           const normalizedName = ex.name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -158,7 +167,7 @@ export default function ExerciseTemplates() {
   const templates = templatesData?.templates || [];
   const members = membersData?.members || [];
 
-  const filteredTemplates = templates.filter(template => 
+  const filteredTemplates = templates.filter(template =>
     template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     template.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -221,6 +230,9 @@ export default function ExerciseTemplates() {
     exercises: []
   });
 
+  // State for selected day when adding exercises
+  const [selectedDay, setSelectedDay] = useState(1); // Default to Monday
+
   const handleEditTemplate = (template) => {
     setNewTemplate({
       _id: template._id,
@@ -259,7 +271,7 @@ export default function ExerciseTemplates() {
           description: exercise.description,
           imageUrl: exercise.imageUrl,
           videoUrl: exercise.videoUrl,
-          weekDay: 1,
+          weekDay: selectedDay, // Use selected day instead of hardcoded 1
           sets: 3,
           reps: '12',
           weight: '',
@@ -268,7 +280,7 @@ export default function ExerciseTemplates() {
         }
       ]
     }));
-    toast.success('Added to template');
+    toast.success(`Added to ${WEEKDAYS[selectedDay]}`);
   };
 
   const handleRemoveExerciseFromTemplate = (index) => {
@@ -302,9 +314,9 @@ export default function ExerciseTemplates() {
 
   const handleCreateOrUpdate = () => {
     if (newTemplate._id) {
-        updateMutation.mutate(newTemplate);
+      updateMutation.mutate(newTemplate);
     } else {
-        createMutation.mutate(newTemplate);
+      createMutation.mutate(newTemplate);
     }
   }
 
@@ -323,7 +335,7 @@ export default function ExerciseTemplates() {
                 <p className="text-sm text-gray-500">{filteredTemplates.length} templates available</p>
               </div>
             </div>
-            
+
             <button
               onClick={() => {
                 setNewTemplate({ name: '', description: '', category: 'custom', exercises: [] });
@@ -396,8 +408,8 @@ export default function ExerciseTemplates() {
                       <span className={`px-3 py-1 rounded-full text-xs font-bold ml-4 uppercase
                         ${template.category === 'beginner' ? 'bg-green-100 text-green-700' :
                           template.category === 'intermediate' ? 'bg-yellow-100 text-yellow-700' :
-                          template.category === 'advanced' ? 'bg-red-100 text-red-700' :
-                          'bg-blue-100 text-blue-700'}`}>
+                            template.category === 'advanced' ? 'bg-red-100 text-red-700' :
+                              'bg-blue-100 text-blue-700'}`}>
                         {template.category}
                       </span>
                     </div>
@@ -457,14 +469,14 @@ export default function ExerciseTemplates() {
                       </button>
                     )}
                     {!template.isDefault && (
-                       <div className="flex gap-2">
-                           <button onClick={() => duplicateMutation.mutate(template._id)} className="p-2 rounded-lg bg-white border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors">
-                             <Copy className="w-4 h-4" />
-                           </button>
-                           <button onClick={() => deleteMutation.mutate(template._id)} className="p-2 rounded-lg bg-white border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors">
-                             <Trash2 className="w-4 h-4" />
-                           </button>
-                       </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => duplicateMutation.mutate(template._id)} className="p-2 rounded-lg bg-white border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors">
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => deleteMutation.mutate(template._id)} className="p-2 rounded-lg bg-white border border-gray-200 text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -477,10 +489,10 @@ export default function ExerciseTemplates() {
       {/* Create Template Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-             onClick={() => setShowCreateModal(false)}>
+          onClick={() => setShowCreateModal(false)}>
           <div className="max-w-[95vw] w-full bg-white rounded-2xl border border-gray-200 h-[90vh] overflow-hidden flex flex-col shadow-2xl"
-               onClick={(e) => e.stopPropagation()}>
-            
+            onClick={(e) => e.stopPropagation()}>
+
             {/* Modal Header */}
             <div className="flex-none p-5 border-b border-gray-200 flex items-center justify-between bg-white z-20">
               <h2 className="text-2xl font-bold text-gray-900">{newTemplate._id ? 'Edit Template' : 'Create New Template'}</h2>
@@ -494,109 +506,109 @@ export default function ExerciseTemplates() {
               <div className="w-full md:w-3/5 p-6 border-r border-gray-200 overflow-y-auto bg-gray-50 h-full">
                 <div className="mb-4 space-y-4">
                   <div className="flex items-center gap-4">
-                     <div className="flex-1 relative">
-                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                       <input
-                         type="text"
-                         placeholder="Search exercises..."
-                         value={exercisePickerSearch}
-                         onChange={(e) => handleSearchChange(e.target.value)}
-                         className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                       />
-                     </div>
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search exercises..."
+                        value={exercisePickerSearch}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
                   </div>
-                  
-                   {/* Tabs */}
-                   <div className="overflow-x-auto">
-                     <div className="flex space-x-2 pb-2">
-                       {['all', 'cardio', 'chest', 'back', 'shoulders', 'legs', 'biceps', 'triceps', 'core'].map(tab => (
-                         <button
-                           key={tab}
-                           onClick={() => { setActiveExerciseTab(tab); filterExercisesByTab(exercises, tab); }}
-                           className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap capitalize transition-colors
+
+                  {/* Tabs */}
+                  <div className="overflow-x-auto">
+                    <div className="flex space-x-2 pb-2">
+                      {['all', 'cardio', 'chest', 'back', 'shoulders', 'legs', 'biceps', 'triceps', 'core', 'warm up', 'cool down'].map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => { setActiveExerciseTab(tab); filterExercisesByTab(exercises, tab); }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap capitalize transition-colors
                              ${activeExerciseTab === tab ? 'bg-orange-600 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                         >
-                           {tab}
-                         </button>
-                       ))}
-                     </div>
-                   </div>
+                        >
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {isSearching ? (
-                     <div className="col-span-full py-12 flex justify-center"><Loader className="animate-spin text-orange-600" /></div>
+                    <div className="col-span-full py-12 flex justify-center"><Loader className="animate-spin text-orange-600" /></div>
                   ) : filteredExercisesList.length === 0 ? (
-                     <div className="col-span-full py-12 text-center text-gray-500">No exercises found</div>
+                    <div className="col-span-full py-12 text-center text-gray-500">No exercises found</div>
                   ) : (
                     filteredExercisesList.map((exercise) => {
-                       const uniqueId = exercise._id;
-                       const isPlaying = playingVideo === uniqueId;
-                       const hasVideo = !!exercise.videoUrl;
-                       
-                       let videoId = null;
-                       if (hasVideo) {
-                         try {
-                           if (exercise.videoUrl.includes('shorts/')) videoId = exercise.videoUrl.split('shorts/')[1].split('?')[0];
-                           else if (exercise.videoUrl.includes('youtu.be/')) videoId = exercise.videoUrl.split('youtu.be/')[1].split('?')[0];
-                           else if (exercise.videoUrl.includes('v=')) videoId = exercise.videoUrl.split('v=')[1].split('&')[0];
-                         } catch (e) {}
-                       }
-                       
-                       let imageUrl = getExerciseImageUrl(exercise.name);
-                       if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-                          imageUrl = exercise.imageUrl.startsWith('http') ? exercise.imageUrl : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`;
-                       }
-                       const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+                      const uniqueId = exercise._id;
+                      const isPlaying = playingVideo === uniqueId;
+                      const hasVideo = !!exercise.videoUrl;
 
-                       return (
-                         <div key={exercise._id} className="group relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-orange-500 hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer max-h-[400px]">
-                            {/* Media - Aspect Ratio Square for consistent height with image */}
-                            <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
-                               {hasVideo && isPlaying ? (
-                                 <iframe 
-                                   width="100%" height="100%" 
-                                   src={`${getEmbedUrl(exercise.videoUrl)}?autoplay=1&mute=1&rel=0`} 
-                                   frameBorder="0" allowFullScreen 
-                                   className="w-full h-full"
-                                 />
-                               ) : (
-                                 <div className="relative w-full h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); if(hasVideo) setPlayingVideo(uniqueId); }}>
-                                    <img 
-                                      src={thumbnailUrl || imageUrl} 
-                                      alt={exercise.name} 
-                                      className={`w-full h-full ${thumbnailUrl ? 'object-cover' : 'object-contain p-4 mix-blend-multiply'}`}
-                                    />
-                                    {hasVideo && (
-                                       <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-all">
-                                          <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
-                                            <Play className="w-6 h-6 text-white ml-1" fill="currentColor" />
-                                          </div>
-                                       </div>
-                                    )}
-                                 </div>
-                               )}
+                      let videoId = null;
+                      if (hasVideo) {
+                        try {
+                          if (exercise.videoUrl.includes('shorts/')) videoId = exercise.videoUrl.split('shorts/')[1].split('?')[0];
+                          else if (exercise.videoUrl.includes('youtu.be/')) videoId = exercise.videoUrl.split('youtu.be/')[1].split('?')[0];
+                          else if (exercise.videoUrl.includes('v=')) videoId = exercise.videoUrl.split('v=')[1].split('&')[0];
+                        } catch (e) { }
+                      }
+
+                      let imageUrl = getExerciseImageUrl(exercise.name);
+                      if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
+                        imageUrl = exercise.imageUrl.startsWith('http') ? exercise.imageUrl : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`;
+                      }
+                      const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+
+                      return (
+                        <div key={exercise._id} className="group relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-orange-500 hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer max-h-[400px]">
+                          {/* Media - Aspect Ratio Square for consistent height with image */}
+                          <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
+                            {hasVideo && isPlaying ? (
+                              <iframe
+                                width="100%" height="100%"
+                                src={`${getEmbedUrl(exercise.videoUrl)}?autoplay=1&mute=1&rel=0`}
+                                frameBorder="0" allowFullScreen
+                                className="w-full h-full"
+                              />
+                            ) : (
+                              <div className="relative w-full h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); if (hasVideo) setPlayingVideo(uniqueId); }}>
+                                <img
+                                  src={thumbnailUrl || imageUrl}
+                                  alt={exercise.name}
+                                  className={`w-full h-full ${thumbnailUrl ? 'object-cover' : 'object-contain p-4 mix-blend-multiply'}`}
+                                />
+                                {hasVideo && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-all">
+                                    <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                      <Play className="w-6 h-6 text-white ml-1" fill="currentColor" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info & Add Button */}
+                          <div className="p-4 bg-white flex flex-col justify-between flex-grow border-t border-gray-100">
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-bold text-gray-900 text-base uppercase leading-tight line-clamp-2 pr-2" title={exercise.name}>{exercise.name}</h4>
+                              <button onClick={() => handleAddExerciseToTemplate(exercise)} className="text-orange-500 hover:text-orange-600 hover:bg-orange-50 p-1 rounded-full transition-colors flex-shrink-0" title="Add to Template">
+                                <Plus className="w-6 h-6" />
+                              </button>
                             </div>
-                            
-                            {/* Info & Add Button */}
-                            <div className="p-4 bg-white flex flex-col justify-between flex-grow border-t border-gray-100">
-                               <div className="flex justify-between items-start mb-2">
-                                  <h4 className="font-bold text-gray-900 text-base uppercase leading-tight line-clamp-2 pr-2" title={exercise.name}>{exercise.name}</h4>
-                                  <button onClick={() => handleAddExerciseToTemplate(exercise)} className="text-orange-500 hover:text-orange-600 hover:bg-orange-50 p-1 rounded-full transition-colors flex-shrink-0" title="Add to Template">
-                                     <Plus className="w-6 h-6" />
-                                  </button>
-                               </div>
-                               <div className="flex flex-wrap gap-2 mt-auto">
-                                  {(exercise.muscleGroups || []).slice(0, 3).map((mg, i) => (
-                                     <span key={i} className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide">{mg}</span>
-                                  ))}
-                                  {(exercise.category) && (
-                                     <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide">{exercise.category}</span>
-                                  )}
-                               </div>
+                            <div className="flex flex-wrap gap-2 mt-auto">
+                              {(exercise.muscleGroups || []).slice(0, 3).map((mg, i) => (
+                                <span key={i} className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide">{mg}</span>
+                              ))}
+                              {(exercise.category) && (
+                                <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide">{exercise.category}</span>
+                              )}
                             </div>
-                         </div>
-                       );
+                          </div>
+                        </div>
+                      );
                     })
                   )}
                 </div>
@@ -604,80 +616,96 @@ export default function ExerciseTemplates() {
 
               {/* Right Panel: Template Config */}
               <div className="w-full md:w-2/5 h-full flex flex-col bg-white border-l border-gray-200 overflow-hidden min-h-0">
-                 <div className="flex-none p-6 pb-2 border-b border-gray-100 bg-white z-10">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
-                        <input
-                          type="text"
-                          value={newTemplate.name}
-                          onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-                          placeholder="e.g., Full Body Strength"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                        <textarea
-                          value={newTemplate.description}
-                          onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-orange-500 focus:outline-none resize-none h-20"
-                          placeholder="Brief description..."
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
-                        <select
-                          value={newTemplate.category}
-                          onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value })}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
-                        >
-                          <option value="beginner">Beginner</option>
-                          <option value="intermediate">Intermediate</option>
-                          <option value="advanced">Advanced</option>
-                          <option value="strength">Strength</option>
-                          <option value="cardio">Cardio</option>
-                          <option value="flexibility">Flexibility</option>
-                          <option value="custom">Custom</option>
-                        </select>
-                      </div>
+                <div className="flex-none p-6 pb-2 border-b border-gray-100 bg-white z-10">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
+                      <input
+                        type="text"
+                        value={newTemplate.name}
+                        onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                        placeholder="e.g., Full Body Strength"
+                      />
                     </div>
-                 </div>
-
-                 <div className="flex-none px-6 py-2 border-b border-gray-100 bg-white">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-gray-900">Selected Exercises ({newTemplate.exercises.length})</h3>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                      <textarea
+                        value={newTemplate.description}
+                        onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-orange-500 focus:outline-none resize-none h-20"
+                        placeholder="Brief description..."
+                      />
                     </div>
-                 </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
+                      <select
+                        value={newTemplate.category}
+                        onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                      >
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                        <option value="strength">Strength</option>
+                        <option value="cardio">Cardio</option>
+                        <option value="flexibility">Flexibility</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Adding Exercises To</label>
+                      <select
+                        value={selectedDay}
+                        onChange={(e) => setSelectedDay(parseInt(e.target.value))}
+                        className="w-full px-4 py-2 rounded-lg border border-orange-300 bg-orange-50 text-gray-900 font-semibold focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                      >
+                        {WEEKDAYS.map((day, index) => (
+                          <option key={index} value={index}>{day}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Exercises you add will be assigned to this day</p>
+                    </div>
+                  </div>
+                </div>
 
-                 <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
-                    {newTemplate.exercises.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-40 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
-                        <Dumbbell className="w-8 h-8 mb-2 opacity-50" />
-                        <p className="text-sm">Select exercises from the left</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3 pb-4">
-                        {newTemplate.exercises.map((item, index) => (
-                          <div key={index} className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:border-orange-300 transition-colors">
+                <div className="flex-none px-6 py-2 border-b border-gray-100 bg-white">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-gray-900">Selected Exercises ({newTemplate.exercises.length})</h3>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+                  {newTemplate.exercises.filter(item => item.weekDay === selectedDay).length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-40 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+                      <Dumbbell className="w-8 h-8 mb-2 opacity-50" />
+                      <p className="text-sm">No exercises for {WEEKDAYS[selectedDay]}</p>
+                      <p className="text-xs mt-1">Select exercises from the left to add</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 pb-4">
+                      {newTemplate.exercises.filter(item => item.weekDay === selectedDay).map((item) => {
+                        const originalIndex = newTemplate.exercises.findIndex(ex => ex === item);
+                        return (
+                          <div key={originalIndex} className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:border-orange-300 transition-colors">
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
                                 <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold">
-                                  {index + 1}
+                                  {newTemplate.exercises.filter(item => item.weekDay === selectedDay).indexOf(item) + 1}
                                 </span>
                                 <span className="font-bold text-gray-900 text-sm">{item.name}</span>
                               </div>
-                              <button onClick={() => handleRemoveExerciseFromTemplate(index)} className="text-gray-400 hover:text-red-500 transition-colors">
+                              <button onClick={() => handleRemoveExerciseFromTemplate(originalIndex)} className="text-gray-400 hover:text-red-500 transition-colors">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
-                            
+
                             <div className="grid grid-cols-2 gap-2 text-xs">
                               <div>
                                 <label className="block text-gray-500 mb-0.5">Day</label>
                                 <select
                                   value={item.weekDay}
-                                  onChange={(e) => handleExerciseChange(index, 'weekDay', parseInt(e.target.value))}
+                                  onChange={(e) => handleExerciseChange(originalIndex, 'weekDay', parseInt(e.target.value))}
                                   className="w-full px-2 py-1.5 rounded border border-gray-200 bg-white focus:border-orange-500 focus:outline-none"
                                 >
                                   {WEEKDAYS.map((day, i) => (
@@ -690,7 +718,7 @@ export default function ExerciseTemplates() {
                                 <input
                                   type="number"
                                   value={item.sets || ''}
-                                  onChange={(e) => handleExerciseChange(index, 'sets', e.target.value)}
+                                  onChange={(e) => handleExerciseChange(originalIndex, 'sets', e.target.value)}
                                   className="w-full px-2 py-1.5 rounded border border-gray-200 bg-white focus:border-orange-500 focus:outline-none"
                                   placeholder="3"
                                 />
@@ -700,7 +728,7 @@ export default function ExerciseTemplates() {
                                 <input
                                   type="text"
                                   value={item.reps || ''}
-                                  onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)}
+                                  onChange={(e) => handleExerciseChange(originalIndex, 'reps', e.target.value)}
                                   className="w-full px-2 py-1.5 rounded border border-gray-200 bg-white focus:border-orange-500 focus:outline-none"
                                   placeholder="12"
                                 />
@@ -710,17 +738,18 @@ export default function ExerciseTemplates() {
                                 <input
                                   type="text"
                                   value={item.restTime || ''}
-                                  onChange={(e) => handleExerciseChange(index, 'restTime', e.target.value)}
+                                  onChange={(e) => handleExerciseChange(originalIndex, 'restTime', e.target.value)}
                                   className="w-full px-2 py-1.5 rounded border border-gray-200 bg-white focus:border-orange-500 focus:outline-none"
                                   placeholder="60"
                                 />
                               </div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                 </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -748,19 +777,19 @@ export default function ExerciseTemplates() {
       {/* Assign Template Modal */}
       {showAssignModal && selectedTemplate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-             onClick={() => setShowAssignModal(false)}>
+          onClick={() => setShowAssignModal(false)}>
           <div className="max-w-xl w-full bg-white rounded-2xl border border-gray-200 max-h-[90vh] overflow-y-auto shadow-2xl"
-               onClick={(e) => e.stopPropagation()}>
+            onClick={(e) => e.stopPropagation()}>
             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Assign "{selectedTemplate.name}"</h2>
               <button onClick={() => setShowAssignModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <p className="text-gray-600 mb-6">Select a member to assign this template to. This will add the workout plan to their schedule.</p>
-              
+
               <div className="space-y-2 max-h-[400px] overflow-y-auto">
                 {members.map((member) => (
                   <button

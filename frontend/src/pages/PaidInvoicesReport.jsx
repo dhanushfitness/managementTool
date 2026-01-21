@@ -31,7 +31,7 @@ export default function PaidInvoicesReport() {
   // Fetch paid invoices
   const { data: invoicesData, isLoading, refetch } = useQuery({
     queryKey: ['paid-invoices', filters, search, page],
-    queryFn: () => getPaidInvoices({ 
+    queryFn: () => getPaidInvoices({
       ...filters,
       search: search || undefined,
       page,
@@ -315,7 +315,7 @@ export default function PaidInvoicesReport() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Member ID</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Member Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">GST No</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Pro Forma Invoice No</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Tax Invoice No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Paid Invoice No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Receipt No</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Service</th>
@@ -331,7 +331,7 @@ export default function PaidInvoicesReport() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {invoices.flatMap((invoice, invoiceIndex) => 
+                  {invoices.flatMap((invoice, invoiceIndex) =>
                     (invoice.items || []).map((item, itemIndex) => (
                       <tr key={`${invoice._id}-${itemIndex}`} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

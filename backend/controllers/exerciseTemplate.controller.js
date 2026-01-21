@@ -323,11 +323,12 @@ export const assignTemplateToMember = async (req, res) => {
       return res.status(400).json({ message: 'Template has no exercises' });
     }
 
-    // Delete existing assignments for this member
-    await MemberExerciseAssignment.deleteMany({
-      memberId,
-      organizationId
-    });
+    // Note: We're adding exercises from the template to the member's existing workout plan
+    // If you want to replace all exercises instead, uncomment the lines below:
+    // await MemberExerciseAssignment.deleteMany({
+    //   memberId,
+    //   organizationId
+    // });
 
     // Create assignments from template
     const assignments = template.exercises.map(ex => ({

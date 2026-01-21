@@ -16,7 +16,7 @@ const resolveAssetUrl = (path) => {
       import.meta.env.VITE_BACKEND_URL,
       import.meta.env.VITE_API_ORIGIN
     ].find((value) => typeof value === 'string' && /^https?:\/\//i.test(value))
-    
+
     if (envBase) {
       // Remove /api suffix if present
       return envBase.replace(/\/api\/?$/, '')
@@ -41,7 +41,7 @@ const resolveAssetUrl = (path) => {
       }
       return origin
     }
-    
+
     return ''
   }
 
@@ -90,10 +90,10 @@ export default function InvoicePrint() {
   const member = invoice?.memberId
   const organization = invoice?.organizationId
   const payments = paymentsData?.payments || []
-  
+
   // Resolve organization logo URL
-  const organizationLogoUrl = organization?.logo?.startsWith('http') 
-    ? organization.logo 
+  const organizationLogoUrl = organization?.logo?.startsWith('http')
+    ? organization.logo
     : resolveAssetUrl(organization?.logo)
 
   // Auto-print when page loads
@@ -149,7 +149,7 @@ export default function InvoicePrint() {
           else if (unit === 'weeks') months = Math.round(value / 4.33)
           else if (unit === 'days') months = Math.round(value / 30)
           else if (unit === 'years') months = value * 12
-          
+
           if (months > 0) {
             return `${value} Days Per week. Valid for ${months} month(s).`
           }
@@ -158,22 +158,22 @@ export default function InvoicePrint() {
       }
       return '-'
     }
-    
+
     const duration = serviceDuration
     const value = duration.value || 0
     const unit = duration.unit || ''
-    
+
     // Calculate months for display
     let months = 0
     if (unit === 'months') months = value
     else if (unit === 'weeks') months = Math.round(value / 4.33)
     else if (unit === 'days') months = Math.round(value / 30)
     else if (unit === 'years') months = value * 12
-    
+
     if (months > 0) {
       return `${value} Days Per week. Valid for ${months} month(s).`
     }
-    
+
     if (unit === 'days') {
       return `${value} Day${value !== 1 ? 's' : ''} Per week. Valid for ${value} day(s).`
     } else if (unit === 'weeks') {
@@ -204,7 +204,7 @@ export default function InvoicePrint() {
   const totalPaid = payments
     .filter(p => p.status === 'completed')
     .reduce((sum, p) => sum + (p.amount || 0), 0)
-  
+
   const firstPayment = payments.find(p => p.status === 'completed')
 
   if (isLoading) {
@@ -231,7 +231,7 @@ export default function InvoicePrint() {
   const taxAmount = invoice.tax?.amount || 0
   const subtotal = invoice.subtotal || (invoice.total - taxAmount)
   const pendingAmount = invoice.pending || Math.max(0, invoice.total - totalPaid)
-  
+
   // Get organization address as string
   const getOrgAddress = () => {
     if (!organization) return ''
@@ -268,7 +268,7 @@ export default function InvoicePrint() {
           }
         }
       `}</style>
-      
+
       <div className="min-h-screen bg-white p-8">
         <div className="max-w-4xl mx-auto bg-white">
           {/* Header Section with Red Background */}
@@ -278,9 +278,9 @@ export default function InvoicePrint() {
                 {/* Company Logo Area */}
                 <div className="bg-white w-20 h-20 flex items-center justify-center rounded overflow-hidden p-2 shadow-sm">
                   {organizationLogoUrl ? (
-                    <img 
-                      src={organizationLogoUrl} 
-                      alt="Logo" 
+                    <img
+                      src={organizationLogoUrl}
+                      alt="Logo"
                       className="w-full h-full object-contain"
                       style={{ maxWidth: '100%', maxHeight: '100%' }}
                       onError={(e) => {
@@ -291,7 +291,7 @@ export default function InvoicePrint() {
                       }}
                     />
                   ) : null}
-                  <span 
+                  <span
                     className={`text-gray-800 text-xl font-bold logo-fallback ${organizationLogoUrl ? 'hidden' : 'flex items-center justify-center'}`}
                     style={{ display: organizationLogoUrl ? 'none' : 'flex' }}
                   >
@@ -310,7 +310,7 @@ export default function InvoicePrint() {
             </div>
             <div className="border-t border-red-500 pt-4">
               <h2 className="text-3xl font-bold text-white text-center">
-                {invoice.isProForma ? 'Pro Forma Invoice' : 'Invoice'}
+                {invoice.isProForma ? 'Tax Invoice' : 'Tax Invoice'}
               </h2>
             </div>
           </div>
@@ -392,11 +392,11 @@ export default function InvoicePrint() {
                   <div>
                     <span className="text-gray-600 font-medium">Sales Rep:</span>
                     <span className="ml-2 font-semibold text-gray-900">
-                      {member?.salesRep 
+                      {member?.salesRep
                         ? `${member.salesRep.firstName} ${member.salesRep.lastName}`
-                        : invoice.createdBy 
-                        ? `${invoice.createdBy.firstName} ${invoice.createdBy.lastName}`
-                        : '-'}
+                        : invoice.createdBy
+                          ? `${invoice.createdBy.firstName} ${invoice.createdBy.lastName}`
+                          : '-'}
                     </span>
                   </div>
                 )}
@@ -422,7 +422,7 @@ export default function InvoicePrint() {
                       const itemAmount = item.amount || item.total || 0
                       const itemDiscount = item.discount?.amount || 0
                       const baseFee = item.total || (itemAmount - itemDiscount)
-                      
+
                       return (
                         <tr key={index} className="border-b border-gray-200">
                           <td className="py-4 px-4">
@@ -489,7 +489,7 @@ export default function InvoicePrint() {
                   <span className="text-gray-900">Total Due</span>
                   <span className="text-gray-900">{formatCurrency(invoice.total)}</span>
                 </div>
-                
+
                 {/* Payment Information */}
                 {totalPaid > 0 && (
                   <>
@@ -537,7 +537,7 @@ export default function InvoicePrint() {
                     </div>
                   </>
                 )}
-                
+
                 <div className="flex justify-between text-sm pt-2 border-t border-gray-300">
                   <span className="text-gray-700 font-medium">Pending</span>
                   <span className="font-semibold text-gray-900">{formatCurrency(pendingAmount)}</span>
@@ -553,27 +553,27 @@ export default function InvoicePrint() {
               <div>
                 <p className="font-semibold mb-2">Membership Privileges, Notices, Disclosure & Agreement</p>
               </div>
-              
+
               <div>
                 <p className="font-semibold">Upgradation/Renewal:</p>
                 <p>Any change in membership program/upgradation has to be done within 15 days of joining</p>
               </div>
-              
+
               <div>
                 <p className="font-semibold">Fresh Membership:</p>
                 <p>A fresh membership can be taken on completion of earlier package.</p>
               </div>
-              
+
               <div>
                 <p className="font-semibold">Transfer:</p>
                 <p>Transfer of a membership is permitted to a non-member i.e. to a person who has not been a member with the same branch of {organization?.name || 'AIRFIT'} before, at a transfer fee of Rs.3500+tax per transfer.</p>
               </div>
-              
+
               <div>
                 <p className="font-semibold">Cancellation/Refunds:</p>
                 <p>No refunds shall be made for all the services.</p>
               </div>
-              
+
               <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
                 <p className="font-semibold mb-2">Membership Agreement Acknowledgment:</p>
                 <p className="text-xs">
@@ -595,14 +595,14 @@ export default function InvoicePrint() {
                 )}
               </div>
             </div>
-            
+
             <div className="text-center space-y-2">
               <p className="text-sm font-semibold text-gray-700">Thank You For Your Business!</p>
               <p className="text-xs text-gray-500">
                 This is a computer generated invoice. No signature is required.
               </p>
             </div>
-            
+
             {invoice.customerNotes && (
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Customer Notes</h3>

@@ -962,7 +962,7 @@ export const exportReceipts = async (req, res) => {
       'S.No',
       'Sequence',
       'Receipt No',
-      'Pro Forma Invoice No',
+      'Tax Invoice No',
       'Invoice No',
       'Member ID',
       'Member Name',
