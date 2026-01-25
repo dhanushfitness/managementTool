@@ -83,6 +83,9 @@ export default function Dashboard() {
     navigate(`${path}${buildDateSearch()}`);
   };
 
+  // State for refresh loading
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['dashboard-stats', queryParams],
@@ -91,46 +94,64 @@ export default function Dashboard() {
   });
 
   // Fetch renewals
-  const { data: renewals, isLoading: renewalsLoading } = useQuery({
+  const { data: renewals, isLoading: renewalsLoading, refetch: refetchRenewals } = useQuery({
     queryKey: ['upcoming-renewals'],
     queryFn: () => getUpcomingRenewals(7),
     enabled: !!token
   });
 
   // Fetch pending payments
-  const { data: pending, isLoading: pendingLoading } = useQuery({
+  const { data: pending, isLoading: pendingLoading, refetch: refetchPending } = useQuery({
     queryKey: ['pending-payments'],
     queryFn: getPendingPayments,
     enabled: !!token
   });
 
   // Fetch enquiry stats
-  const { data: enquiryStats } = useQuery({
+  const { data: enquiryStats, refetch: refetchEnquiryStats } = useQuery({
     queryKey: ['enquiry-stats', queryParams],
     queryFn: () => api.get('/enquiries/stats', { params: queryParams }).then(res => res.data),
     enabled: !!token
   });
 
   // Fetch client stats
-  const { data: clientStatsData } = useQuery({
+  const { data: clientStatsData, refetch: refetchClientStats } = useQuery({
     queryKey: ['member-stats'],
     queryFn: () => api.get('/members/stats').then(res => res.data),
     enabled: !!token
   });
 
   // Fetch summary with date parameter
-  const { data: summaryData } = useQuery({
+  const { data: summaryData, refetch: refetchSummary } = useQuery({
     queryKey: ['dashboard-summary', summaryDate],
     queryFn: () => api.get('/dashboard/summary', { params: { date: summaryDate } }).then(res => res.data),
     enabled: !!token
   });
 
   // Fetch payment collected by mode
-  const { data: paymentCollected } = useQuery({
+  const { data: paymentCollected, refetch: refetchPaymentCollected } = useQuery({
     queryKey: ['payment-collected', queryParams],
     queryFn: () => api.get('/dashboard/payment-collected', { params: queryParams }).then(res => res.data),
     enabled: !!token
   });
+
+  // Refresh all dashboard data
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchStats(),
+        refetchRenewals(),
+        refetchPending(),
+        refetchEnquiryStats(),
+        refetchClientStats(),
+        refetchSummary(),
+        refetchPaymentCollected()
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const statsData = stats?.stats || {};
   const clientStats = clientStatsData?.stats || {
@@ -241,11 +262,12 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => refetchStats()}
-            className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2 shadow-sm"
+            onClick={handleRefreshAll}
+            disabled={isRefreshing}
+            className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
       </div>

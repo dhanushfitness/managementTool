@@ -13,6 +13,7 @@ import RazorpayPayment from '../components/RazorpayPayment'
 import RecordPaymentModal from '../components/RecordPaymentModal'
 import UpgradeMembershipModal from '../components/UpgradeMembershipModal'
 import AddInvoiceModal from '../components/AddInvoiceModal'
+import CameraCaptureModal from '../components/CameraCaptureModal'
 import { exercises as staticExercises } from '../data/exercises'
 import toast from 'react-hot-toast'
 import {
@@ -146,12 +147,6 @@ export default function MemberDetails() {
 
   // Image upload and camera states
   const [showCamera, setShowCamera] = useState(false)
-  const [capturedImage, setCapturedImage] = useState(null)
-  const [cameraError, setCameraError] = useState('')
-  const [cameraLoading, setCameraLoading] = useState(false)
-  const [facingMode, setFacingMode] = useState('user') // 'user' for front, 'environment' for back
-  const videoRef = useRef(null)
-  const streamRef = useRef(null)
   const fileInputRef = useRef(null)
 
   const { data, isLoading } = useQuery({
@@ -316,133 +311,10 @@ export default function MemberDetails() {
     }
   }
 
-  // Camera cleanup function
-  const cleanupCameraStream = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null
-    }
+  // Handle camera photo capture
+  const handleCameraCapture = (imageData) => {
+    updateMutation.mutate({ profilePicture: imageData })
   }
-
-  // Open camera modal
-  const openCameraModal = async (mode = facingMode) => {
-    console.log('🎥 Opening camera modal...');
-    setShowCamera(true)
-    console.log('📸 showCamera state set to true');
-    setCapturedImage(null)
-    setCameraError('')
-    setCameraLoading(true)
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError('Camera access is not supported on this browser/device.')
-      setCameraLoading(false)
-      return
-    }
-
-    try {
-      cleanupCameraStream()
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: mode },
-        audio: false
-      })
-
-      console.log('✅ Camera stream obtained');
-      streamRef.current = stream
-
-      // The useEffect below (lines 438-443) will handle assigning the stream to the video element
-      // once the modal is rendered and videoRef.current is available
-    } catch (error) {
-      console.error('Error accessing camera:', error)
-      setCameraError('Unable to access camera. Please check permissions and try again.')
-      setCameraLoading(false)
-    }
-  }
-
-  // Stop camera
-  const stopCamera = () => {
-    cleanupCameraStream()
-    setShowCamera(false)
-    setCapturedImage(null)
-    setCameraError('')
-    setCameraLoading(false)
-  }
-
-  // Capture photo from camera
-  const capturePhoto = () => {
-    const video = videoRef.current
-    if (!video) {
-      toast.error('Video element not found.')
-      return
-    }
-
-    if (video.readyState < 2) {
-      toast.error('Camera not ready. Please wait a moment.')
-      return
-    }
-
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      toast.error('Video dimensions not available. Please try again.')
-      return
-    }
-
-    try {
-      const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      const imageData = canvas.toDataURL('image/jpeg', 0.85)
-      setCapturedImage(imageData)
-      toast.success('Photo captured! Review and confirm below.')
-    } catch (error) {
-      console.error('Error capturing photo:', error)
-      toast.error('Failed to capture photo. Please try again.')
-    }
-  }
-
-  // Confirm captured photo and save
-  const confirmCapturedPhoto = () => {
-    if (!capturedImage) return
-    updateMutation.mutate({ profilePicture: capturedImage })
-    stopCamera()
-    toast.success('Profile picture updated successfully!')
-  }
-
-  // Switch camera (front/back)
-  const switchCamera = async () => {
-    const newMode = facingMode === 'user' ? 'environment' : 'user'
-    setFacingMode(newMode)
-    cleanupCameraStream()
-    await openCameraModal(newMode)
-  }
-
-  // Cleanup camera on unmount
-  useEffect(() => {
-    return () => {
-      cleanupCameraStream()
-    }
-  }, [])
-
-  // Handle video stream when camera modal opens
-  useEffect(() => {
-    if (showCamera && streamRef.current && videoRef.current && !videoRef.current.srcObject) {
-      console.log('🎬 Assigning stream to video element in useEffect');
-      videoRef.current.srcObject = streamRef.current
-      videoRef.current.play()
-        .then(() => {
-          console.log('▶️ Video playing successfully');
-          setCameraLoading(false)
-        })
-        .catch((err) => {
-          console.error('❌ Error playing video:', err)
-          setCameraError('Failed to start camera preview.')
-          setCameraLoading(false)
-        })
-    }
-  }, [showCamera])
 
   const calculateAgeFromDOB = (dobString) => {
     if (!dobString) return undefined
@@ -710,7 +582,7 @@ export default function MemberDetails() {
                         </label>
                         <button
                           type="button"
-                          onClick={() => openCameraModal()}
+                          onClick={() => setShowCamera(true)}
                           className="w-full px-3 md:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs md:text-sm font-medium flex items-center justify-center space-x-2 tablet-touch-target"
                         >
                           <Camera className="w-3.5 h-3.5 md:w-4 md:h-4" />
@@ -1476,6 +1348,15 @@ export default function MemberDetails() {
           member={member}
         />
       )}
+
+      {/* Camera Capture Modal */}
+      <CameraCaptureModal
+        isOpen={showCamera}
+        onClose={() => setShowCamera(false)}
+        onCapture={handleCameraCapture}
+        title="Capture Member Photo"
+        subtitle="Grant camera permissions to click a quick photo from this device."
+      />
     </div>
   )
 }
@@ -4806,131 +4687,6 @@ function TermsConditionsTab({ member }) {
           </div>
         )}
       </div>
-
-      {/* Camera Modal */}
-      {showCamera && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[10002] flex items-center justify-center"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              stopCamera()
-            }
-          }}
-        >
-          {console.log('🎬 Camera modal is rendering, showCamera:', showCamera)}
-          <div
-            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 overflow-hidden border border-gray-200 relative"
-            style={{ zIndex: 10003, pointerEvents: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Title Bar */}
-            <div className="bg-gray-100 px-4 py-3 flex items-center justify-between border-b border-gray-200">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Capture Member Photo</h3>
-                <p className="text-xs text-gray-500">Grant camera permissions to click a quick photo from this device.</p>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); stopCamera(); }}
-                className="text-gray-600 hover:text-gray-900 transition-colors p-1 hover:bg-gray-200 rounded z-10"
-                style={{ position: 'relative', zIndex: 10 }}
-              >
-                <XIcon className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Camera Preview Area */}
-            <div className="bg-white p-4">
-              <div className="relative bg-black rounded-lg overflow-hidden" style={{ minHeight: '320px' }}>
-                {capturedImage ? (
-                  <img
-                    src={capturedImage}
-                    alt="Captured preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : cameraError ? (
-                  <div className="flex items-center justify-center h-full text-center px-6">
-                    <p className="text-sm text-gray-200">{cameraError}</p>
-                  </div>
-                ) : (
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover"
-                    onLoadedMetadata={() => {
-                      if (videoRef.current) {
-                        videoRef.current.play().catch(console.error)
-                      }
-                    }}
-                    onCanPlay={() => {
-                      setCameraLoading(false)
-                    }}
-                  />
-                )}
-                {cameraLoading && !capturedImage && !cameraError && (
-                  <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                    <p className="text-white text-sm">Requesting camera access…</p>
-                  </div>
-                )}
-                {!capturedImage && !cameraError && (
-                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={capturePhoto}
-                      className="bg-white rounded-full p-4 shadow-lg hover:bg-gray-100 transition-colors"
-                      disabled={cameraLoading}
-                    >
-                      <Camera className="w-6 h-6 text-gray-900" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={switchCamera}
-                      className="bg-white rounded-full p-3 shadow-lg hover:bg-gray-100 transition-colors"
-                      disabled={cameraLoading}
-                      title="Switch camera"
-                    >
-                      <Camera className="w-5 h-5 text-gray-900" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="bg-gray-50 px-4 py-3 flex items-center justify-end gap-3 border-t border-gray-200">
-              {capturedImage ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setCapturedImage(null)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Retake
-                  </button>
-                  <button
-                    type="button"
-                    onClick={confirmCapturedPhoto}
-                    className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-                  >
-                    Confirm & Save
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={stopCamera}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
