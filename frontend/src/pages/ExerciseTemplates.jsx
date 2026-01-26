@@ -77,6 +77,7 @@ export default function ExerciseTemplates() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [expandedTemplate, setExpandedTemplate] = useState(null);
+  const [assigningMemberId, setAssigningMemberId] = useState(null);
 
   // Create Modal State
   const [activeExerciseTab, setActiveExerciseTab] = useState('all');
@@ -309,7 +310,10 @@ export default function ExerciseTemplates() {
 
   const handleAssignTemplate = (memberId) => {
     if (!selectedTemplate) return;
-    assignMutation.mutate({ templateId: selectedTemplate._id, memberId });
+    setAssigningMemberId(memberId);
+    assignMutation.mutate({ templateId: selectedTemplate._id, memberId }, {
+      onSettled: () => setAssigningMemberId(null)
+    });
   };
 
   const handleCreateOrUpdate = () => {
@@ -767,7 +771,9 @@ export default function ExerciseTemplates() {
                 className="px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold flex items-center gap-2 shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {createMutation.isLoading || updateMutation.isLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                {newTemplate._id ? 'Update Template' : 'Save Template'}
+                {newTemplate._id
+                  ? (updateMutation.isLoading ? 'Updating Template...' : 'Update Template')
+                  : (createMutation.isLoading ? 'Saving Template...' : 'Save Template')}
               </button>
             </div>
           </div>
@@ -795,14 +801,18 @@ export default function ExerciseTemplates() {
                   <button
                     key={member._id}
                     onClick={() => handleAssignTemplate(member._id)}
-                    disabled={assignMutation.isLoading}
+                    disabled={assigningMemberId === member._id || assignMutation.isLoading}
                     className="w-full p-4 rounded-xl border border-gray-200 hover:border-orange-500 hover:bg-orange-50 text-left transition-all flex items-center justify-between group"
                   >
                     <div>
                       <div className="font-semibold text-gray-900 group-hover:text-orange-700">{member.name}</div>
                       <div className="text-sm text-gray-500">{member.email || member.phone}</div>
                     </div>
-                    <Check className="w-5 h-5 text-orange-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {assigningMemberId === member._id ? (
+                      <Loader className="w-5 h-5 text-orange-600 animate-spin" />
+                    ) : (
+                      <Check className="w-5 h-5 text-orange-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
                   </button>
                 ))}
               </div>
