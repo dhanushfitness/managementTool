@@ -17,7 +17,17 @@ import {
   X,
   Lock,
   Save,
-  Edit
+  Edit,
+  Activity,
+  Scale,
+  Ruler,
+  Heart,
+  Zap,
+  Target,
+  TrendingUp,
+  Percent,
+  Dumbbell,
+  Hand
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -51,7 +61,7 @@ export default function MemberProfile() {
   // Fetch member profile
   const { data: profileData } = useQuery({
     queryKey: ['member-profile', member._id],
-    queryFn: () => api.get('/member/profile').then(res => res.data),
+    queryFn: () => api.get('/member-auth/profile').then(res => res.data),
     enabled: !!member._id && !!token,
   })
 
@@ -182,10 +192,10 @@ export default function MemberProfile() {
   ]
 
   const filteredSettings = searchQuery
-    ? settingsItems.filter(item => 
-        item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? settingsItems.filter(item =>
+      item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : settingsItems
 
   return (
@@ -208,7 +218,7 @@ export default function MemberProfile() {
                 <h1 className="text-lg font-bold text-white">Profile</h1>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setShowSearch(!showSearch)}
               className="p-2 rounded-lg hover:bg-white/10 transition-colors"
             >
@@ -310,15 +320,308 @@ export default function MemberProfile() {
                 </span>
               </div>
             )}
-            {currentMember.address && (
+            {currentMember.address && (currentMember.address.street || currentMember.address.city) && (
               <div className="flex items-center gap-3 p-3 rounded-xl" style={{
                 background: 'rgba(255, 255, 255, 0.05)'
               }}>
                 <Mail className="w-5 h-5 text-gray-400" />
-                <span className="text-gray-300">{currentMember.address}</span>
+                <span className="text-gray-300">
+                  {[
+                    currentMember.address.street,
+                    currentMember.address.city,
+                    currentMember.address.state,
+                    currentMember.address.zipCode,
+                    currentMember.address.country
+                  ].filter(Boolean).join(', ')}
+                </span>
               </div>
             )}
           </div>
+        </div>
+
+        {/* Fitness Metrics Section */}
+        <div className="backdrop-blur-xl rounded-2xl p-4" style={{
+          background: 'rgba(255, 255, 255, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
+              background: 'linear-gradient(135deg, #8BC34A 0%, #7CB342 100%)'
+            }}>
+              <Activity className="w-4 h-4 text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Fitness Metrics</h3>
+          </div>
+
+          {/* Check if there's any fitness data */}
+          {(() => {
+            const fp = currentMember.fitnessProfile || {};
+            const hasData = fp.height || fp.bodyWeight || fp.bmi || fp.fatPercentage ||
+              fp.musclePercentage || fp.bodyAge || fp.age || fp.visualFatPercentage ||
+              fp.muscleEndurance || fp.coreStrength || fp.flexibility ||
+              fp.leftHandGripStrength || fp.rightHandGripStrength ||
+              fp.cardiovascularTestReport || fp.muscleStrengthReport;
+
+            if (!hasData) {
+              return (
+                <div className="text-center py-6">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{
+                    background: 'rgba(255, 255, 255, 0.1)'
+                  }}>
+                    <Scale className="w-8 h-8 text-gray-500" />
+                  </div>
+                  <p className="text-gray-400 text-sm mb-2">No fitness data available yet</p>
+                  <p className="text-gray-500 text-xs">Contact your trainer to update your fitness profile</p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Body Measurements Grid */}
+          {currentMember.fitnessProfile && (
+            <>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {/* Height */}
+                {currentMember.fitnessProfile.height && (
+                  <div className="p-3 rounded-xl" style={{
+                    background: 'linear-gradient(135deg, rgba(139, 195, 74, 0.15) 0%, rgba(124, 179, 66, 0.1) 100%)',
+                    border: '1px solid rgba(139, 195, 74, 0.3)'
+                  }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Ruler className="w-4 h-4 text-green-400" />
+                      <span className="text-xs text-gray-400">Height</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">{currentMember.fitnessProfile.height} <span className="text-sm font-normal text-gray-400">cm</span></p>
+                  </div>
+                )}
+
+                {/* Weight */}
+                {currentMember.fitnessProfile.bodyWeight && (
+                  <div className="p-3 rounded-xl" style={{
+                    background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.15) 0%, rgba(25, 118, 210, 0.1) 100%)',
+                    border: '1px solid rgba(33, 150, 243, 0.3)'
+                  }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Scale className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs text-gray-400">Weight</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">{currentMember.fitnessProfile.bodyWeight} <span className="text-sm font-normal text-gray-400">kg</span></p>
+                  </div>
+                )}
+
+                {/* BMI */}
+                {currentMember.fitnessProfile.bmi && (
+                  <div className="p-3 rounded-xl" style={{
+                    background: `linear-gradient(135deg, ${currentMember.fitnessProfile.bmi < 18.5 ? 'rgba(255, 193, 7, 0.15)' :
+                      currentMember.fitnessProfile.bmi < 25 ? 'rgba(76, 175, 80, 0.15)' :
+                        currentMember.fitnessProfile.bmi < 30 ? 'rgba(255, 152, 0, 0.15)' :
+                          'rgba(244, 67, 54, 0.15)'
+                      } 0%, rgba(0, 0, 0, 0.1) 100%)`,
+                    border: `1px solid ${currentMember.fitnessProfile.bmi < 18.5 ? 'rgba(255, 193, 7, 0.3)' :
+                      currentMember.fitnessProfile.bmi < 25 ? 'rgba(76, 175, 80, 0.3)' :
+                        currentMember.fitnessProfile.bmi < 30 ? 'rgba(255, 152, 0, 0.3)' :
+                          'rgba(244, 67, 54, 0.3)'
+                      }`
+                  }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Target className="w-4 h-4" style={{
+                        color: currentMember.fitnessProfile.bmi < 18.5 ? '#FFC107' :
+                          currentMember.fitnessProfile.bmi < 25 ? '#4CAF50' :
+                            currentMember.fitnessProfile.bmi < 30 ? '#FF9800' : '#F44336'
+                      }} />
+                      <span className="text-xs text-gray-400">BMI</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">{currentMember.fitnessProfile.bmi.toFixed(1)}</p>
+                    <p className="text-xs mt-1" style={{
+                      color: currentMember.fitnessProfile.bmi < 18.5 ? '#FFC107' :
+                        currentMember.fitnessProfile.bmi < 25 ? '#4CAF50' :
+                          currentMember.fitnessProfile.bmi < 30 ? '#FF9800' : '#F44336'
+                    }}>
+                      {currentMember.fitnessProfile.bmi < 18.5 ? 'Underweight' :
+                        currentMember.fitnessProfile.bmi < 25 ? 'Normal' :
+                          currentMember.fitnessProfile.bmi < 30 ? 'Overweight' : 'Obese'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Body Fat */}
+                {currentMember.fitnessProfile.fatPercentage && (
+                  <div className="p-3 rounded-xl" style={{
+                    background: 'linear-gradient(135deg, rgba(156, 39, 176, 0.15) 0%, rgba(123, 31, 162, 0.1) 100%)',
+                    border: '1px solid rgba(156, 39, 176, 0.3)'
+                  }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Percent className="w-4 h-4 text-purple-400" />
+                      <span className="text-xs text-gray-400">Body Fat</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">{currentMember.fitnessProfile.fatPercentage}%</p>
+                  </div>
+                )}
+
+                {/* Muscle Percentage */}
+                {currentMember.fitnessProfile.musclePercentage && (
+                  <div className="p-3 rounded-xl" style={{
+                    background: 'linear-gradient(135deg, rgba(255, 87, 34, 0.15) 0%, rgba(230, 74, 25, 0.1) 100%)',
+                    border: '1px solid rgba(255, 87, 34, 0.3)'
+                  }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Dumbbell className="w-4 h-4 text-orange-400" />
+                      <span className="text-xs text-gray-400">Muscle</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">{currentMember.fitnessProfile.musclePercentage}%</p>
+                  </div>
+                )}
+
+                {/* Body Age */}
+                {currentMember.fitnessProfile.bodyAge && (
+                  <div className="p-3 rounded-xl" style={{
+                    background: 'linear-gradient(135deg, rgba(0, 188, 212, 0.15) 0%, rgba(0, 151, 167, 0.1) 100%)',
+                    border: '1px solid rgba(0, 188, 212, 0.3)'
+                  }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Heart className="w-4 h-4 text-cyan-400" />
+                      <span className="text-xs text-gray-400">Body Age</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">{currentMember.fitnessProfile.bodyAge} <span className="text-sm font-normal text-gray-400">yrs</span></p>
+                  </div>
+                )}
+
+                {/* Age */}
+                {currentMember.fitnessProfile.age && (
+                  <div className="p-3 rounded-xl" style={{
+                    background: 'linear-gradient(135deg, rgba(103, 58, 183, 0.15) 0%, rgba(81, 45, 168, 0.1) 100%)',
+                    border: '1px solid rgba(103, 58, 183, 0.3)'
+                  }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="w-4 h-4 text-violet-400" />
+                      <span className="text-xs text-gray-400">Age</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">{currentMember.fitnessProfile.age} <span className="text-sm font-normal text-gray-400">yrs</span></p>
+                  </div>
+                )}
+
+                {/* Visual Fat Percentage */}
+                {currentMember.fitnessProfile.visualFatPercentage && (
+                  <div className="p-3 rounded-xl" style={{
+                    background: 'linear-gradient(135deg, rgba(233, 30, 99, 0.15) 0%, rgba(194, 24, 91, 0.1) 100%)',
+                    border: '1px solid rgba(233, 30, 99, 0.3)'
+                  }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <TrendingUp className="w-4 h-4 text-pink-400" />
+                      <span className="text-xs text-gray-400">Visual Fat</span>
+                    </div>
+                    <p className="text-xl font-bold text-white">{currentMember.fitnessProfile.visualFatPercentage}%</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Fitness Tests Section */}
+              {(currentMember.fitnessProfile.muscleEndurance ||
+                currentMember.fitnessProfile.coreStrength ||
+                currentMember.fitnessProfile.flexibility ||
+                currentMember.fitnessProfile.leftHandGripStrength ||
+                currentMember.fitnessProfile.rightHandGripStrength) && (
+                  <div className="border-t border-white/10 pt-4 mt-2">
+                    <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-yellow-400" />
+                      Fitness Tests
+                    </h4>
+                    <div className="space-y-2">
+                      {/* Muscle Endurance */}
+                      {currentMember.fitnessProfile.muscleEndurance && (
+                        <div className="flex items-center justify-between p-3 rounded-xl" style={{
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}>
+                          <span className="text-gray-400 text-sm">Muscle Endurance</span>
+                          <span className="text-white font-semibold">{currentMember.fitnessProfile.muscleEndurance}</span>
+                        </div>
+                      )}
+
+                      {/* Core Strength */}
+                      {currentMember.fitnessProfile.coreStrength && (
+                        <div className="flex items-center justify-between p-3 rounded-xl" style={{
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}>
+                          <span className="text-gray-400 text-sm">Core Strength</span>
+                          <span className="text-white font-semibold">{currentMember.fitnessProfile.coreStrength}</span>
+                        </div>
+                      )}
+
+                      {/* Flexibility */}
+                      {currentMember.fitnessProfile.flexibility && (
+                        <div className="flex items-center justify-between p-3 rounded-xl" style={{
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}>
+                          <span className="text-gray-400 text-sm">Flexibility</span>
+                          <span className="text-white font-semibold">{currentMember.fitnessProfile.flexibility}</span>
+                        </div>
+                      )}
+
+                      {/* Left Hand Grip Strength */}
+                      {currentMember.fitnessProfile.leftHandGripStrength && (
+                        <div className="flex items-center justify-between p-3 rounded-xl" style={{
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}>
+                          <div className="flex items-center gap-2">
+                            <Hand className="w-4 h-4 text-gray-400" style={{ transform: 'scaleX(-1)' }} />
+                            <span className="text-gray-400 text-sm">Left Hand Grip</span>
+                          </div>
+                          <span className="text-white font-semibold">{currentMember.fitnessProfile.leftHandGripStrength} <span className="text-xs text-gray-400">kg</span></span>
+                        </div>
+                      )}
+
+                      {/* Right Hand Grip Strength */}
+                      {currentMember.fitnessProfile.rightHandGripStrength && (
+                        <div className="flex items-center justify-between p-3 rounded-xl" style={{
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}>
+                          <div className="flex items-center gap-2">
+                            <Hand className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-400 text-sm">Right Hand Grip</span>
+                          </div>
+                          <span className="text-white font-semibold">{currentMember.fitnessProfile.rightHandGripStrength} <span className="text-xs text-gray-400">kg</span></span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {/* Test Reports Section */}
+              {(currentMember.fitnessProfile.cardiovascularTestReport ||
+                currentMember.fitnessProfile.muscleStrengthReport) && (
+                  <div className="border-t border-white/10 pt-4 mt-4">
+                    <h4 className="text-sm font-semibold text-gray-300 mb-3">Test Reports</h4>
+                    <div className="space-y-2">
+                      {currentMember.fitnessProfile.cardiovascularTestReport && (
+                        <div className="p-3 rounded-xl" style={{
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}>
+                          <span className="text-gray-400 text-sm block mb-1">Cardiovascular Test</span>
+                          <span className="text-white text-sm">{currentMember.fitnessProfile.cardiovascularTestReport}</span>
+                        </div>
+                      )}
+                      {currentMember.fitnessProfile.muscleStrengthReport && (
+                        <div className="p-3 rounded-xl" style={{
+                          background: 'rgba(255, 255, 255, 0.05)'
+                        }}>
+                          <span className="text-gray-400 text-sm block mb-1">Muscle Strength</span>
+                          <span className="text-white text-sm">{currentMember.fitnessProfile.muscleStrengthReport}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {currentMember.fitnessProfile?.measuredAt && (
+                <div className="mt-4 pt-3 border-t border-white/10">
+                  <p className="text-xs text-gray-500 text-center">
+                    Last measured: {new Date(currentMember.fitnessProfile.measuredAt).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Settings Section */}
@@ -338,18 +641,16 @@ export default function MemberProfile() {
               </div>
               <button
                 onClick={() => handleNotificationToggle('pushNotification')}
-                className={`w-12 h-6 rounded-full transition-all relative ${
-                  profileForm.communicationPreferences.pushNotification ? 'bg-green-400' : 'bg-gray-600'
-                }`}
+                className={`w-12 h-6 rounded-full transition-all relative ${profileForm.communicationPreferences.pushNotification ? 'bg-green-400' : 'bg-gray-600'
+                  }`}
               >
-                <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all ${
-                  profileForm.communicationPreferences.pushNotification ? 'left-6' : 'left-0.5'
-                }`} />
+                <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all ${profileForm.communicationPreferences.pushNotification ? 'left-6' : 'left-0.5'
+                  }`} />
               </button>
             </div>
 
             {/* Privacy */}
-            <button 
+            <button
               onClick={() => setShowPrivacyModal(true)}
               className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
                 background: 'rgba(255, 255, 255, 0.05)'
@@ -363,7 +664,7 @@ export default function MemberProfile() {
             </button>
 
             {/* Help */}
-            <button 
+            <button
               onClick={() => setShowHelpModal(true)}
               className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
                 background: 'rgba(255, 255, 255, 0.05)'
@@ -386,7 +687,7 @@ export default function MemberProfile() {
         }}>
           <h3 className="text-lg font-bold text-white mb-4">Account</h3>
           <div className="space-y-3">
-            <button 
+            <button
               onClick={() => setShowAccountModal(true)}
               className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors" style={{
                 background: 'rgba(255, 255, 255, 0.05)'
@@ -420,45 +721,51 @@ export default function MemberProfile() {
           <p className="text-xs text-gray-400">FitTrack v1.0.0</p>
           <p className="text-xs text-gray-500 mt-1">© 2024 All rights reserved</p>
         </div>
-      </div>
+      </div >
 
       {/* Privacy & Security Modal */}
-      {showPrivacyModal && (
-        <PrivacySecurityModal
-          onClose={() => {
-            setShowPrivacyModal(false)
-            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-          }}
-          passwordForm={passwordForm}
-          setPasswordForm={setPasswordForm}
-          onChangePassword={handlePasswordChange}
-          isChanging={changePasswordMutation.isLoading}
-        />
-      )}
+      {
+        showPrivacyModal && (
+          <PrivacySecurityModal
+            onClose={() => {
+              setShowPrivacyModal(false)
+              setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+            }}
+            passwordForm={passwordForm}
+            setPasswordForm={setPasswordForm}
+            onChangePassword={handlePasswordChange}
+            isChanging={changePasswordMutation.isLoading}
+          />
+        )
+      }
 
       {/* Help & Support Modal */}
-      {showHelpModal && (
-        <HelpSupportModal onClose={() => setShowHelpModal(false)} />
-      )}
+      {
+        showHelpModal && (
+          <HelpSupportModal onClose={() => setShowHelpModal(false)} />
+        )
+      }
 
       {/* Account Settings Modal */}
-      {showAccountModal && (
-        <AccountSettingsModal
-          onClose={() => {
-            setShowAccountModal(false)
-            setIsEditing(false)
-          }}
-          member={currentMember}
-          profileForm={profileForm}
-          setProfileForm={setProfileForm}
-          isEditing={isEditing}
-          setIsEditing={setIsEditing}
-          onSave={handleProfileUpdate}
-          isSaving={updateProfileMutation.isLoading}
-          onNotificationToggle={handleNotificationToggle}
-        />
-      )}
-    </MemberLayout>
+      {
+        showAccountModal && (
+          <AccountSettingsModal
+            onClose={() => {
+              setShowAccountModal(false)
+              setIsEditing(false)
+            }}
+            member={currentMember}
+            profileForm={profileForm}
+            setProfileForm={setProfileForm}
+            isEditing={isEditing}
+            setIsEditing={setIsEditing}
+            onSave={handleProfileUpdate}
+            isSaving={updateProfileMutation.isLoading}
+            onNotificationToggle={handleNotificationToggle}
+          />
+        )
+      }
+    </MemberLayout >
   )
 }
 
@@ -541,7 +848,7 @@ function PrivacySecurityModal({ onClose, passwordForm, setPasswordForm, onChange
           <div className="pt-4 border-t border-white/10">
             <h4 className="text-lg font-semibold text-white mb-2">Security Information</h4>
             <p className="text-sm text-gray-300">
-              Your account is secured with encrypted password storage. For additional security, 
+              Your account is secured with encrypted password storage. For additional security,
               we recommend using a strong, unique password and changing it regularly.
             </p>
           </div>
@@ -755,13 +1062,11 @@ function AccountSettingsModal({ onClose, member, profileForm, setProfileForm, is
                   <span className="text-gray-300">{pref.label}</span>
                   <button
                     onClick={() => onNotificationToggle(pref.key)}
-                    className={`w-12 h-6 rounded-full transition-all relative ${
-                      profileForm.communicationPreferences[pref.key] ? 'bg-green-400' : 'bg-gray-600'
-                    }`}
+                    className={`w-12 h-6 rounded-full transition-all relative ${profileForm.communicationPreferences[pref.key] ? 'bg-green-400' : 'bg-gray-600'
+                      }`}
                   >
-                    <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all ${
-                      profileForm.communicationPreferences[pref.key] ? 'left-6' : 'left-0.5'
-                    }`} />
+                    <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all ${profileForm.communicationPreferences[pref.key] ? 'left-6' : 'left-0.5'
+                      }`} />
                   </button>
                 </div>
               ))}
