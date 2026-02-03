@@ -550,48 +550,61 @@ export default function ExerciseTemplates() {
                       const isPlaying = playingVideo === uniqueId;
                       const hasVideo = !!exercise.videoUrl;
 
-                      let videoId = null;
-                      if (hasVideo) {
-                        try {
-                          if (exercise.videoUrl.includes('shorts/')) videoId = exercise.videoUrl.split('shorts/')[1].split('?')[0];
-                          else if (exercise.videoUrl.includes('youtu.be/')) videoId = exercise.videoUrl.split('youtu.be/')[1].split('?')[0];
-                          else if (exercise.videoUrl.includes('v=')) videoId = exercise.videoUrl.split('v=')[1].split('&')[0];
-                        } catch (e) { }
-                      }
-
-                      let imageUrl = getExerciseImageUrl(exercise.name);
-                      if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-                        imageUrl = exercise.imageUrl.startsWith('http') ? exercise.imageUrl : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`;
-                      }
-                      const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
-
                       return (
                         <div key={exercise._id} className="group relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-orange-500 hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer max-h-[400px]">
                           {/* Media - Aspect Ratio Square for consistent height with image */}
                           <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
-                            {hasVideo && isPlaying ? (
-                              <iframe
-                                width="100%" height="100%"
-                                src={`${getEmbedUrl(exercise.videoUrl)}?autoplay=1&mute=1&rel=0`}
-                                frameBorder="0" allowFullScreen
-                                className="w-full h-full"
-                              />
-                            ) : (
-                              <div className="relative w-full h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); if (hasVideo) setPlayingVideo(uniqueId); }}>
-                                <img
-                                  src={thumbnailUrl || imageUrl}
-                                  alt={exercise.name}
-                                  className={`w-full h-full ${thumbnailUrl ? 'object-cover' : 'object-contain p-4 mix-blend-multiply'}`}
-                                />
-                                {hasVideo && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-all">
-                                    <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
-                                      <Play className="w-6 h-6 text-white ml-1" fill="currentColor" />
+                            {(() => {
+                              // Resolve video ID and thumbnail inside rendering scope to avoid closure issues
+                              let videoId = null;
+                              if (hasVideo) {
+                                try {
+                                  if (exercise.videoUrl.includes('shorts/')) {
+                                    videoId = exercise.videoUrl.split('shorts/')[1].split('?')[0];
+                                  } else if (exercise.videoUrl.includes('youtu.be/')) {
+                                    videoId = exercise.videoUrl.split('youtu.be/')[1].split('?')[0];
+                                  } else if (exercise.videoUrl.includes('v=')) {
+                                    videoId = exercise.videoUrl.split('v=')[1].split('&')[0];
+                                  }
+                                } catch (e) {
+                                  console.error('Error extracting video ID for', exercise.name, e);
+                                }
+                              }
+
+                              let imageUrl = getExerciseImageUrl(exercise.name);
+                              if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
+                                imageUrl = exercise.imageUrl.startsWith('http') ? exercise.imageUrl : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`;
+                              }
+                              const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+
+                              return (
+                                <>
+                                  {hasVideo && isPlaying ? (
+                                    <iframe
+                                      width="100%" height="100%"
+                                      src={`${getEmbedUrl(exercise.videoUrl)}?autoplay=1&mute=1&rel=0`}
+                                      frameBorder="0" allowFullScreen
+                                      className="w-full h-full"
+                                    />
+                                  ) : (
+                                    <div className="relative w-full h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); if (hasVideo) setPlayingVideo(uniqueId); }}>
+                                      <img
+                                        src={thumbnailUrl || imageUrl}
+                                        alt={exercise.name}
+                                        className={`w-full h-full ${thumbnailUrl ? 'object-cover' : 'object-contain p-4 mix-blend-multiply'}`}
+                                      />
+                                      {hasVideo && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-all">
+                                          <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                            <Play className="w-6 h-6 text-white ml-1" fill="currentColor" />
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
 
                           {/* Info & Add Button */}

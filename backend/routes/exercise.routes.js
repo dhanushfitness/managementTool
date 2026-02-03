@@ -9,6 +9,7 @@ import {
   getMemberExercises,
   updateAssignment,
   deleteAssignment,
+  bulkDeleteAssignments,
   markExerciseCompleted,
   getMemberProgress,
   upload
@@ -40,6 +41,7 @@ router.post('/assign', authorize('owner', 'manager', 'staff'), assignExerciseToM
 router.get('/member/:memberId', getMemberExercises); // Admin can view any member's exercises
 router.put('/assignment/:assignmentId', authorize('owner', 'manager', 'staff'), updateAssignment);
 router.delete('/assignment/:assignmentId', authorize('owner', 'manager', 'staff'), deleteAssignment);
+router.post('/bulk-delete', authorize('owner', 'manager', 'staff'), bulkDeleteAssignments);
 
 // Member routes (separate authentication - members can view their own exercises)
 const memberRouter = express.Router();

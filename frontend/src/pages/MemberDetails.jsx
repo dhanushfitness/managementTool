@@ -3578,6 +3578,10 @@ function WorkoutTab({ member }) {
   const searchTimeoutRef = useRef(null)
   const queryClient = useQueryClient()
 
+  // Bulk selection state
+  const [selectedExercises, setSelectedExercises] = useState([])
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+
   // Template Logic
   const [showTemplateModal, setShowTemplateModal] = useState(false)
 
@@ -3687,6 +3691,48 @@ function WorkoutTab({ member }) {
     }
   })
 
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (assignmentIds) => api.post('/exercises/bulk-delete', { assignmentIds }),
+    onSuccess: () => {
+      toast.success(`${selectedExercises.length} exercise(s) removed successfully`)
+      setSelectedExercises([])
+      setIsSelectionMode(false)
+      queryClient.invalidateQueries(['member-exercises', member._id])
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to remove exercises')
+    }
+  })
+
+  // Selection helper functions
+  const handleSelectAll = () => {
+    if (selectedExercises.length === assignments.length) {
+      setSelectedExercises([])
+    } else {
+      setSelectedExercises(assignments.map(a => a._id))
+    }
+  }
+
+  const handleSelectExercise = (assignmentId) => {
+    setSelectedExercises(prev =>
+      prev.includes(assignmentId)
+        ? prev.filter(id => id !== assignmentId)
+        : [...prev, assignmentId]
+    )
+  }
+
+  const handleBulkDelete = () => {
+    if (selectedExercises.length === 0) {
+      toast.error('Please select exercises to delete')
+      return
+    }
+
+    if (window.confirm(`Delete ${selectedExercises.length} selected exercise(s)?`)) {
+      bulkDeleteMutation.mutate(selectedExercises)
+    }
+  }
+
   const handleAssign = (exercise) => {
     if (typeof selectedAssignmentDay !== 'number') {
       toast.error('Please select a day first')
@@ -3791,6 +3837,33 @@ function WorkoutTab({ member }) {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Workout Plan</h2>
         <div className="flex items-center gap-3">
+          {assignments.length > 0 && (
+            <button
+              onClick={() => {
+                setIsSelectionMode(!isSelectionMode)
+                setSelectedExercises([])
+              }}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${isSelectionMode
+                ? 'bg-gray-500 text-white hover:bg-gray-600'
+                : 'bg-purple-500 text-white hover:bg-purple-600'
+                }`}
+            >
+              <CheckCircle className="w-4 h-4" />
+              {isSelectionMode ? 'Cancel Selection' : 'Select Multiple'}
+            </button>
+          )}
+
+          {isSelectionMode && selectedExercises.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isLoading}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Selected ({selectedExercises.length})
+            </button>
+          )}
+
           <button
             onClick={() => setShowQRModal(true)}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
@@ -3842,133 +3915,186 @@ function WorkoutTab({ member }) {
           No exercises assigned for {weekDays[weekDay]}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {assignments.map((assignment) => {
-            const exercise = assignment.exerciseId
-            if (!exercise) return null
+        <>
+          {/* Select All Checkbox */}
+          {isSelectionMode && assignments.length > 0 && (
+            <div className="flex items-center gap-3 p-4 bg-purple-50 border border-purple-200 rounded-lg mb-4">
+              <input
+                type="checkbox"
+                checked={selectedExercises.length === assignments.length}
+                onChange={handleSelectAll}
+                className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+              />
+              <label className="text-sm font-medium text-gray-700 cursor-pointer" onClick={handleSelectAll}>
+                Select All ({assignments.length} exercises)
+              </label>
+              {selectedExercises.length > 0 && (
+                <span className="ml-auto text-sm text-purple-600 font-semibold">
+                  {selectedExercises.length} selected
+                </span>
+              )}
+            </div>
+          )}
 
-            // Get image from public/exercises folder first, then fallback to database imageUrl
-            let exerciseImageUrl = getExerciseImageUrl(exercise.name)
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {assignments.map((assignment) => {
+              const exercise = assignment.exerciseId
+              if (!exercise) return null
 
-            // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
-            if (!exerciseImageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-              exerciseImageUrl = exercise.imageUrl?.startsWith('http')
-                ? exercise.imageUrl
-                : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`
-            }
-            // Fallback to static data for videoUrl if missing in DB
-            const staticExercise = staticExercises.find(e =>
-              e.name.toLowerCase() === exercise.name.toLowerCase() ||
-              e.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === exercise.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-            )
-            const videoUrl = exercise.videoUrl || staticExercise?.videoUrl
+              // Get image from public/exercises folder first, then fallback to database imageUrl
+              let exerciseImageUrl = getExerciseImageUrl(exercise.name)
 
-            // Get video ID for thumbnail
-            let videoId = null
-            if (videoUrl) {
-              try {
-                if (videoUrl.includes('shorts/')) videoId = videoUrl.split('shorts/')[1].split('?')[0]
-                else if (videoUrl.includes('youtu.be/')) videoId = videoUrl.split('youtu.be/')[1].split('?')[0]
-                else if (videoUrl.includes('v=')) videoId = videoUrl.split('v=')[1].split('&')[0]
-              } catch (e) { console.error(e) }
-            }
+              // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
+              if (!exerciseImageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
+                exerciseImageUrl = exercise.imageUrl?.startsWith('http')
+                  ? exercise.imageUrl
+                  : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`
+              }
 
-            const thumbnailUrl = videoId
-              ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-              : null
-
-            return (
-              <div key={assignment._id} className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex gap-4">
-                  {/* Image on Left */}
-                  {/* Video/Image on Left */}
-                  <div className="flex-shrink-0 w-56 aspect-video rounded-lg overflow-hidden border border-gray-200 bg-black relative group">
-                    <img
-                      src={thumbnailUrl || exerciseImageUrl || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80'}
-                      alt={exercise.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        // Fallback to static image if thumbnail fails
-                        if (thumbnailUrl && exerciseImageUrl && e.target.src !== exerciseImageUrl) {
-                          e.target.src = exerciseImageUrl
-                        } else {
-                          e.target.style.display = 'none'
-                          e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
-                        }
-                      }}
-                    />
-                    {videoUrl && (
-                      <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded flex items-center gap-1">
-                        <Play className="w-3 h-3" />
-                        Video
+              return (
+                <div key={assignment._id} className={`bg-white border-2 rounded-xl p-4 shadow-sm hover:shadow-md transition-all ${isSelectionMode && selectedExercises.includes(assignment._id)
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-gray-200'
+                  }`}>
+                  <div className="flex gap-4">
+                    {/* Checkbox on the left when in selection mode */}
+                    {isSelectionMode && (
+                      <div className="flex-shrink-0 flex items-start pt-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedExercises.includes(assignment._id)}
+                          onChange={() => handleSelectExercise(assignment._id)}
+                          className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+                        />
                       </div>
                     )}
-                  </div>
 
-                  {/* Details on Right */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">{exercise.name}</h3>
-                      </div>
-                      <button
-                        onClick={() => {
-                          if (window.confirm('Remove this exercise from the workout plan?')) {
-                            deleteAssignmentMutation.mutate(assignment._id)
+                    {/* Image on Left */}
+                    {/* Video/Image on Left */}
+                    <div className="flex-shrink-0 w-56 aspect-video rounded-lg overflow-hidden border border-gray-200 bg-black relative group">
+                      {(() => {
+                        // Resolve video URL inside rendering scope to avoid closure issues
+                        const staticExercise = staticExercises.find(e =>
+                          e.name.toLowerCase() === exercise.name.toLowerCase() ||
+                          e.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === exercise.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+                        )
+                        const currentVideoUrl = exercise.videoUrl || staticExercise?.videoUrl
+
+                        // Extract video ID immediately
+                        let videoId = null
+                        if (currentVideoUrl) {
+                          try {
+                            if (currentVideoUrl.includes('shorts/')) {
+                              videoId = currentVideoUrl.split('shorts/')[1].split('?')[0]
+                            } else if (currentVideoUrl.includes('youtu.be/')) {
+                              videoId = currentVideoUrl.split('youtu.be/')[1].split('?')[0]
+                            } else if (currentVideoUrl.includes('v=')) {
+                              videoId = currentVideoUrl.split('v=')[1].split('&')[0]
+                            }
+                          } catch (e) {
+                            console.error('Error extracting video ID for', exercise.name, e)
                           }
-                        }}
-                        className="text-red-500 hover:text-red-700 flex-shrink-0 ml-2 p-1 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                        }
+
+                        const thumbnailUrl = videoId
+                          ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                          : null
+
+                        return (
+                          <>
+                            <img
+                              src={thumbnailUrl || exerciseImageUrl || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80'}
+                              alt={exercise.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback to static image if thumbnail fails
+                                if (thumbnailUrl && exerciseImageUrl && e.target.src !== exerciseImageUrl) {
+                                  e.target.src = exerciseImageUrl
+                                } else {
+                                  e.target.style.display = 'none'
+                                  e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
+                                }
+                              }}
+                            />
+                            {currentVideoUrl && (
+                              <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded flex items-center gap-1">
+                                <Play className="w-3 h-3" />
+                                Video
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
 
-                    <div className="space-y-2">
-                      {exercise.category === 'cardio' ? (
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-700">Duration:</span>
-                            <span className="text-gray-900">{assignment.duration ? `${assignment.duration} min` : (exercise.duration ? `${exercise.duration} min` : 'N/A')}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-700">Distance:</span>
-                            <span className="text-gray-900">{assignment.distance ? `${assignment.distance} km` : (exercise.distance ? `${exercise.distance} km` : 'N/A')}</span>
-                          </div>
+                    {/* Details on Right */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-bold text-gray-900 mb-1">{exercise.name}</h3>
                         </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-700">Sets:</span>
-                            <span className="text-gray-900">{assignment.sets || exercise.sets || 'N/A'}</span>
+                        {/* Only show individual delete button when NOT in selection mode */}
+                        {!isSelectionMode && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Remove this exercise from the workout plan?')) {
+                                deleteAssignmentMutation.mutate(assignment._id)
+                              }
+                            }}
+                            className="text-red-500 hover:text-red-700 flex-shrink-0 ml-2 p-1 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        {exercise.category === 'cardio' ? (
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-700">Duration:</span>
+                              <span className="text-gray-900">{assignment.duration ? `${assignment.duration} min` : (exercise.duration ? `${exercise.duration} min` : 'N/A')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-700">Distance:</span>
+                              <span className="text-gray-900">{assignment.distance ? `${assignment.distance} km` : (exercise.distance ? `${exercise.distance} km` : 'N/A')}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-700">Reps:</span>
-                            <span className="text-gray-900">{assignment.reps || exercise.reps || 'N/A'}</span>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-700">Sets:</span>
+                              <span className="text-gray-900">{assignment.sets || exercise.sets || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-700">Reps:</span>
+                              <span className="text-gray-900">{assignment.reps || exercise.reps || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-700">Weight:</span>
+                              <span className="text-orange-600 font-medium">
+                                {assignment.weight || exercise.weight || 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-700">Rest:</span>
+                              <span className="text-gray-900">{assignment.restTime || exercise.restTime || 'N/A'}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-700">Weight:</span>
-                            <span className="text-orange-600 font-medium">
-                              {assignment.weight || exercise.weight || 'N/A'}
-                            </span>
+                        )}
+                        {assignment.variationId && exercise.variations && (
+                          <div className="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md inline-block">
+                            Variation: {exercise.variations.find(v => v._id === assignment.variationId)?.name || 'Custom'}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-700">Rest:</span>
-                            <span className="text-gray-900">{assignment.restTime || exercise.restTime || 'N/A'}</span>
-                          </div>
-                        </div>
-                      )}
-                      {assignment.variationId && exercise.variations && (
-                        <div className="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md inline-block">
-                          Variation: {exercise.variations.find(v => v._id === assignment.variationId)?.name || 'Custom'}
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {/* Template Selection Modal */}

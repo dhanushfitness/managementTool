@@ -599,6 +599,31 @@ export const deleteAssignment = async (req, res) => {
   }
 };
 
+// Bulk delete assignments
+export const bulkDeleteAssignments = async (req, res) => {
+  try {
+    const { assignmentIds } = req.body;
+
+    if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid assignment IDs' });
+    }
+
+    // Delete all assignments that belong to the organization
+    const result = await MemberExerciseAssignment.deleteMany({
+      _id: { $in: assignmentIds },
+      organizationId: req.organizationId
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Exercises deleted successfully', 
+      count: result.deletedCount 
+    });
+  } catch (error) {
+    handleError(error, res, 500);
+  }
+};
+
 // Mark exercise as completed
 export const markExerciseCompleted = async (req, res) => {
   try {
