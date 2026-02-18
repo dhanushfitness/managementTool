@@ -6,10 +6,11 @@ export default function Setup() {
 
   // Redirect to dashboard when someone manually navigates to /setup
   useEffect(() => {
-    navigate('/dashboard', { replace: true })
+    navigate('/', { replace: true })
   }, [navigate])
 
   // Return null while redirecting
   return null
 }
+
 

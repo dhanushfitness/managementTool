@@ -110,7 +110,7 @@ const navigation = [
   // { name: 'Marketing', href: '/marketing', icon: Megaphone, hasSubmenu: true },
   { name: 'Client', href: '/clients', icon: Users, hasSubmenu: true },
   { name: 'Staff', href: '/staff', icon: UserCog, hasSubmenu: false },
-  // { name: 'Reports', href: '/reports', icon: BarChart3, hasSubmenu: true },
+  { name: 'Reports', href: '/reports', icon: BarChart3, hasSubmenu: true },
   { name: 'Setup', href: '/setup', icon: Settings, hasSubmenu: true },
 ]
 

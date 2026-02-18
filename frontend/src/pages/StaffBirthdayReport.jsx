@@ -151,7 +151,7 @@ export default function StaffBirthdayReport() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-3">
           <nav className="flex items-center gap-2 text-sm">
-            <Link to="/dashboard" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
+            <Link to="/" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
             <span className="text-gray-300">/</span>
             <Link to="/reports" className="text-gray-500 hover:text-orange-600 transition-colors">Reports</Link>
             <span className="text-gray-300">/</span>
@@ -413,3 +413,5 @@ export default function StaffBirthdayReport() {
     </div>
   )
 }
+
+

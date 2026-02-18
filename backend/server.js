@@ -102,47 +102,33 @@ const getAllowedOrigins = () => {
   return [...new Set(origins.filter(Boolean))];
 };
 
-const allowedOrigins = getAllowedOrigins();
+const allowedOrigins = [...new Set(getAllowedOrigins().map((origin) => origin.replace(/\/$/, '')))];
 
 app.use(cors({
   origin: function (origin, callback) {
     // allow server-to-server / curl / mobile apps / Postman
     if (!origin) {
-      console.log('✅ CORS: No origin (server-to-server request), allowing');
+      console.log('CORS: No origin (server-to-server request), allowing');
       return callback(null, true);
     }
 
-    // Normalize origin (remove trailing slash)
     const normalizedOrigin = origin.replace(/\/$/, '');
-    
-    // Check exact match
-    if (allowedOrigins.includes(origin) || allowedOrigins.includes(normalizedOrigin)) {
-      console.log(`✅ CORS: Allowing origin: ${origin}`);
+
+    // Exact origin allow-list check
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      console.log(`CORS: Allowing origin: ${origin}`);
       return callback(null, true);
     }
 
-    // Check if origin matches any allowed origin (case-insensitive, with/without trailing slash)
-    const originLower = normalizedOrigin.toLowerCase();
-    const isAllowed = allowedOrigins.some(allowed => {
-      const allowedNormalized = allowed.replace(/\/$/, '').toLowerCase();
-      return originLower === allowedNormalized || originLower.startsWith(allowedNormalized);
-    });
-
-    if (isAllowed) {
-      console.log(`✅ CORS: Allowing origin (normalized match): ${origin}`);
-      return callback(null, true);
-    }
-
-    // Log for debugging
-    console.log(`⚠️  CORS blocked origin: ${origin}`);
-    console.log(`   Allowed origins:`, allowedOrigins);
+    console.log(`CORS blocked origin: ${origin}`);
+    console.log('Allowed origins:', allowedOrigins);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
+    'Content-Type',
+    'Authorization',
     'X-Requested-With',
     'Accept',
     'Origin',
@@ -150,7 +136,7 @@ app.use(cors({
     'Access-Control-Request-Headers'
   ],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400, // 24 hours
+  maxAge: 86400,
   preflightContinue: false,
   optionsSuccessStatus: 200
 }));
@@ -158,34 +144,26 @@ app.use(cors({
 // 🔥 REQUIRED for browser preflight - handle all OPTIONS requests
 app.options('*', (req, res) => {
   const origin = req.headers.origin;
-  console.log(`🔍 OPTIONS request from origin: ${origin}`);
-  
+  console.log(`OPTIONS request from origin: ${origin}`);
+
   if (origin) {
-    // Normalize origin
     const normalizedOrigin = origin.replace(/\/$/, '');
-    const originLower = normalizedOrigin.toLowerCase();
-    
-    // Check if origin is allowed
-    const isAllowed = allowedOrigins.some(allowed => {
-      const allowedNormalized = allowed.replace(/\/$/, '').toLowerCase();
-      return originLower === allowedNormalized || originLower.startsWith(allowedNormalized);
-    });
-    
-    if (isAllowed) {
-      console.log(`✅ OPTIONS: Allowing origin: ${origin}`);
+
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      console.log(`OPTIONS: Allowing origin: ${origin}`);
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Access-Control-Max-Age', '86400');
       return res.sendStatus(200);
-    } else {
-      console.log(`⚠️  OPTIONS: Blocked origin: ${origin}`);
-      console.log(`   Allowed origins:`, allowedOrigins);
     }
+
+    console.log(`OPTIONS: Blocked origin: ${origin}`);
+    console.log('Allowed origins:', allowedOrigins);
   }
-  
-  // Still send 200 even if origin not allowed (some browsers need this)
+
+  // Keep browser preflight behavior stable
   res.sendStatus(200);
 });
 
@@ -326,3 +304,5 @@ mongoose.connect(process.env.MONGODB_URI, mongoOptions)
   });
 
 export default app;
+
+

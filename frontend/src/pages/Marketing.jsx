@@ -185,7 +185,7 @@ export default function Marketing() {
       {/* Header */}
       <div className="space-y-3">
         <nav className="flex items-center gap-2 text-sm">
-          <Link to="/dashboard" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
+          <Link to="/" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
           <span className="text-gray-300">/</span>
           <span className="text-orange-600 font-semibold">Marketing</span>
         </nav>
@@ -1089,3 +1089,4 @@ export default function Marketing() {
     </div>
   )
 }
+

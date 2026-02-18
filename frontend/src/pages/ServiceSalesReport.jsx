@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -208,7 +208,7 @@ export default function ServiceSalesReport() {
   }
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'â€”'
+    if (!dateString) return '—'
     const date = new Date(dateString)
     return date.toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -266,7 +266,7 @@ export default function ServiceSalesReport() {
     return [
       {
         label: 'Net Revenue',
-        value: `â‚¹${formatCurrency(netSales)}`,
+        value: `₹${formatCurrency(netSales)}`,
         helper: `${quantity} total bookings`,
         icon: DollarSign,
         gradient: 'from-green-500 to-emerald-500',
@@ -274,15 +274,15 @@ export default function ServiceSalesReport() {
       },
       {
         label: 'Gross Sales',
-        value: `â‚¹${formatCurrency(grossSales)}`,
-        helper: `Discounts: â‚¹${formatCurrency(discount)}`,
+        value: `₹${formatCurrency(grossSales)}`,
+        helper: `Discounts: ₹${formatCurrency(discount)}`,
         icon: BarChart3,
         gradient: 'from-blue-500 to-indigo-500',
         bgGradient: 'from-blue-50 to-indigo-50'
       },
       {
         label: 'Average Ticket',
-        value: quantity ? `â‚¹${formatCurrency(avgTicket)}` : 'â‚¹0.00',
+        value: quantity ? `₹${formatCurrency(avgTicket)}` : '₹0.00',
         helper: `${discountPct.toFixed(1)}% discount rate`,
         icon: ShoppingBag,
         gradient: 'from-purple-500 to-pink-500',
@@ -298,7 +298,7 @@ export default function ServiceSalesReport() {
       year: 'numeric'
     })
 
-    return `${formatter.format(startDate)} â€“ ${formatter.format(endDate)}`
+    return `${formatter.format(startDate)} – ${formatter.format(endDate)}`
   }, [startDate, endDate])
 
   return (
@@ -307,7 +307,7 @@ export default function ServiceSalesReport() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-3">
           <nav className="flex items-center gap-2 text-sm">
-            <Link to="/dashboard" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
+            <Link to="/" className="text-gray-500 hover:text-orange-600 transition-colors">Home</Link>
             <span className="text-gray-300">/</span>
             <Link to="/reports" className="text-gray-500 hover:text-orange-600 transition-colors">Reports</Link>
             <span className="text-gray-300">/</span>
@@ -482,7 +482,7 @@ export default function ServiceSalesReport() {
       <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="p-12">
-            <LoadingPage message="Crunching your sales numbersâ€¦" fullScreen={false} />
+            <LoadingPage message="Crunching your sales numbers…" fullScreen={false} />
           </div>
         ) : !hasSearched ? (
           <div className="flex flex-col items-center gap-4 p-16 text-center">
@@ -553,7 +553,7 @@ export default function ServiceSalesReport() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="space-y-1.5">
-                          <p className="text-sm font-bold text-gray-900">{booking.proFormaInvoiceNo || booking.invoiceNumber || 'â€”'}</p>
+                          <p className="text-sm font-bold text-gray-900">{booking.proFormaInvoiceNo || booking.invoiceNumber || '—'}</p>
                           <p className="text-xs text-gray-500">{formatDate(booking.createdAt)}</p>
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold uppercase">
                             {booking.saleType || 'Sale'}
@@ -567,15 +567,15 @@ export default function ServiceSalesReport() {
                             onClick={() => navigate(`/clients/${booking.member._id}`)}
                             className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline text-left"
                           >
-                            {[booking.member?.firstName, booking.member?.lastName].filter(Boolean).join(' ') || '—'}
+                            {[booking.member?.firstName, booking.member?.lastName].filter(Boolean).join(' ') || '�'}
                           </button>
                         ) : (
-                          <span className="text-sm text-gray-500">—</span>
+                          <span className="text-sm text-gray-500">�</span>
                         )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="space-y-1">
-                          <p className="text-sm font-bold text-gray-900">{booking.serviceName || 'â€”'}</p>
+                          <p className="text-sm font-bold text-gray-900">{booking.serviceName || '—'}</p>
                           <p className="text-xs text-gray-500">{booking.serviceVariation || 'Standard'}</p>
                         </div>
                       </td>
@@ -583,13 +583,13 @@ export default function ServiceSalesReport() {
                         <span className="text-sm font-bold text-gray-900">{booking.quantity || 0}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-sm font-semibold text-gray-900">â‚¹{formatCurrency(booking.listPrice)}</span>
+                        <span className="text-sm font-semibold text-gray-900">₹{formatCurrency(booking.listPrice)}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-sm font-semibold text-red-600">â‚¹{formatCurrency(booking.discountValue)}</span>
+                        <span className="text-sm font-semibold text-red-600">₹{formatCurrency(booking.discountValue)}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-sm font-bold text-green-600">â‚¹{formatCurrency(booking.totalAmount)}</span>
+                        <span className="text-sm font-bold text-green-600">₹{formatCurrency(booking.totalAmount)}</span>
                       </td>
                     </tr>
                   ))}
@@ -603,13 +603,13 @@ export default function ServiceSalesReport() {
                       <span className="text-sm font-black text-gray-900">{totals.quantity}</span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm font-black text-gray-900">â‚¹{formatCurrency(totals.listPrice)}</span>
+                      <span className="text-sm font-black text-gray-900">₹{formatCurrency(totals.listPrice)}</span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm font-black text-red-600">â‚¹{formatCurrency(totals.discountValue)}</span>
+                      <span className="text-sm font-black text-red-600">₹{formatCurrency(totals.discountValue)}</span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm font-black text-green-600">â‚¹{formatCurrency(totals.totalAmount)}</span>
+                      <span className="text-sm font-black text-green-600">₹{formatCurrency(totals.totalAmount)}</span>
                     </td>
                   </tr>
                 </tbody>
@@ -621,4 +621,6 @@ export default function ServiceSalesReport() {
     </div>
   )
 }
+
+
 

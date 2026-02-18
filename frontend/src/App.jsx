@@ -84,7 +84,6 @@ function PrivateRoute({ children }) {
   // Ensure hydration happens
   useEffect(() => {
     if (!hydrated) {
-      console.log('PrivateRoute: Setting hydrated')
       setHydrated()
     }
   }, [hydrated, setHydrated])
@@ -101,7 +100,6 @@ function PrivateRoute({ children }) {
     if (!hydrated) return
     const currentToken = token || localToken
     if (currentToken && isTokenExpired(currentToken)) {
-      console.log('Token expired, logging out')
       logout()
     }
   }, [hydrated, token, localToken, logout])
@@ -123,25 +121,9 @@ function PrivateRoute({ children }) {
   const tokenExpired = effectiveToken ? isTokenExpired(effectiveToken) : true
   const hasValidAuth = Boolean(effectiveToken && effectiveUser && !tokenExpired)
   
-  console.log('PrivateRoute check:', {
-    hasToken: !!effectiveToken,
-    hasUser: !!effectiveUser,
-    tokenSource: token ? 'store' : localToken ? 'localStorage' : 'none',
-    userSource: user ? 'store' : localUser ? 'localStorage' : 'none',
-    tokenValue: effectiveToken ? `${effectiveToken.substring(0, 20)}...` : 'no token',
-    userValue: effectiveUser ? JSON.stringify(effectiveUser).substring(0, 100) : 'no user',
-    isExpired: tokenExpired,
-    hasValidAuth,
-    pathname: location.pathname,
-    hydrated
-  })
-
   if (!hasValidAuth) {
     // Prevent redirect loop - only redirect if not already on login page
     if (location.pathname !== '/login' && location.pathname !== '/register') {
-      console.log('Redirecting to login from:', location.pathname, {
-        reason: !effectiveToken ? 'no token' : !effectiveUser ? 'no user' : 'token expired'
-      })
       return <Navigate to="/login" state={{ from: location }} replace />
     }
     return null
@@ -185,6 +167,7 @@ function App() {
           <Route path="staff/:id/add-target" element={<StaffAddTarget />} />
           <Route path="staff/:id/rep-change" element={<StaffRepChange />} />
           <Route path="reports/staff/birthday" element={<StaffBirthdayReport />} />
+          <Route path="reports" element={<Navigate to="/reports/sales/service-sales" replace />} />
           <Route path="reports/sales/service-sales" element={<ServiceSalesReport />} />
           <Route path="reports/finance/pending-collections" element={<PendingCollectionsReport />} />
           <Route path="reports/finance/service-payments-collected" element={<Payments />} />
