@@ -774,7 +774,7 @@ export const createInvoice = async (req, res) => {
 
           // Send email with PDF attachment
           const { sendInvoiceEmail } = await import('../utils/email.js');
-          const emailResults = await sendInvoiceEmail(populatedInvoice, member, organization, pdfBuffer);
+          // const emailResults = await sendInvoiceEmail(populatedInvoice, member, organization, pdfBuffer);
 
           if (emailResults.memberEmail.success) {
             console.log('Invoice email sent to member:', member.email);

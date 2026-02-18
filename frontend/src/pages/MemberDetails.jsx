@@ -2273,7 +2273,7 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                   return (
                     <tr key={invoice._id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4 text-sm text-gray-900">
-                        {formatDate(invoice.createdAt)}
+                        {formatDate(invoice.dateOfInvoice || invoice.createdAt)}
                       </td>
                       <td className="py-3 px-4 text-sm font-medium text-gray-900">
                         {member?.firstName?.toUpperCase()} {member?.lastName?.toUpperCase()}

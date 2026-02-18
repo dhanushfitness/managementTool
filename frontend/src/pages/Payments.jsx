@@ -183,8 +183,10 @@ export default function Payments() {
           sNo: counter++,
           billNo: receipt.invoice?.invoiceNumber || '-',
           paidDate: receipt.paidAt || receipt.createdAt,
-          purchaseDate: receipt.invoice?.createdAt,
-          type: receipt.invoice?.type ? receipt.invoice.type.replace(/_/g, ' ') : 'Sale',
+          purchaseDate: receipt.invoice?.dateOfInvoice || receipt.invoice?.createdAt,
+          type: receipt.invoice?.type === 'pro-forma'
+            ? 'Tax Invoice'
+            : (receipt.invoice?.type ? receipt.invoice.type.replace(/_/g, ' ') : 'Sale'),
           branch: receipt.branchId?.name || receipt.invoice?.branchId?.name || '—',
           memberId: receipt.memberId?.memberId || '—',
           memberName: `${receipt.memberId?.firstName || ''} ${receipt.memberId?.lastName || ''}`.trim() || '—',

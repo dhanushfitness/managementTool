@@ -362,7 +362,7 @@ export const getReceipts = async (req, res) => {
       })
       .populate({
         path: 'invoiceId',
-        select: 'invoiceNumber isProForma type invoiceType items',
+        select: 'invoiceNumber isProForma type invoiceType items dateOfInvoice createdAt',
         populate: [
           { path: 'createdBy', select: 'firstName lastName' },
           { path: 'branchId', select: 'name' }
@@ -507,7 +507,7 @@ export const exportReceipts = async (req, res) => {
       })
       .populate({
         path: 'invoiceId',
-        select: 'invoiceNumber isProForma type invoiceType items',
+        select: 'invoiceNumber isProForma type invoiceType items dateOfInvoice createdAt',
         populate: {
           path: 'createdBy',
           select: 'firstName lastName'

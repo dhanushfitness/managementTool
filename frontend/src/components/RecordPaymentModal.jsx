@@ -12,10 +12,28 @@ export default function RecordPaymentModal({ invoice, isOpen, onClose, onSuccess
 
   const queryClient = useQueryClient()
 
+  const toNumber = (value) => {
+    const num = Number(value)
+    return Number.isFinite(num) ? num : 0
+  }
+
+  const totalAmount = toNumber(invoice?.total)
+
+  const paidAmount = (() => {
+    if (invoice?.totalPaid !== undefined && invoice?.totalPaid !== null) {
+      return toNumber(invoice.totalPaid)
+    }
+    if (invoice?.pending !== undefined && invoice?.pending !== null) {
+      return Math.max(0, totalAmount - toNumber(invoice.pending))
+    }
+    return 0
+  })()
+
   const calculatePendingAmount = () => {
-    const total = invoice?.total || 0
-    const paidAmount = invoice?.totalPaid || 0
-    return Math.max(0, total - paidAmount)
+    if (invoice?.pending !== undefined && invoice?.pending !== null) {
+      return Math.max(0, toNumber(invoice.pending))
+    }
+    return Math.max(0, totalAmount - paidAmount)
   }
 
   const pendingAmount = calculatePendingAmount()
@@ -122,11 +140,11 @@ export default function RecordPaymentModal({ invoice, isOpen, onClose, onSuccess
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-600 mb-1">Total Amount</p>
-                  <p className="font-semibold text-gray-900">{formatCurrency(invoice?.total || 0)}</p>
+                  <p className="font-semibold text-gray-900">{formatCurrency(totalAmount)}</p>
                 </div>
                 <div>
                   <p className="text-gray-600 mb-1">Paid Amount</p>
-                  <p className="font-semibold text-green-600">{formatCurrency(invoice?.totalPaid || 0)}</p>
+                  <p className="font-semibold text-green-600">{formatCurrency(paidAmount)}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-gray-600 mb-1">Pending Amount</p>

@@ -478,7 +478,7 @@ export default function PendingCollectionsReport() {
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-medium">
-                          {formatDate(invoice.createdAt)}
+                          {formatDate(invoice.dateOfInvoice || invoice.createdAt)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="inline-flex px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-bold">
