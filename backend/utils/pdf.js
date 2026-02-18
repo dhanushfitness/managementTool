@@ -105,13 +105,15 @@ export const generateInvoicePDF = async (invoice) => {
       doc.fontSize(10).font('Helvetica-Bold');
       doc.text('Invoice Type:', rightX, startY);
       doc.font('Helvetica');
-      const invoiceType = (invoice.type || 'New Booking').replace('-', ' ');
+      const invoiceType = invoice.type === 'pro-forma'
+        ? 'Tax Invoice'
+        : ((invoice.type || 'New Booking').replace('-', ' '));
       doc.text(invoiceType.charAt(0).toUpperCase() + invoiceType.slice(1), rightX + 90, startY);
       
       let rightY = startY + 15;
       doc.font('Helvetica-Bold').text('Date, Time:', rightX, rightY);
       doc.font('Helvetica');
-      const dateTime = new Date(invoice.createdAt).toLocaleString('en-GB', {
+      const dateTime = new Date(invoice.dateOfInvoice || invoice.createdAt).toLocaleString('en-GB', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true
       });

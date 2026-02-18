@@ -10,7 +10,6 @@ import {
   deleteBranch,
   getOnboardingStatus,
   updateOnboardingStatus,
-  connectRazorpay,
   connectWhatsApp,
   uploadOrganizationLogo
 } from '../controllers/organization.controller.js';
@@ -81,7 +80,6 @@ router.get('/onboarding', getOnboardingStatus);
 router.put('/onboarding', authorize('owner', 'manager'), updateOnboardingStatus);
 
 // Integrations
-router.post('/integrations/razorpay', authorize('owner', 'manager'), connectRazorpay);
 router.post('/integrations/whatsapp', authorize('owner', 'manager'), connectWhatsApp);
 router.put('/logo', authorize('owner', 'manager'), handleLogoUpload, uploadOrganizationLogo);
 

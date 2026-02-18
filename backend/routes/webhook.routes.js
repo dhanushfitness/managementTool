@@ -1,6 +1,5 @@
 import express from 'express';
 import {
-  handleRazorpayWebhook,
   handleWhatsAppWebhook,
   handleBiometricWebhook,
   getWebhookEvents
@@ -10,7 +9,6 @@ import { authenticate, authorize } from '../middleware/auth.middleware.js';
 const router = express.Router();
 
 // Webhook routes (no authentication - they use signatures)
-router.post('/razorpay', handleRazorpayWebhook);
 router.post('/whatsapp', handleWhatsAppWebhook);
 router.post('/biometric', handleBiometricWebhook);
 

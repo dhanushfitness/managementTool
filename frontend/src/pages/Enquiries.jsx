@@ -75,6 +75,7 @@ export default function Enquiries() {
   })
 
   const [initialQueryApplied, setInitialQueryApplied] = useState(false)
+  const enquirySearchQuery = new URLSearchParams(location.search).get('q') || ''
 
   useEffect(() => {
     if (initialQueryApplied) return
@@ -93,6 +94,9 @@ export default function Enquiries() {
   }, [location.search, initialQueryApplied, applyFilterParams])
 
   const buildDateParams = () => {
+    if (enquirySearchQuery) {
+      return {}
+    }
     if (dateFilter === 'custom' && fromDate && toDate) {
       return { dateFilter, fromDate, toDate }
     }
@@ -104,6 +108,7 @@ export default function Enquiries() {
     page,
     limit,
     ...buildDateParams(),
+    ...(enquirySearchQuery ? { q: enquirySearchQuery } : {}),
     ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
   }
 

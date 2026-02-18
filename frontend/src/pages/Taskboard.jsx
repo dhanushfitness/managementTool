@@ -202,17 +202,27 @@ export default function Taskboard() {
   });
 
   const handleUpdateCallAction = (followUp) => {
-    if (followUp.entityType !== 'enquiry' && !followUp.isEnquiry) {
-      toast.error('Update call is available only for enquiries.');
-      return;
-    }
+    const isEnquiryFollowUp = followUp.entityType === 'enquiry' || followUp.isEnquiry;
+    const isMemberFollowUp = followUp.entityType === 'member';
+
     if (!followUp.entityId) {
-      toast.error('Enquiry details are not available for this follow-up.');
+      toast.error('Details are not available for this follow-up.');
       return;
     }
-    navigate(`/enquiries/${followUp.entityId}/update-call`, {
-      state: { from: `${location.pathname}${location.search}` || '/taskboard' }
-    });
+
+    if (isEnquiryFollowUp) {
+      navigate(`/enquiries/${followUp.entityId}/update-call`, {
+        state: { from: `${location.pathname}${location.search}` || '/taskboard' }
+      });
+      return;
+    }
+
+    if (isMemberFollowUp) {
+      navigate(`/clients/${followUp.entityId}?tab=call-log`);
+      return;
+    }
+
+    toast.error('Update call is not available for this follow-up type.');
   };
 
   const handleConvertToMember = (followUp) => {

@@ -5,7 +5,6 @@ import api from '../api/axios'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import DateInput from './DateInput'
-import RazorpayPayment from './RazorpayPayment'
 import { getOrganizationDetails } from '../api/organization'
 import { searchMembers as searchMembersApi, getMember as getMemberApi } from '../api/members'
 import LoadingSpinner from './LoadingSpinner'
@@ -54,8 +53,6 @@ export default function AddInvoiceModal({
   const memberSearchBlurTimeout = useRef(null)
   const memberDropdownRef = useRef(null)
   const memberItemRefs = useRef({})
-  const [showRazorpayModal, setShowRazorpayModal] = useState(false)
-  const [razorpayInvoiceData, setRazorpayInvoiceData] = useState(null)
 
   const queryClient = useQueryClient()
 
@@ -428,6 +425,7 @@ export default function AddInvoiceModal({
 
     const invoiceData = {
       memberId: formData.memberId,
+      dateOfInvoice: formData.invoiceDate,
       type: 'pro-forma',
       invoiceType: 'service',
       isProForma: true,
@@ -1182,7 +1180,6 @@ export default function AddInvoiceModal({
                           <option value="upi">UPI</option>
                           <option value="bank_transfer">Bank Transfer</option>
                           <option value="cheque">Cheque</option>
-                          <option value="razorpay">Razorpay</option>
                           <option value="other">Other</option>
                         </select>
                         <input
@@ -1238,24 +1235,7 @@ export default function AddInvoiceModal({
         </div>
       </div>
 
-      {/* Razorpay Payment Modal */}
-      {showRazorpayModal && razorpayInvoiceData && (
-        <RazorpayPayment
-          invoice={razorpayInvoiceData}
-          onClose={() => {
-            setShowRazorpayModal(false)
-            setRazorpayInvoiceData(null)
-          }}
-          onSuccess={(payment) => {
-            setShowRazorpayModal(false)
-            setRazorpayInvoiceData(null)
-            queryClient.invalidateQueries(['invoices'])
-            queryClient.invalidateQueries(['member-invoices'])
-            onClose()
-            toast.success('Payment processed successfully!')
-          }}
-        />
-      )}
+      {/* Online payment modal removed */}
     </>
   )
 }

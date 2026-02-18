@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Loader2, Plus, Edit, Calendar, Clock, User, DollarSign, MessageSquare } from 'lucide-react'
+import { X, Loader2, Plus, Edit, Clock, User, MessageSquare } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
@@ -11,13 +11,23 @@ const initialFormState = () => ({
   type: 'enquiry-call',
   scheduledFor: '',
   callStatus: 'scheduled',
-  callTag: '',
   notes: '',
-  scheduleDate: new Date().toISOString().split('T')[0],
-  scheduleTime: '',
-  expectedClosureDate: '',
-  expectedAmount: ''
+  scheduleDate: '',
+  scheduleTime: ''
 })
+
+const mapStatusToCallFormStatus = (status) => {
+  const mapping = {
+    answered: 'contacted',
+    'no-answer': 'not-contacted',
+    'not-called': 'not-contacted',
+    busy: 'attempted',
+    enquiry: 'not-contacted',
+    'future-prospect': 'not-contacted',
+    'not-interested': 'not-contacted'
+  }
+  return mapping[status] || status || 'scheduled'
+}
 
 export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode = 'modal' }) {
   const [formData, setFormData] = useState(initialFormState())
@@ -32,12 +42,6 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
     queryFn: () => api.get('/staff').then(res => res.data),
     enabled: isOpen
   })
-
-  const tagOptions = [
-    { label: 'Cold', value: 'cold', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', textColor: 'text-blue-700', activeBg: 'bg-blue-100' },
-    { label: 'Warm', value: 'warm', bgColor: 'bg-orange-50', borderColor: 'border-orange-200', textColor: 'text-orange-700', activeBg: 'bg-orange-100' },
-    { label: 'Hot', value: 'hot', bgColor: 'bg-red-50', borderColor: 'border-red-200', textColor: 'text-red-700', activeBg: 'bg-red-100' }
-  ]
 
   const fetchEnquiryDetails = useCallback(async () => {
     if (!enquiryId || !isOpen) return
@@ -67,20 +71,15 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
     mutationFn: (data) => api.post(`/enquiries/${enquiryId}/call-log`, data)
   })
 
-  const updateEnquiryMutation = useMutation({
-    mutationFn: (payload) => api.put(`/enquiries/${enquiryId}`, payload)
+  const updateCallLogMutation = useMutation({
+    mutationFn: ({ callLogId, data }) => api.put(`/enquiries/${enquiryId}/call-log/${callLogId}`, data)
   })
 
   const handleAddNewCall = () => {
     setFormData({
       ...initialFormState(),
       scheduledFor: enquiryDetails?.assignedStaff?._id || '',
-      callTag: enquiryDetails?.callTag || '',
-      callStatus: enquiryDetails?.lastCallStatus || 'scheduled',
-      expectedClosureDate: enquiryDetails?.expectedClosureDate
-        ? new Date(enquiryDetails.expectedClosureDate).toISOString().split('T')[0]
-        : '',
-      expectedAmount: enquiryDetails?.expectedAmount || ''
+      callStatus: mapStatusToCallFormStatus(enquiryDetails?.lastCallStatus)
     })
     setEditingCallLogId(null)
     setShowForm(true)
@@ -88,18 +87,14 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
 
   const handleUpdateCallLog = (log) => {
     const logDate = new Date(log.date)
+    const hasValidDate = !Number.isNaN(logDate.getTime())
     setFormData({
       type: 'enquiry-call',
       scheduledFor: log.staffId?._id || enquiryDetails?.assignedStaff?._id || '',
-      callStatus: log.status || 'scheduled',
-      callTag: enquiryDetails?.callTag || '',
+      callStatus: mapStatusToCallFormStatus(log.status),
       notes: log.notes || '',
-      scheduleDate: logDate.toISOString().split('T')[0],
-      scheduleTime: logDate.toTimeString().slice(0, 5),
-      expectedClosureDate: enquiryDetails?.expectedClosureDate
-        ? new Date(enquiryDetails.expectedClosureDate).toISOString().split('T')[0]
-        : '',
-      expectedAmount: enquiryDetails?.expectedAmount || ''
+      scheduleDate: hasValidDate ? logDate.toISOString().split('T')[0] : '',
+      scheduleTime: hasValidDate ? logDate.toTimeString().slice(0, 5) : ''
     })
     setEditingCallLogId(log._id)
     setShowForm(true)
@@ -114,6 +109,13 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    const requiresSchedule = formData.callStatus === 'scheduled'
+
+    if (requiresSchedule && !formData.scheduleDate) {
+      toast.error('Scheduled date is required when call status is Scheduled')
+      return
+    }
+
     const scheduleAt = formData.scheduleDate
       ? new Date(`${formData.scheduleDate}T${formData.scheduleTime || '00:00'}`)
       : null
@@ -123,21 +125,17 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
       calledBy: formData.scheduledFor || undefined,
       callStatus: formData.callStatus,
       notes: formData.notes || undefined,
-      scheduleAt: scheduleAt || undefined
+      scheduleAt: requiresSchedule ? (scheduleAt || undefined) : null
     }
-
-    const updates = {}
-    if (formData.callTag) updates.callTag = formData.callTag
-    if (formData.expectedClosureDate) updates.expectedClosureDate = formData.expectedClosureDate
-    if (formData.expectedAmount !== '' && formData.expectedAmount !== null) {
-      updates.expectedAmount = Number(formData.expectedAmount)
-    }
-    if (formData.scheduledFor) updates.assignedStaff = formData.scheduledFor
 
     try {
-      await addCallLogMutation.mutateAsync(logPayload)
-      if (Object.keys(updates).length > 0) {
-        await updateEnquiryMutation.mutateAsync(updates)
+      if (editingCallLogId) {
+        await updateCallLogMutation.mutateAsync({
+          callLogId: editingCallLogId,
+          data: logPayload
+        })
+      } else {
+        await addCallLogMutation.mutateAsync(logPayload)
       }
       toast.success(editingCallLogId ? 'Call log updated successfully' : 'Call log added successfully')
       queryClient.invalidateQueries(['enquiries'])
@@ -261,64 +259,26 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
                   </label>
                   <select
                     value={formData.callStatus}
-                    onChange={(e) => setFormData({ ...formData, callStatus: e.target.value })}
+                    onChange={(e) => {
+                      const nextStatus = e.target.value
+                      const shouldClearSchedule = nextStatus !== 'scheduled'
+                      setFormData((prev) => ({
+                        ...prev,
+                        callStatus: nextStatus,
+                        scheduleDate: shouldClearSchedule ? '' : prev.scheduleDate,
+                        scheduleTime: shouldClearSchedule ? '' : prev.scheduleTime
+                      }))
+                    }}
                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-medium"
                     required
                   >
                     <option value="scheduled">Scheduled</option>
                     <option value="attempted">Attempted</option>
                     <option value="contacted">Contacted</option>
+                    <option value="completed">Completed</option>
                     <option value="not-contacted">Not Contacted</option>
                     <option value="missed">Missed</option>
                   </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-gray-700 mb-2 block">Call Tag</label>
-                <div className="flex items-center space-x-3">
-                  {tagOptions.map((tag) => (
-                    <button
-                      key={tag.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, callTag: tag.value })}
-                      className={`flex-1 py-3 rounded-xl border-2 text-sm font-bold transition-all ${
-                        formData.callTag === tag.value
-                          ? `${tag.bgColor} ${tag.borderColor} ${tag.textColor} shadow-md`
-                          : `border-gray-200 text-gray-600 hover:${tag.borderColor} hover:${tag.bgColor}`
-                      }`}
-                    >
-                      {tag.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-orange-600" />
-                    Expected Date of Closure
-                  </label>
-                  <DateInput
-                    value={formData.expectedClosureDate}
-                    onChange={(e) => setFormData({ ...formData, expectedClosureDate: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-orange-600" />
-                    Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.expectedAmount}
-                    onChange={(e) => setFormData({ ...formData, expectedAmount: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
-                    placeholder="0"
-                  />
                 </div>
               </div>
 
@@ -339,24 +299,26 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
                 <p className="text-xs text-gray-400 text-right font-medium">{formData.notes.length}/1800</p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-orange-600" />
-                  Next Follow-up Schedule
-                </label>
-                <div className="grid sm:grid-cols-[1fr,140px] gap-3">
-                  <DateInput
-                    value={formData.scheduleDate}
-                    onChange={(e) => setFormData({ ...formData, scheduleDate: e.target.value })}
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
-                  />
-                  <TimeInput
-                    value={formData.scheduleTime}
-                    onChange={(e) => setFormData({ ...formData, scheduleTime: e.target.value })}
-                    className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
-                  />
+              {formData.callStatus === 'scheduled' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-orange-600" />
+                    Next Follow-up Schedule<span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid sm:grid-cols-[1fr,140px] gap-3">
+                    <DateInput
+                      value={formData.scheduleDate}
+                      onChange={(e) => setFormData({ ...formData, scheduleDate: e.target.value })}
+                      className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
+                    />
+                    <TimeInput
+                      value={formData.scheduleTime}
+                      onChange={(e) => setFormData({ ...formData, scheduleTime: e.target.value })}
+                      className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-end space-x-3 pt-4 border-t-2 border-gray-200">
                 <button
@@ -368,10 +330,10 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
                 </button>
                 <button
                   type="submit"
-                  disabled={addCallLogMutation.isLoading || updateEnquiryMutation.isLoading}
+                  disabled={addCallLogMutation.isLoading || updateCallLogMutation.isLoading}
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold hover:shadow-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {(addCallLogMutation.isLoading || updateEnquiryMutation.isLoading) && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {(addCallLogMutation.isLoading || updateCallLogMutation.isLoading) && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>{editingCallLogId ? 'Update Call' : 'Add Call'}</span>
                 </button>
               </div>
@@ -417,7 +379,7 @@ export default function CallLogModal({ isOpen = true, onClose, enquiryId, mode =
                         <div className="flex items-center gap-2 mb-2">
                           <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
                             log.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
-                            log.status === 'contacted' ? 'bg-green-100 text-green-700' :
+                            log.status === 'contacted' || log.status === 'completed' ? 'bg-green-100 text-green-700' :
                             log.status === 'attempted' ? 'bg-yellow-100 text-yellow-700' :
                             log.status === 'missed' ? 'bg-red-100 text-red-700' :
                             'bg-gray-100 text-gray-700'

@@ -138,6 +138,11 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     enum: ['razorpay', 'cash', 'card', 'upi', 'bank_transfer', 'other']
   },
+  dateOfInvoice: {
+    type: Date,
+    default: Date.now,
+    index: true
+  },
   razorpayOrderId: String,
   razorpayQRCodeId: String,
   razorpayPaymentId: String,

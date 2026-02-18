@@ -63,7 +63,7 @@ api.interceptors.request.use(
         console.warn('No member token available for member route:', config.url)
       }
     } else {
-      // For admin routes (including /members, /exercises/member/:id, etc.), use admin token
+      // For admin routes (including /members), use admin token
       // Try to get token from store first
       let token = useAuthStore.getState().token
       

@@ -1161,7 +1161,6 @@ export const upgradeMembership = async (req, res) => {
     });
 
     // Create payment records if payment modes provided
-    let hasPendingRazorpayPayment = false;
     if (paymentModes && paymentModes.length > 0) {
       const Payment = (await import('../models/Payment.js')).default;
       
@@ -1174,11 +1173,6 @@ export const upgradeMembership = async (req, res) => {
         // Generate receipt number
         const paymentCount = await Payment.countDocuments({ organizationId: req.organizationId });
         const receiptNumber = `RCP${String(paymentCount + 1).padStart(6, '0')}`;
-        const isRazorpay = method === 'razorpay';
-        if (isRazorpay) {
-          hasPendingRazorpayPayment = true;
-        }
-
         await Payment.create({
           organizationId: req.organizationId,
           branchId: invoice.branchId,
@@ -1188,8 +1182,8 @@ export const upgradeMembership = async (req, res) => {
           currency: invoice.currency,
           paymentMethod: method,
           receiptNumber,
-          status: isRazorpay ? 'pending' : 'completed',
-          paidAt: !isRazorpay ? new Date() : undefined,
+          status: 'completed',
+          paidAt: new Date(),
           createdBy: req.user._id
         });
       }
@@ -1219,7 +1213,7 @@ export const upgradeMembership = async (req, res) => {
     // The invoice will be activated automatically when paid via activateMembershipFromInvoice
     // The startDate in the invoice item is set to current plan's endDate, so it will activate at the right time
     // Only activate membership if invoice is fully paid and startDate has arrived or passed
-    if (invoice.status === 'paid' && !hasPendingRazorpayPayment) {
+    if (invoice.status === 'paid') {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
       
@@ -1403,18 +1397,29 @@ export const createMemberCall = async (req, res) => {
     if (!callType || !calledBy) {
       return res.status(400).json({ success: false, message: 'callType and calledBy are required' });
     }
+    const normalizedStatus = status || 'scheduled';
+    const parsedScheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+    const hasValidScheduledAt = parsedScheduledAt && !Number.isNaN(parsedScheduledAt.getTime());
+
+    if (normalizedStatus === 'scheduled' && !hasValidScheduledAt) {
+      return res.status(400).json({ success: false, message: 'scheduledAt is required when status is scheduled' });
+    }
+
     const callLog = await MemberCallLog.create({
       organizationId: req.organizationId,
       memberId: req.params.memberId,
       callType,
       calledBy,
-      status: status || 'scheduled',
+      status: normalizedStatus,
       notes,
-      scheduledAt,
+      scheduledAt: hasValidScheduledAt ? parsedScheduledAt : undefined,
       durationMinutes,
       createdBy: req.user._id
     });
-    const populated = await callLog.populate('calledBy', 'firstName lastName').populate('createdBy', 'firstName lastName');
+    const populated = await callLog.populate([
+      { path: 'calledBy', select: 'firstName lastName' },
+      { path: 'createdBy', select: 'firstName lastName' }
+    ]);
     res.status(201).json({ success: true, call: populated });
   } catch (error) {
     handleError(error, res, 500);
@@ -1439,12 +1444,33 @@ export const updateMemberCall = async (req, res) => {
     if (callType) callLog.callType = callType;
     if (status) callLog.status = status;
     if (notes !== undefined) callLog.notes = notes;
-    if (scheduledAt) callLog.scheduledAt = scheduledAt;
+    if (scheduledAt !== undefined) {
+      if (!scheduledAt) {
+        if ((status || callLog.status) === 'scheduled') {
+          return res.status(400).json({ success: false, message: 'scheduledAt is required when status is scheduled' });
+        }
+        callLog.scheduledAt = undefined;
+      } else {
+        const parsedScheduledAt = new Date(scheduledAt);
+        if (Number.isNaN(parsedScheduledAt.getTime())) {
+          return res.status(400).json({ success: false, message: 'Invalid scheduledAt' });
+        }
+        callLog.scheduledAt = parsedScheduledAt;
+      }
+    }
+
+    if ((status || callLog.status) === 'scheduled' && !callLog.scheduledAt) {
+      return res.status(400).json({ success: false, message: 'scheduledAt is required when status is scheduled' });
+    }
+
     if (durationMinutes !== undefined) callLog.durationMinutes = durationMinutes;
 
     await callLog.save();
 
-    const populated = await callLog.populate('calledBy', 'firstName lastName').populate('createdBy', 'firstName lastName');
+    const populated = await callLog.populate([
+      { path: 'calledBy', select: 'firstName lastName' },
+      { path: 'createdBy', select: 'firstName lastName' }
+    ]);
     
     res.json({ success: true, call: populated });
   } catch (error) {

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import api from '../api/axios'
 import LoadingPage from '../components/LoadingPage'
 import Breadcrumbs from '../components/Breadcrumbs'
-import RazorpayPayment from '../components/RazorpayPayment'
 import { ArrowLeft, Printer, Mail, Download, CreditCard } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -70,7 +69,6 @@ export default function InvoiceDetails() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const shouldPrint = searchParams.get('print') === 'true'
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['invoice', invoiceId],
@@ -193,7 +191,6 @@ export default function InvoiceDetails() {
       'upi': 'UPI',
       'bank_transfer': 'Bank Transfer',
       'cheque': 'Cheque',
-      'razorpay': 'Online Payment',
       'other': 'Other'
     }
     return methodMap[method] || method
@@ -336,15 +333,6 @@ export default function InvoiceDetails() {
                 <Breadcrumbs />
               </div>
               <div className="flex items-center space-x-2">
-                {pendingAmount > 0 && invoice.status !== 'paid' && (
-                  <button
-                    onClick={() => setShowPaymentModal(true)}
-                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    <span>Pay Online</span>
-                  </button>
-                )}
                 <button
                   onClick={() => {
                     window.open(`/invoices/${invoiceId}/print`, '_blank')
@@ -456,13 +444,13 @@ export default function InvoiceDetails() {
                   <div>
                     <span className="text-gray-600 font-medium">Invoice Type:</span>
                     <span className="ml-2 font-semibold text-gray-900 capitalize">
-                      {invoice.type?.replace('-', ' ') || 'New Booking'}
+                      {invoice.type === 'pro-forma' ? 'Tax Invoice' : (invoice.type?.replace('-', ' ') || 'New Booking')}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-600 font-medium">Date, Time:</span>
                     <span className="ml-2 font-semibold text-gray-900">
-                      {formatDateTime(invoice.createdAt)}
+                      {formatDateTime(invoice.dateOfInvoice || invoice.createdAt)}
                     </span>
                   </div>
                   <div>
@@ -625,12 +613,6 @@ export default function InvoiceDetails() {
                             </span>
                           </div>
                         )}
-                        {firstPayment?.razorpayDetails?.vpa && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">TXN ({firstPayment.razorpayDetails.method || 'gpay'}):</span>
-                            <span className="font-medium text-gray-900">{firstPayment.razorpayDetails.vpa || firstPayment.razorpayDetails.method || 'gpay'}</span>
-                          </div>
-                        )}
                       </div>
                     </>
                   )}
@@ -711,18 +693,6 @@ export default function InvoiceDetails() {
         </div>
       </div>
 
-      {/* Razorpay Payment Modal */}
-      {showPaymentModal && invoice && (
-        <RazorpayPayment
-          invoice={invoice}
-          onClose={() => setShowPaymentModal(false)}
-          onSuccess={() => {
-            // Refresh invoice data
-            window.location.reload()
-          }}
-        />
-      )}
     </>
   )
 }
-

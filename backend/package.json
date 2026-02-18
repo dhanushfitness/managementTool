@@ -9,7 +9,6 @@
     "start": "node server.js",
     "seed": "node scripts/seed.js",
     "seed:full": "node scripts/seed-comprehensive.js",
-    "seed:exercises": "node scripts/seed-exercises.js",
     "fix-user": "node scripts/fix-demo-user.js",
     "verify-user": "node scripts/verify-demo-user.js",
     "test-email": "node scripts/test-email.js",
@@ -34,7 +33,6 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^6.9.7",
     "pdfkit": "^0.14.0",
-    "razorpay": "^2.9.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

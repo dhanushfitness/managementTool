@@ -204,24 +204,10 @@ const routeBreadcrumbs = [
     ])
   },
   {
-    path: '/invoices',
-    getCrumbs: () => ([
-      { label: 'Home', to: '/' },
-      { label: 'Invoices' }
-    ])
-  },
-  {
     path: '/payments',
     getCrumbs: () => ([
       { label: 'Home', to: '/' },
       { label: 'Payments' }
-    ])
-  },
-  {
-    path: '/attendance',
-    getCrumbs: () => ([
-      { label: 'Home', to: '/' },
-      { label: 'Attendance' }
     ])
   },
   {
@@ -281,76 +267,30 @@ const reportSections = {
     label: 'Finance',
     reports: {
       'pending-collections': 'Pending Collections',
-      'refund-report': 'Refund Report',
-      'all-invoices': 'All Invoices',
-      'paid-invoices': 'Paid Invoices',
-      'receipts': 'Receipts',
-      'revenue-realization': 'Revenue Realization',
-      'revenue-realization-base-value': 'Revenue Realization (Base Value)',
-      'collection': 'Collection Report',
-      'cashflow-statement': 'Cash Flow Statement',
-      'payment-mode': 'Payment Mode Report',
-      'backdated-bills': 'Backdated Bills - Service Sales',
-      'discount': 'Discount Report',
-      'cancelled-invoices': 'Cancelled Invoices',
-      'effective-sales-accounting': 'Effective Sales (Accounting)'
+      'service-payments-collected': 'Service Payments Collected'
     }
   },
   sales: {
     label: 'Sales',
     reports: {
-      'dsr': 'DSR Report',
-      'revenue': 'Revenue Report',
-      'revenue-month-till-date': 'Revenue - Month Till Date',
-      'service-sales': 'Service Sales',
-      'enquiry-conversion': 'Enquiry Conversion Report'
+      'service-sales': 'Service Sales'
     }
   },
   'client-management': {
     label: 'Client Management',
     reports: {
-      'renewal-vs-attrition': 'Renewal Vs Attrition Report',
-      'upgrade': 'Upgrade & Cross-Sell',
+      'upgrade': 'Upgrade',
       'member-checkins': 'Member Check-ins',
-      'multiclub-member-checkins': 'Multi Club Member Check-ins',
-      'member-attendance-register': 'Member Attendance Register',
-      'new-clients': 'New Clients Report',
-      'renewals': 'Renewals Report',
-      'membership': 'Membership Report',
-      'membership-expiry': 'Membership Expiry Report',
+      'new-clients': 'New Clients',
+      'renewals': 'Renewals',
       'service-expiry': 'Service Expiry',
-      'irregular-members': 'Irregular Members Report',
-      'active-members': 'Active Members Report',
-      'inactive-members': 'Inactive Members Report',
-      'multiclub-clients': 'Multi Club Clients Report',
-      'archived-clients': 'Archived Clients Report',
-      'freeze-and-date-change': 'Freeze and Date Change',
-      'suspensions': 'Suspensions Report',
-      'attendance-heat-map': 'Attendance Heat Map',
-      'service-transfer': 'Service Transfer Report',
-      'birthday': 'Birthday Report',
-      'client-attendance': 'Client Attendance Report',
-      'membership-retention': 'Membership Retention Report',
-      'cancellation': 'Cancellation Report',
-      'profile-change': 'Profile Change Report',
-      'one-time-purchaser': 'One-time Purchaser Report',
-      'average-lifetime-value': 'Average Lifetime Value Report'
+      'birthday': 'Birthday'
     }
   },
   staff: {
     label: 'Staff',
     reports: {
-      'check-ins': 'Staff Check-ins',
-      'leave': 'Staff Leave Report',
-      'attendance-register': 'Staff Attendance Register',
-      'birthday': 'Staff Birthday Report',
-      'call-log': 'Call Log Report'
-    }
-  },
-  expense: {
-    label: 'Expense',
-    reports: {
-      'summary': 'Expense Summary'
+      'birthday': 'Staff Birthday'
     }
   }
 }

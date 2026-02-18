@@ -416,34 +416,6 @@ export const updateOnboardingStatus = async (req, res) => {
   }
 };
 
-export const connectRazorpay = async (req, res) => {
-  try {
-    const { keyId, keySecret } = req.body;
-    const organization = await Organization.findById(req.organizationId);
-
-    organization.razorpaySettings = {
-      keyId,
-      keySecret,
-      isConnected: true,
-      connectedAt: new Date()
-    };
-
-    await organization.save();
-
-    await AuditLog.create({
-      organizationId: req.organizationId,
-      userId: req.user._id,
-      action: 'razorpay.connected',
-      entityType: 'Organization',
-      entityId: organization._id
-    });
-
-    res.json({ success: true, message: 'Razorpay connected successfully' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 export const connectWhatsApp = async (req, res) => {
   try {
     const { apiKey, apiSecret, phoneNumberId } = req.body;

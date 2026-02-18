@@ -324,7 +324,7 @@ export default function ClientManagementUpgrade() {
                 <Toggle
                   id="auto-select-assets-toggle"
                   label="Auto-select documents & trackers during transfer"
-                  description="Automatically move member documents, workout plans and logs when branch changes are processed."
+                  description="Automatically move member documents and logs when branch changes are processed."
                   value={upgradeState.autoSelectAssetsOnTransfer}
                   onChange={(value) => setUpgradeState(prev => ({ ...prev, autoSelectAssetsOnTransfer: value }))}
                   disabled={upgradeMutation.isPending || isBusy}

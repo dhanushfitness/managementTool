@@ -862,18 +862,6 @@ function PrivacySecurityModal({ onClose, passwordForm, setPasswordForm, onChange
 function HelpSupportModal({ onClose }) {
   const faqs = [
     {
-      question: 'How do I track my workout progress?',
-      answer: 'You can view your progress in the Progress tab. It shows calories burned, muscle groups worked, and strength progression over time.'
-    },
-    {
-      question: 'How do I mark an exercise as completed?',
-      answer: 'In the Dashboard or Workouts tab, click on an exercise and use the "Mark Complete" button, or update your sets/reps progress.'
-    },
-    {
-      question: 'Can I change my workout schedule?',
-      answer: 'Your workout schedule is assigned by your trainer. Please contact your trainer or gym staff to discuss any changes.'
-    },
-    {
       question: 'How do I update my profile information?',
       answer: 'Go to Profile > Account Settings to edit your personal information, contact details, and notification preferences.'
     }

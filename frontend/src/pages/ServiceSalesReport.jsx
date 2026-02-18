@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+﻿import { useMemo, useState, useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   ChevronLeft,
@@ -103,6 +103,7 @@ const convertDashboardDateFilter = (dateFilter, fromDate, toDate) => {
 
 export default function ServiceSalesReport() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [page, setPage] = useState(1)
   const [hasSearched, setHasSearched] = useState(true) // Start as true to auto-load data
@@ -207,7 +208,7 @@ export default function ServiceSalesReport() {
   }
 
   const formatDate = (dateString) => {
-    if (!dateString) return '—'
+    if (!dateString) return 'â€”'
     const date = new Date(dateString)
     return date.toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -265,7 +266,7 @@ export default function ServiceSalesReport() {
     return [
       {
         label: 'Net Revenue',
-        value: `₹${formatCurrency(netSales)}`,
+        value: `â‚¹${formatCurrency(netSales)}`,
         helper: `${quantity} total bookings`,
         icon: DollarSign,
         gradient: 'from-green-500 to-emerald-500',
@@ -273,15 +274,15 @@ export default function ServiceSalesReport() {
       },
       {
         label: 'Gross Sales',
-        value: `₹${formatCurrency(grossSales)}`,
-        helper: `Discounts: ₹${formatCurrency(discount)}`,
+        value: `â‚¹${formatCurrency(grossSales)}`,
+        helper: `Discounts: â‚¹${formatCurrency(discount)}`,
         icon: BarChart3,
         gradient: 'from-blue-500 to-indigo-500',
         bgGradient: 'from-blue-50 to-indigo-50'
       },
       {
         label: 'Average Ticket',
-        value: quantity ? `₹${formatCurrency(avgTicket)}` : '₹0.00',
+        value: quantity ? `â‚¹${formatCurrency(avgTicket)}` : 'â‚¹0.00',
         helper: `${discountPct.toFixed(1)}% discount rate`,
         icon: ShoppingBag,
         gradient: 'from-purple-500 to-pink-500',
@@ -297,7 +298,7 @@ export default function ServiceSalesReport() {
       year: 'numeric'
     })
 
-    return `${formatter.format(startDate)} – ${formatter.format(endDate)}`
+    return `${formatter.format(startDate)} â€“ ${formatter.format(endDate)}`
   }, [startDate, endDate])
 
   return (
@@ -481,7 +482,7 @@ export default function ServiceSalesReport() {
       <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="p-12">
-            <LoadingPage message="Crunching your sales numbers…" fullScreen={false} />
+            <LoadingPage message="Crunching your sales numbersâ€¦" fullScreen={false} />
           </div>
         ) : !hasSearched ? (
           <div className="flex flex-col items-center gap-4 p-16 text-center">
@@ -534,6 +535,7 @@ export default function ServiceSalesReport() {
                   <tr>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">#</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider min-w-[180px]">Booking Details</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider min-w-[170px]">Client</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider min-w-[160px]">Service</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Qty</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">List Price</th>
@@ -551,7 +553,7 @@ export default function ServiceSalesReport() {
                       </td>
                       <td className="px-4 py-4">
                         <div className="space-y-1.5">
-                          <p className="text-sm font-bold text-gray-900">{booking.proFormaInvoiceNo || booking.invoiceNumber || '—'}</p>
+                          <p className="text-sm font-bold text-gray-900">{booking.proFormaInvoiceNo || booking.invoiceNumber || 'â€”'}</p>
                           <p className="text-xs text-gray-500">{formatDate(booking.createdAt)}</p>
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold uppercase">
                             {booking.saleType || 'Sale'}
@@ -559,8 +561,21 @@ export default function ServiceSalesReport() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
+                        {booking.member?._id ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/clients/${booking.member._id}`)}
+                            className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline text-left"
+                          >
+                            {[booking.member?.firstName, booking.member?.lastName].filter(Boolean).join(' ') || '—'}
+                          </button>
+                        ) : (
+                          <span className="text-sm text-gray-500">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
                         <div className="space-y-1">
-                          <p className="text-sm font-bold text-gray-900">{booking.serviceName || '—'}</p>
+                          <p className="text-sm font-bold text-gray-900">{booking.serviceName || 'â€”'}</p>
                           <p className="text-xs text-gray-500">{booking.serviceVariation || 'Standard'}</p>
                         </div>
                       </td>
@@ -568,33 +583,33 @@ export default function ServiceSalesReport() {
                         <span className="text-sm font-bold text-gray-900">{booking.quantity || 0}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-sm font-semibold text-gray-900">₹{formatCurrency(booking.listPrice)}</span>
+                        <span className="text-sm font-semibold text-gray-900">â‚¹{formatCurrency(booking.listPrice)}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-sm font-semibold text-red-600">₹{formatCurrency(booking.discountValue)}</span>
+                        <span className="text-sm font-semibold text-red-600">â‚¹{formatCurrency(booking.discountValue)}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-sm font-bold text-green-600">₹{formatCurrency(booking.totalAmount)}</span>
+                        <span className="text-sm font-bold text-green-600">â‚¹{formatCurrency(booking.totalAmount)}</span>
                       </td>
                     </tr>
                   ))}
 
                   {/* Totals Row */}
                   <tr className="bg-gradient-to-r from-green-50 to-emerald-50 border-t-2 border-green-200">
-                    <td className="px-4 py-4" colSpan={3}>
+                    <td className="px-4 py-4" colSpan={4}>
                       <span className="text-sm font-black text-gray-900 uppercase">Total</span>
                     </td>
                     <td className="px-4 py-4">
                       <span className="text-sm font-black text-gray-900">{totals.quantity}</span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm font-black text-gray-900">₹{formatCurrency(totals.listPrice)}</span>
+                      <span className="text-sm font-black text-gray-900">â‚¹{formatCurrency(totals.listPrice)}</span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm font-black text-red-600">₹{formatCurrency(totals.discountValue)}</span>
+                      <span className="text-sm font-black text-red-600">â‚¹{formatCurrency(totals.discountValue)}</span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm font-black text-green-600">₹{formatCurrency(totals.totalAmount)}</span>
+                      <span className="text-sm font-black text-green-600">â‚¹{formatCurrency(totals.totalAmount)}</span>
                     </td>
                   </tr>
                 </tbody>
@@ -606,3 +621,4 @@ export default function ServiceSalesReport() {
     </div>
   )
 }
+

@@ -6,7 +6,6 @@ import {
   RotateCcw,
   Calendar,
   AlertTriangle,
-  Search,
   Filter,
   Sparkles,
   DollarSign,
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react'
 import LoadingPage from '../components/LoadingPage'
 import { getServiceExpiryReport, exportServiceExpiryReport } from '../api/reports'
-import { fetchServices } from '../api/services'
 import { getStaff } from '../api/staff'
 import toast from 'react-hot-toast'
 import DateInput from '../components/DateInput'
@@ -57,10 +55,9 @@ export default function ServiceExpiry() {
   const [filters, setFilters] = useState({
     fromDate: getInitialFromDate(),
     toDate: getInitialToDate(),
-    search: '',
     memberType: 'all',
     staffId: 'all',
-    serviceId: 'all',
+    membershipDuration: 'all',
     communicate: 'all'
   })
   const [page, setPage] = useState(1)
@@ -78,11 +75,6 @@ export default function ServiceExpiry() {
     }
   }, [urlFromDate, urlToDate])
 
-  const { data: servicesData } = useQuery({
-    queryKey: ['services-list'],
-    queryFn: () => fetchServices().then(res => res.data)
-  })
-
   const { data: staffData } = useQuery({
     queryKey: ['staff-list'],
     queryFn: () => getStaff({ limit: 1000 }).then(res => res.data)
@@ -93,10 +85,9 @@ export default function ServiceExpiry() {
     queryFn: () => getServiceExpiryReport({
       fromDate: filters.fromDate,
       toDate: filters.toDate,
-      search: filters.search || undefined,
       memberType: filters.memberType !== 'all' ? filters.memberType : undefined,
       staffId: filters.staffId !== 'all' ? filters.staffId : undefined,
-      serviceId: filters.serviceId !== 'all' ? filters.serviceId : undefined,
+      membershipDuration: filters.membershipDuration !== 'all' ? filters.membershipDuration : undefined,
       page,
       limit: 50
     }).then(res => res.data),
@@ -107,7 +98,6 @@ export default function ServiceExpiry() {
   const pagination = reportData?.data?.pagination || { page: 1, pages: 1, total: 0 }
   const paidAmount = reportData?.data?.paidAmount || 0
 
-  const services = servicesData?.services || []
   const staff = staffData?.staff || []
 
   const handleFilterChange = (key, value) => {
@@ -127,10 +117,9 @@ export default function ServiceExpiry() {
       const response = await exportServiceExpiryReport({
         fromDate: filters.fromDate,
         toDate: filters.toDate,
-        search: filters.search || undefined,
         memberType: filters.memberType !== 'all' ? filters.memberType : undefined,
         staffId: filters.staffId !== 'all' ? filters.staffId : undefined,
-        serviceId: filters.serviceId !== 'all' ? filters.serviceId : undefined
+        membershipDuration: filters.membershipDuration !== 'all' ? filters.membershipDuration : undefined
       })
       const blob = new Blob([response.data], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
@@ -264,10 +253,9 @@ export default function ServiceExpiry() {
                 setFilters({
                   fromDate: getDefaultFromDate(),
                   toDate: getDefaultToDate(),
-                  search: '',
                   memberType: 'all',
                   staffId: 'all',
-                  serviceId: 'all',
+                  membershipDuration: 'all',
                   communicate: 'all'
                 })
                 setPage(1)
@@ -282,23 +270,6 @@ export default function ServiceExpiry() {
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Search Bar */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">
-              Search by Name, Mobile Number, or Email
-            </label>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                placeholder="Search..."
-                className="w-full rounded-xl border-2 border-gray-200 py-3 pl-12 pr-4 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
-              />
-            </div>
-          </div>
-
           {/* Filter Grid */}
           <div className="grid gap-4 md:grid-cols-4">
             <div>
@@ -362,25 +333,24 @@ export default function ServiceExpiry() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">Service</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">Membership Duration</label>
               <select
-                value={filters.serviceId}
-                onChange={(e) => handleFilterChange('serviceId', e.target.value)}
+                value={filters.membershipDuration}
+                onChange={(e) => handleFilterChange('membershipDuration', e.target.value)}
                 className="w-full appearance-none rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
               >
-                <option value="all">All Services</option>
-                {services.map((service) => (
-                  <option key={service._id} value={service._id}>
-                    {service.name}
-                  </option>
-                ))}
+                <option value="all">All Durations</option>
+                <option value="1-month">1 Month</option>
+                <option value="2-month">2 Month</option>
+                <option value="6-month">6 Month</option>
+                <option value="others">Others</option>
               </select>
             </div>
 
-            <div className="md:col-span-2 flex items-end">
+            <div className="flex items-end">
               <button
                 onClick={handleSearch}
-                className="group w-full inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl"
+                className="group inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all text-sm font-semibold shadow-md hover:shadow-lg"
               >
                 <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
                 Apply Filters
@@ -501,7 +471,7 @@ export default function ServiceExpiry() {
                       <td className="px-4 py-3 text-sm font-mono text-gray-600 font-semibold whitespace-nowrap">{record.memberId}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <button
-                          onClick={() => navigate(`/clients/${record.memberMongoId}`)}
+                          onClick={() => window.open(`/clients/${record.memberMongoId}`, '_blank', 'noopener,noreferrer')}
                           className="inline-flex items-center gap-1.5 text-sm font-bold text-orange-600 hover:text-orange-800 hover:underline"
                         >
                           <User className="w-3 h-3" />

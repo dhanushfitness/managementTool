@@ -93,6 +93,10 @@ const enquirySchema = new mongoose.Schema({
     }
   }],
   expectedClosureDate: Date,
+  followUpDate: {
+    type: Date,
+    index: true
+  },
   expectedAmount: {
     type: Number,
     default: 0

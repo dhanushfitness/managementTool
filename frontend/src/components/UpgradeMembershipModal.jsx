@@ -452,7 +452,6 @@ export default function UpgradeMembershipModal({ isOpen, onClose, member }) {
                         <option value="card">Card</option>
                         <option value="upi">UPI</option>
                         <option value="bank_transfer">Bank Transfer</option>
-                        <option value="razorpay">Razorpay (Online)</option>
                       </select>
                       <input
                         type="number"

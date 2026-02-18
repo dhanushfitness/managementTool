@@ -12,6 +12,87 @@ import fs from 'fs';
 import path from 'path';
 import { handleError } from '../utils/errorHandler.js';
 
+const normalizeInvoiceDate = (value) => {
+  if (!value) return new Date();
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnlyMatch) {
+      const [, year, month, day] = dateOnlyMatch;
+      return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 12, 0, 0));
+    }
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
+const buildInvoiceDateRangeQuery = (startInput, endInput) => {
+  const start = startInput ? new Date(startInput) : null;
+  const end = endInput ? new Date(endInput) : null;
+
+  const range = {};
+  if (start && !Number.isNaN(start.getTime())) {
+    range.$gte = start;
+  }
+  if (end && !Number.isNaN(end.getTime())) {
+    range.$lte = end;
+  }
+
+  if (Object.keys(range).length === 0) {
+    return {};
+  }
+
+  return {
+    $or: [
+      { dateOfInvoice: range },
+      { dateOfInvoice: { $exists: false }, createdAt: range },
+      { dateOfInvoice: null, createdAt: range }
+    ]
+  };
+};
+
+const buildPaidDateRangeQuery = (startInput, endInput) => {
+  const start = startInput ? new Date(startInput) : null;
+  const end = endInput ? new Date(endInput) : null;
+
+  const paidRange = {};
+  if (start && !Number.isNaN(start.getTime())) {
+    paidRange.$gte = start;
+  }
+  if (end && !Number.isNaN(end.getTime())) {
+    paidRange.$lte = end;
+  }
+
+  if (Object.keys(paidRange).length === 0) {
+    return {};
+  }
+
+  return {
+    $or: [
+      { paidDate: paidRange },
+      {
+        $and: [
+          { $or: [{ paidDate: null }, { paidDate: { $exists: false } }] },
+          buildInvoiceDateRangeQuery(start, end)
+        ]
+      }
+    ]
+  };
+};
+
+const getInvoiceDateValue = (invoice) => invoice?.dateOfInvoice || invoice?.createdAt;
+
+const applyDateQuery = (query, dateQuery) => {
+  if (dateQuery && Object.keys(dateQuery).length > 0) {
+    query.$and = [...(query.$and || []), dateQuery];
+  }
+};
+
 // Helper function to update scheduled calls when expiry date changes
 const updateScheduledCallsForExpiryDate = async (memberId, newExpiryDate, organizationId) => {
   try {
@@ -83,74 +164,74 @@ const updateScheduledCallsForExpiryDate = async (memberId, newExpiryDate, organi
 const generateInvoiceNumber = async (organizationId) => {
   const maxRetries = 10; // Maximum number of retries to avoid infinite loop
   let attempts = 0;
-  
+
   while (attempts < maxRetries) {
     const organization = await Organization.findById(organizationId);
     if (!organization) {
       throw new Error('Organization not found');
     }
-    
+
     const prefix = organization.invoiceSettings?.prefix || 'INV';
     let number = organization.invoiceSettings?.nextNumber || 1;
-    
+
     // Generate invoice number
     const invoiceNumber = `${prefix}-${String(number).padStart(6, '0')}`;
-    
+
     // Check if this invoice number already exists
     const existingInvoice = await Invoice.findOne({ invoiceNumber });
-    
+
     if (!existingInvoice) {
       // Invoice number is available, update nextNumber and return
       organization.invoiceSettings = organization.invoiceSettings || {};
       organization.invoiceSettings.nextNumber = number + 1;
       organization.invoiceSettings.prefix = prefix;
       await organization.save();
-      
+
       return invoiceNumber;
     }
-    
+
     // Invoice number exists, increment and try again
     organization.invoiceSettings = organization.invoiceSettings || {};
     organization.invoiceSettings.nextNumber = number + 1;
     organization.invoiceSettings.prefix = prefix;
     await organization.save();
-    
+
     attempts++;
   }
-  
+
   // If we've exhausted retries, find the highest invoice number and use that + 1
   const organization = await Organization.findById(organizationId);
   const prefix = organization.invoiceSettings?.prefix || 'INV';
-  
+
   // Find the highest invoice number with this prefix
   const highestInvoice = await Invoice.findOne({
     invoiceNumber: { $regex: `^${prefix}-` }
   })
     .sort({ invoiceNumber: -1 })
     .select('invoiceNumber');
-  
+
   if (highestInvoice) {
     // Extract number from highest invoice (e.g., "INV-001002" -> 1002)
     const match = highestInvoice.invoiceNumber.match(/\d+$/);
     const highestNumber = match ? parseInt(match[0], 10) : 0;
     const nextNumber = highestNumber + 1;
-    
+
     // Update organization's nextNumber
     organization.invoiceSettings = organization.invoiceSettings || {};
     organization.invoiceSettings.nextNumber = nextNumber + 1;
     organization.invoiceSettings.prefix = prefix;
     await organization.save();
-    
+
     return `${prefix}-${String(nextNumber).padStart(6, '0')}`;
   }
-  
+
   // Fallback: start from 1
   const nextNumber = 1;
   organization.invoiceSettings = organization.invoiceSettings || {};
   organization.invoiceSettings.nextNumber = nextNumber + 1;
   organization.invoiceSettings.prefix = prefix;
   await organization.save();
-  
+
   return `${prefix}-${String(nextNumber).padStart(6, '0')}`;
 };
 
@@ -182,11 +263,11 @@ const scheduleAutomaticCalls = async (memberId, invoice, organizationId, branchI
       const hasExpiryDate = item?.expiryDate && (item.expiryDate instanceof Date || typeof item.expiryDate === 'string');
       return hasStartDate || hasExpiryDate;
     });
-    
+
     if (!targetItem && invoiceItems.length > 0) {
       targetItem = invoiceItems[0];
     }
-    
+
     if (!targetItem) {
       console.log('ERROR: No target item found in invoice items');
       console.log('invoiceItems length:', invoiceItems.length);
@@ -206,10 +287,10 @@ const scheduleAutomaticCalls = async (memberId, invoice, organizationId, branchI
     let startDate = new Date();
     if (targetItem.startDate) {
       // Handle both Date objects and string dates
-      const parsedStartDate = targetItem.startDate instanceof Date 
-        ? targetItem.startDate 
+      const parsedStartDate = targetItem.startDate instanceof Date
+        ? targetItem.startDate
         : new Date(targetItem.startDate);
-      
+
       if (!isNaN(parsedStartDate.getTime())) {
         startDate = parsedStartDate;
       } else {
@@ -221,10 +302,10 @@ const scheduleAutomaticCalls = async (memberId, invoice, organizationId, branchI
     let endDate = undefined;
     if (targetItem.expiryDate) {
       // Handle both Date objects and string dates
-      const parsedEndDate = targetItem.expiryDate instanceof Date 
-        ? targetItem.expiryDate 
+      const parsedEndDate = targetItem.expiryDate instanceof Date
+        ? targetItem.expiryDate
         : new Date(targetItem.expiryDate);
-      
+
       if (!isNaN(parsedEndDate.getTime())) {
         endDate = parsedEndDate;
       } else {
@@ -283,7 +364,7 @@ const scheduleAutomaticCalls = async (memberId, invoice, organizationId, branchI
     // For first invoice: schedule all 4 calls
     if (isFirstInvoice) {
       console.log('Scheduling calls for FIRST invoice');
-      
+
       // 1. Welcome Call - scheduled on the day client joins (membership start date)
       const welcomeCallDate = new Date(startDate);
       welcomeCallDate.setHours(10, 0, 0, 0); // Set to 10 AM
@@ -444,7 +525,7 @@ export const createInvoice = async (req, res) => {
   try {
     const {
       memberId, planId, items, discount, type, invoiceType, isProForma,
-      sacCode, discountReason, customerNotes, internalNotes, paymentModes, rounding
+      sacCode, discountReason, customerNotes, internalNotes, paymentModes, rounding, dateOfInvoice, invoiceDate
     } = req.body;
 
     console.log('=== Invoice Creation Started ===');
@@ -496,7 +577,7 @@ export const createInvoice = async (req, res) => {
     let subtotal = 0;
     const invoiceItems = items.map(item => {
       let itemAmount = item.unitPrice * item.quantity;
-      
+
       // Apply item-level discount
       let itemDiscountAmount = 0;
       if (item.discount && item.discount.value > 0) {
@@ -506,7 +587,7 @@ export const createInvoice = async (req, res) => {
           itemDiscountAmount = (itemAmount * item.discount.value) / 100;
         }
       }
-      
+
       itemAmount = itemAmount - itemDiscountAmount;
       const taxRate = item.taxRate || organization.taxSettings.taxRate || 0;
       const taxAmount = itemAmount * taxRate / 100;
@@ -520,7 +601,7 @@ export const createInvoice = async (req, res) => {
         total,
         discount: item.discount ? { ...item.discount, amount: itemDiscountAmount } : undefined
       };
-      
+
       // Preserve dates - ensure they're included in the processed item
       if (item.startDate) {
         processedItem.startDate = item.startDate;
@@ -528,7 +609,7 @@ export const createInvoice = async (req, res) => {
       if (item.expiryDate) {
         processedItem.expiryDate = item.expiryDate;
       }
-      
+
       return processedItem;
     });
 
@@ -553,7 +634,7 @@ export const createInvoice = async (req, res) => {
     const taxRate = organization.taxSettings.taxRate || 0;
     const taxAmount = subtotal * taxRate / 100;
     let total = subtotal - discountAmount + taxAmount;
-    
+
     // Apply rounding
     const roundingAmount = rounding || 0;
     total = Math.round(total + roundingAmount);
@@ -584,6 +665,7 @@ export const createInvoice = async (req, res) => {
       rounding: roundingAmount,
       total,
       pending,
+      dateOfInvoice: normalizeInvoiceDate(dateOfInvoice || invoiceDate),
       sacCode: sacCode || undefined,
       discountReason: discountReason || undefined,
       customerNotes: customerNotes || undefined,
@@ -595,7 +677,6 @@ export const createInvoice = async (req, res) => {
     });
 
     // Create payment records for any upfront payments captured during invoice creation
-    let hasPendingRazorpayPayment = false;
     if (paymentModes && paymentModes.length > 0) {
       for (const pm of paymentModes) {
         const method = pm?.method;
@@ -606,11 +687,6 @@ export const createInvoice = async (req, res) => {
         }
 
         const receiptNumber = await generateReceiptNumber(req.organizationId);
-        const isRazorpay = method === 'razorpay';
-        if (isRazorpay) {
-          hasPendingRazorpayPayment = true;
-        }
-
         await Payment.create({
           organizationId: req.organizationId,
           branchId: invoice.branchId,
@@ -620,8 +696,8 @@ export const createInvoice = async (req, res) => {
           currency: invoice.currency,
           paymentMethod: method,
           receiptNumber,
-          status: isRazorpay ? 'pending' : 'completed',
-          paidAt: !isRazorpay ? new Date() : undefined,
+          status: 'completed',
+          paidAt: new Date(),
           createdBy: req.user._id
         });
       }
@@ -636,9 +712,7 @@ export const createInvoice = async (req, res) => {
     });
 
     // Activate membership if invoice is fully paid at creation
-    // Only activate if invoice is paid AND no pending razorpay payments
-    // (Razorpay payments will activate membership via webhook when payment is confirmed)
-    if (invoice.status === 'paid' && memberId && !hasPendingRazorpayPayment) {
+    if (invoice.status === 'paid' && memberId) {
       try {
         const { activateMembershipFromInvoice } = await import('../utils/membership.js');
         // Refresh invoice to get populated data if needed
@@ -663,7 +737,7 @@ export const createInvoice = async (req, res) => {
         console.log('memberId:', memberId);
         console.log('Invoice created with ID:', invoice._id);
         console.log('Invoice items from saved invoice:', JSON.stringify(invoice.items, null, 2));
-        
+
         // Use the saved invoice items (with proper Date objects) instead of processed invoiceItems
         await scheduleAutomaticCalls(
           memberId,
@@ -701,7 +775,7 @@ export const createInvoice = async (req, res) => {
           // Send email with PDF attachment
           const { sendInvoiceEmail } = await import('../utils/email.js');
           const emailResults = await sendInvoiceEmail(populatedInvoice, member, organization, pdfBuffer);
-          
+
           if (emailResults.memberEmail.success) {
             console.log('Invoice email sent to member:', member.email);
           }
@@ -720,7 +794,7 @@ export const createInvoice = async (req, res) => {
             }).format(invoice.total);
 
             const smsMessage = `Hi ${memberName},\n\nInvoice ${invoice.invoiceNumber} has been created.\nAmount: ${formattedTotal}\n\nPlease check your email for the invoice PDF.\n\nThank you!`;
-            
+
             const smsResult = await sendSMS(member.phone, smsMessage, 'msg91');
             if (smsResult.success) {
               console.log('Invoice SMS sent to member:', member.phone);
@@ -732,33 +806,12 @@ export const createInvoice = async (req, res) => {
             try {
               const { sendInvoiceNotification } = await import('../utils/whatsapp.js');
               const memberName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
-              
+
               // Create payment link if pending amount
               let paymentLink = null;
               if (invoice.pending > 0) {
-                try {
-                  const { createPaymentLink: createRazorpayPaymentLink } = await import('../utils/razorpay.js');
-                  const razorpayPaymentLink = await createRazorpayPaymentLink(
-                    invoice.pending,
-                    invoice.currency || 'INR',
-                    `Payment for Invoice ${invoice.invoiceNumber}`,
-                    {
-                      name: memberName,
-                      phone: member.phone,
-                      email: member.email
-                    },
-                    {
-                      invoiceId: invoice._id.toString(),
-                      organizationId: req.organizationId.toString(),
-                      invoiceNumber: invoice.invoiceNumber || ''
-                    }
-                  );
-                  paymentLink = razorpayPaymentLink.short_url || razorpayPaymentLink.url;
-                } catch (linkError) {
-                  // If payment link creation fails, use frontend URL
-                  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-                  paymentLink = `${frontendUrl}/invoices/${invoice._id}?pay=true`;
-                }
+                const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                paymentLink = `${frontendUrl}/invoices/${invoice._id}`;
               }
 
               const whatsappResult = await sendInvoiceNotification(
@@ -796,7 +849,7 @@ export const createInvoice = async (req, res) => {
     if (error.errors) {
       console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
     }
-    
+
     // Handle duplicate key error specifically
     if (error.code === 11000 || error.name === 'MongoServerError') {
       const duplicateField = error.keyPattern ? Object.keys(error.keyPattern)[0] : 'invoiceNumber';
@@ -806,19 +859,19 @@ export const createInvoice = async (req, res) => {
         error: `Duplicate key error on ${duplicateField}`
       });
     }
-    
+
     handleError(error, res, 500);
   }
 };
 
 export const getInvoices = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      status, 
-      memberId, 
-      startDate, 
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      memberId,
+      startDate,
       endDate,
       dateRange = 'last-30-days',
       search,
@@ -829,21 +882,18 @@ export const getInvoices = async (req, res) => {
       generalTrainerId,
       invoiceType
     } = req.query;
-    
+
     const skip = (page - 1) * limit;
 
     // Build date query
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+      dateQuery = buildInvoiceDateRangeQuery(startDate, endDate);
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
-      
+
       switch (dateRange) {
         case 'last-7-days':
           start.setDate(start.getDate() - 7);
@@ -866,19 +916,16 @@ export const getInvoices = async (req, res) => {
         default:
           start.setDate(start.getDate() - 30);
       }
-      
+
       start.setHours(0, 0, 0, 0);
-      dateQuery.createdAt = {
-        $gte: start,
-        $lte: end
-      };
+      dateQuery = buildInvoiceDateRangeQuery(start, end);
     }
 
-    const query = { 
-      organizationId: req.organizationId,
-      ...dateQuery
+    const query = {
+      organizationId: req.organizationId
     };
-    
+    applyDateQuery(query, dateQuery);
+
     if (status && status !== 'all') query.status = status;
     if (memberId) query.memberId = memberId;
     if (branchId) query.branchId = branchId;
@@ -903,7 +950,7 @@ export const getInvoices = async (req, res) => {
           { memberId: searchRegex }
         ]
       }).select('_id');
-      
+
       query.$or = [
         { invoiceNumber: searchRegex },
         { memberId: { $in: memberIds.map(m => m._id) } }
@@ -1106,7 +1153,7 @@ export const changeInvoiceItemDate = async (req, res) => {
     }
 
     const item = invoice.items[itemIndex];
-    
+
     // Store original dates for audit
     const originalStartDate = item.startDate;
     const originalExpiryDate = item.expiryDate;
@@ -1192,7 +1239,7 @@ export const freezeInvoiceItem = async (req, res) => {
     }
 
     const item = invoice.items[itemIndex];
-    
+
     if (!item.expiryDate) {
       return res.status(400).json({ success: false, message: 'Item does not have an expiry date' });
     }
@@ -1202,11 +1249,11 @@ export const freezeInvoiceItem = async (req, res) => {
       const member = invoice.memberId;
       const usedFreezeDays = member.totalFreezeDaysUsed || 0;
       const remainingFreezeDays = 30 - usedFreezeDays;
-      
+
       if (calculatedFreezeDays > remainingFreezeDays) {
-        return res.status(400).json({ 
-          success: false, 
-          message: `Cannot freeze. The selected period (${calculatedFreezeDays} days) exceeds remaining freeze days (${remainingFreezeDays} days).` 
+        return res.status(400).json({
+          success: false,
+          message: `Cannot freeze. The selected period (${calculatedFreezeDays} days) exceeds remaining freeze days (${remainingFreezeDays} days).`
         });
       }
     }
@@ -1236,9 +1283,9 @@ export const freezeInvoiceItem = async (req, res) => {
       if (member) {
         const newTotalFreezeDays = (member.totalFreezeDaysUsed || 0) + calculatedFreezeDays;
         if (newTotalFreezeDays > 30) {
-          return res.status(400).json({ 
-            success: false, 
-            message: `Cannot freeze. Member has already used ${member.totalFreezeDaysUsed || 0} days. Maximum 30 days allowed.` 
+          return res.status(400).json({
+            success: false,
+            message: `Cannot freeze. Member has already used ${member.totalFreezeDaysUsed || 0} days. Maximum 30 days allowed.`
           });
         }
         member.totalFreezeDaysUsed = newTotalFreezeDays;
@@ -1265,9 +1312,9 @@ export const freezeInvoiceItem = async (req, res) => {
       }
     });
 
-    res.json({ 
-      success: true, 
-      invoice, 
+    res.json({
+      success: true,
+      invoice,
       message: `Invoice item frozen for ${calculatedFreezeDays} days successfully`,
       newExpiryDate,
       freezeDays: calculatedFreezeDays
@@ -1315,17 +1362,17 @@ export const deleteInvoice = async (req, res) => {
           organizationId: req.organizationId,
           status: { $ne: 'cancelled' }
         })
-        .sort({ createdAt: -1 })
-        .populate('planId');
+          .sort({ createdAt: -1 })
+          .populate('planId');
 
         if (latestInvoice && latestInvoice.items && latestInvoice.items.length > 0) {
           // Find the first item with dates to set as current plan
           const planItem = latestInvoice.items.find(item => item.startDate && item.expiryDate);
-          
+
           if (planItem) {
             const endDate = new Date(planItem.expiryDate);
             const isActive = endDate >= new Date();
-            
+
             await Member.findByIdAndUpdate(memberId, {
               currentPlan: {
                 planId: latestInvoice.planId?._id,
@@ -1393,7 +1440,7 @@ export const downloadInvoicePDF = async (req, res) => {
     // Generate PDF
     const doc = new PDFDocument();
     const filename = `invoice-${invoice.invoiceNumber}.pdf`;
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
@@ -1403,7 +1450,7 @@ export const downloadInvoicePDF = async (req, res) => {
     doc.fontSize(20).text('INVOICE', { align: 'center' });
     doc.moveDown();
     doc.fontSize(12).text(`Invoice #: ${invoice.invoiceNumber}`);
-    doc.text(`Date: ${invoice.createdAt.toLocaleDateString()}`);
+    doc.text(`Date: ${new Date(getInvoiceDateValue(invoice)).toLocaleDateString()}`);
     doc.moveDown();
     doc.text(`Member: ${invoice.memberId.firstName} ${invoice.memberId.lastName}`);
     doc.moveDown();
@@ -1445,9 +1492,9 @@ export const sendInvoiceViaEmail = async (req, res) => {
 
     // Check if member has email
     if (!invoice.memberId || !invoice.memberId.email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Member email not available. Please update member profile with email address.' 
+      return res.status(400).json({
+        success: false,
+        message: 'Member email not available. Please update member profile with email address.'
       });
     }
 
@@ -1465,14 +1512,14 @@ export const sendInvoiceViaEmail = async (req, res) => {
     );
 
     if (emailResults.memberEmail.success) {
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Invoice sent successfully to ${invoice.memberId.email}`,
         results: emailResults
       });
     } else {
-      res.status(500).json({ 
-        success: false, 
+      res.status(500).json({
+        success: false,
         message: emailResults.memberEmail.error || 'Failed to send invoice email',
         results: emailResults
       });
@@ -1485,10 +1532,10 @@ export const sendInvoiceViaEmail = async (req, res) => {
 
 export const getPaidInvoices = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      startDate, 
+    const {
+      page = 1,
+      limit = 20,
+      startDate,
       endDate,
       dateRange = 'last-30-days',
       search,
@@ -1498,21 +1545,18 @@ export const getPaidInvoices = async (req, res) => {
       sequence,
       invoiceType
     } = req.query;
-    
+
     const skip = (page - 1) * limit;
 
-    // Build date query - use paidDate if available, otherwise createdAt
+    // Build date query - use paidDate if available, otherwise invoice date
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.$or = [
-        { paidDate: { $gte: new Date(startDate), $lte: new Date(endDate) } },
-        { paidDate: null, createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) } }
-      ];
+      dateQuery = buildPaidDateRangeQuery(startDate, endDate);
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
-      
+
       switch (dateRange) {
         case 'last-7-days':
           start.setDate(start.getDate() - 7);
@@ -1535,20 +1579,17 @@ export const getPaidInvoices = async (req, res) => {
         default:
           start.setDate(start.getDate() - 30);
       }
-      
+
       start.setHours(0, 0, 0, 0);
-      dateQuery.$or = [
-        { paidDate: { $gte: start, $lte: end } },
-        { paidDate: null, createdAt: { $gte: start, $lte: end } }
-      ];
+      dateQuery = buildPaidDateRangeQuery(start, end);
     }
 
-    const query = { 
+    const query = {
       organizationId: req.organizationId,
-      status: 'paid',
-      ...dateQuery
+      status: 'paid'
     };
-    
+    applyDateQuery(query, dateQuery);
+
     if (branchId) query.branchId = branchId;
     if (invoiceType && invoiceType !== 'all') query.invoiceType = invoiceType;
     if (billType && billType !== 'all') {
@@ -1571,7 +1612,7 @@ export const getPaidInvoices = async (req, res) => {
           { memberId: searchRegex }
         ]
       }).select('_id');
-      
+
       query.$or = [
         { invoiceNumber: searchRegex },
         { memberId: { $in: memberIds.map(m => m._id) } }
@@ -1610,7 +1651,7 @@ export const getPaidInvoices = async (req, res) => {
       const baseValue = invoice.subtotal || 0;
       const taxAmount = invoice.tax?.amount || 0;
       const totalAmount = invoice.total || 0;
-      
+
       totalPaid += totalAmount;
       totalTax += taxAmount;
 
@@ -1619,7 +1660,7 @@ export const getPaidInvoices = async (req, res) => {
       let cgst = 0;
       let sgst = 0;
       let igst = 0;
-      
+
       // For now, split tax equally between CGST and SGST (can be customized based on business logic)
       if (taxRate > 0 && taxAmount > 0) {
         cgst = taxAmount / 2;
@@ -1660,8 +1701,8 @@ export const getPaidInvoices = async (req, res) => {
 
 export const exportPaidInvoices = async (req, res) => {
   try {
-    const { 
-      startDate, 
+    const {
+      startDate,
       endDate,
       dateRange = 'last-30-days',
       search,
@@ -1675,15 +1716,12 @@ export const exportPaidInvoices = async (req, res) => {
     // Build date query (same as getPaidInvoices)
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.$or = [
-        { paidDate: { $gte: new Date(startDate), $lte: new Date(endDate) } },
-        { paidDate: null, createdAt: { $gte: new Date(startDate), $lte: new Date(endDate) } }
-      ];
+      dateQuery = buildPaidDateRangeQuery(startDate, endDate);
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
-      
+
       switch (dateRange) {
         case 'last-7-days':
           start.setDate(start.getDate() - 7);
@@ -1706,20 +1744,17 @@ export const exportPaidInvoices = async (req, res) => {
         default:
           start.setDate(start.getDate() - 30);
       }
-      
+
       start.setHours(0, 0, 0, 0);
-      dateQuery.$or = [
-        { paidDate: { $gte: start, $lte: end } },
-        { paidDate: null, createdAt: { $gte: start, $lte: end } }
-      ];
+      dateQuery = buildPaidDateRangeQuery(start, end);
     }
 
-    const query = { 
+    const query = {
       organizationId: req.organizationId,
-      status: 'paid',
-      ...dateQuery
+      status: 'paid'
     };
-    
+    applyDateQuery(query, dateQuery);
+
     if (branchId) query.branchId = branchId;
     if (invoiceType && invoiceType !== 'all') query.invoiceType = invoiceType;
     if (billType && billType !== 'all') {
@@ -1741,7 +1776,7 @@ export const exportPaidInvoices = async (req, res) => {
           { memberId: searchRegex }
         ]
       }).select('_id');
-      
+
       query.$or = [
         { invoiceNumber: searchRegex },
         { memberId: { $in: memberIds.map(m => m._id) } }
@@ -1783,7 +1818,7 @@ export const exportPaidInvoices = async (req, res) => {
       'IGST',
       'Fin Arr'
     ];
-    
+
     let csvContent = headers.join(',') + '\n';
 
     invoices.forEach((invoice, index) => {
@@ -1794,14 +1829,14 @@ export const exportPaidInvoices = async (req, res) => {
         const cgst = taxRate > 0 ? taxAmount / 2 : 0;
         const sgst = taxRate > 0 ? taxAmount / 2 : 0;
         const igst = 0; // IGST typically for inter-state transactions
-        
+
         const row = [
           index + 1,
-          invoice.paidDate ? new Date(invoice.paidDate).toLocaleDateString('en-GB') : 
-          invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('en-GB') : '',
-          invoice.type === 'pro-forma' ? 'Pro Forma' : 
-          invoice.type === 'renewal' ? 'Rebooking' : 
-          invoice.type === 'membership' ? 'New Booking' : invoice.type || '',
+          invoice.paidDate ? new Date(invoice.paidDate).toLocaleDateString('en-GB') :
+            getInvoiceDateValue(invoice) ? new Date(getInvoiceDateValue(invoice)).toLocaleDateString('en-GB') : '',
+          invoice.type === 'pro-forma' ? 'Tax Invoice' :
+            invoice.type === 'renewal' ? 'Rebooking' :
+              invoice.type === 'membership' ? 'New Booking' : invoice.type || '',
           'New Payment', // Payment Type
           'Branch Sequence', // Sequence
           invoice.memberId?.memberId || '',
@@ -1835,10 +1870,10 @@ export const exportPaidInvoices = async (req, res) => {
 
 export const getPendingCollections = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      startDate, 
+    const {
+      page = 1,
+      limit = 20,
+      startDate,
       endDate,
       dateRange = 'last-30-days',
       search,
@@ -1850,21 +1885,18 @@ export const getPendingCollections = async (req, res) => {
       invoiceType,
       paymentStatus = 'pending'
     } = req.query;
-    
+
     const skip = (page - 1) * limit;
 
     // Build date query
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+      dateQuery = buildInvoiceDateRangeQuery(startDate, endDate);
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
-      
+
       switch (dateRange) {
         case 'last-7-days':
           start.setDate(start.getDate() - 7);
@@ -1887,22 +1919,19 @@ export const getPendingCollections = async (req, res) => {
         default:
           start.setDate(start.getDate() - 30);
       }
-      
+
       start.setHours(0, 0, 0, 0);
-      dateQuery.createdAt = {
-        $gte: start,
-        $lte: end
-      };
+      dateQuery = buildInvoiceDateRangeQuery(start, end);
     }
 
     // Build query for pending invoices
-    const query = { 
+    const query = {
       organizationId: req.organizationId,
       status: { $in: ['sent', 'partial', 'overdue'] },
-      pending: { $gt: 0 }, // Only invoices with pending amount
-      ...dateQuery
+      pending: { $gt: 0 } // Only invoices with pending amount
     };
-    
+    applyDateQuery(query, dateQuery);
+
     if (branchId) query.branchId = branchId;
     if (invoiceType && invoiceType !== 'all') query.invoiceType = invoiceType;
     if (billType && billType !== 'all') {
@@ -1925,7 +1954,7 @@ export const getPendingCollections = async (req, res) => {
           { memberId: searchRegex }
         ]
       }).select('_id');
-      
+
       query.$or = [
         { invoiceNumber: searchRegex },
         { memberId: { $in: memberIds.map(m => m._id) } }
@@ -2117,8 +2146,8 @@ export const getPendingCollections = async (req, res) => {
 
 export const exportPendingCollections = async (req, res) => {
   try {
-    const { 
-      startDate, 
+    const {
+      startDate,
       endDate,
       dateRange = 'last-30-days',
       search,
@@ -2131,15 +2160,12 @@ export const exportPendingCollections = async (req, res) => {
     // Build date query (same as getPendingCollections)
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+      dateQuery = buildInvoiceDateRangeQuery(startDate, endDate);
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
-      
+
       switch (dateRange) {
         case 'last-7-days':
           start.setDate(start.getDate() - 7);
@@ -2162,21 +2188,18 @@ export const exportPendingCollections = async (req, res) => {
         default:
           start.setDate(start.getDate() - 30);
       }
-      
+
       start.setHours(0, 0, 0, 0);
-      dateQuery.createdAt = {
-        $gte: start,
-        $lte: end
-      };
+      dateQuery = buildInvoiceDateRangeQuery(start, end);
     }
 
-    const query = { 
+    const query = {
       organizationId: req.organizationId,
       status: { $in: ['sent', 'partial', 'overdue'] },
-      pending: { $gt: 0 },
-      ...dateQuery
+      pending: { $gt: 0 }
     };
-    
+    applyDateQuery(query, dateQuery);
+
     if (branchId) query.branchId = branchId;
     if (invoiceType && invoiceType !== 'all') query.invoiceType = invoiceType;
     if (billType && billType !== 'all') {
@@ -2198,7 +2221,7 @@ export const exportPendingCollections = async (req, res) => {
           { memberId: searchRegex }
         ]
       }).select('_id');
-      
+
       query.$or = [
         { invoiceNumber: searchRegex },
         { memberId: { $in: memberIds.map(m => m._id) } }
@@ -2255,17 +2278,17 @@ export const exportPendingCollections = async (req, res) => {
       'Sales Rep Name',
       'General Trainer'
     ];
-    
+
     let csvContent = headers.join(',') + '\n';
 
     invoices.forEach((invoice, index) => {
       invoice.items?.forEach((item, itemIndex) => {
         const row = [
           index + 1,
-          invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('en-GB') : '',
-          invoice.type === 'pro-forma' ? 'Pro Forma' : 
-          invoice.type === 'renewal' ? 'Rebooking' : 
-          invoice.type === 'membership' ? 'New Booking' : invoice.type || '',
+          getInvoiceDateValue(invoice) ? new Date(getInvoiceDateValue(invoice)).toLocaleDateString('en-GB') : '',
+          invoice.type === 'pro-forma' ? 'Tax Invoice' :
+            invoice.type === 'renewal' ? 'Rebooking' :
+              invoice.type === 'membership' ? 'New Booking' : invoice.type || '',
           invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB') : '',
           invoice.branchId?.name || '',
           invoice.memberId?.memberId || '',
@@ -2297,10 +2320,10 @@ export const exportPendingCollections = async (req, res) => {
 
 export const getCancelledInvoices = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      startDate, 
+    const {
+      page = 1,
+      limit = 20,
+      startDate,
       endDate,
       dateRange = 'last-30-days',
       search,
@@ -2311,21 +2334,18 @@ export const getCancelledInvoices = async (req, res) => {
       generalTrainerId,
       invoiceType
     } = req.query;
-    
+
     const skip = (page - 1) * limit;
 
     // Build date query
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+      dateQuery = buildInvoiceDateRangeQuery(startDate, endDate);
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
-      
+
       switch (dateRange) {
         case 'last-7-days':
           start.setDate(start.getDate() - 7);
@@ -2348,21 +2368,18 @@ export const getCancelledInvoices = async (req, res) => {
         default:
           start.setDate(start.getDate() - 30);
       }
-      
+
       start.setHours(0, 0, 0, 0);
-      dateQuery.createdAt = {
-        $gte: start,
-        $lte: end
-      };
+      dateQuery = buildInvoiceDateRangeQuery(start, end);
     }
 
     // Build query for cancelled invoices
-    const query = { 
+    const query = {
       organizationId: req.organizationId,
-      status: 'cancelled',
-      ...dateQuery
+      status: 'cancelled'
     };
-    
+    applyDateQuery(query, dateQuery);
+
     if (branchId) query.branchId = branchId;
     if (invoiceType && invoiceType !== 'all') query.invoiceType = invoiceType;
     if (billType && billType !== 'all') {
@@ -2385,7 +2402,7 @@ export const getCancelledInvoices = async (req, res) => {
           { memberId: searchRegex }
         ]
       }).select('_id');
-      
+
       query.$or = [
         { invoiceNumber: searchRegex },
         { memberId: { $in: memberIds.map(m => m._id) } }
@@ -2425,7 +2442,7 @@ export const getCancelledInvoices = async (req, res) => {
       invoice.items?.forEach(item => {
         const itemAmount = (totalAmount / (invoice.items.length || 1));
         const description = (item.description || '').toLowerCase();
-        
+
         if (description.includes('pt') || description.includes('personal trainer')) {
           servicePTSales += itemAmount;
         } else if (invoice.invoiceType === 'service') {
@@ -2514,8 +2531,8 @@ export const getCancelledInvoices = async (req, res) => {
 
 export const exportCancelledInvoices = async (req, res) => {
   try {
-    const { 
-      startDate, 
+    const {
+      startDate,
       endDate,
       dateRange = 'last-30-days',
       search,
@@ -2528,15 +2545,12 @@ export const exportCancelledInvoices = async (req, res) => {
     // Build date query (same as getCancelledInvoices)
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+      dateQuery = buildInvoiceDateRangeQuery(startDate, endDate);
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
-      
+
       switch (dateRange) {
         case 'last-7-days':
           start.setDate(start.getDate() - 7);
@@ -2559,20 +2573,17 @@ export const exportCancelledInvoices = async (req, res) => {
         default:
           start.setDate(start.getDate() - 30);
       }
-      
+
       start.setHours(0, 0, 0, 0);
-      dateQuery.createdAt = {
-        $gte: start,
-        $lte: end
-      };
+      dateQuery = buildInvoiceDateRangeQuery(start, end);
     }
 
-    const query = { 
+    const query = {
       organizationId: req.organizationId,
-      status: 'cancelled',
-      ...dateQuery
+      status: 'cancelled'
     };
-    
+    applyDateQuery(query, dateQuery);
+
     if (branchId) query.branchId = branchId;
     if (invoiceType && invoiceType !== 'all') query.invoiceType = invoiceType;
     if (billType && billType !== 'all') {
@@ -2594,7 +2605,7 @@ export const exportCancelledInvoices = async (req, res) => {
           { memberId: searchRegex }
         ]
       }).select('_id');
-      
+
       query.$or = [
         { invoiceNumber: searchRegex },
         { memberId: { $in: memberIds.map(m => m._id) } }
@@ -2681,34 +2692,34 @@ export const exportCancelledInvoices = async (req, res) => {
       'Cancelled By',
       'Reason'
     ];
-    
+
     let csvContent = headers.join(',') + '\n';
 
     invoices.forEach((invoice, index) => {
       const paidAmount = paymentsByInvoice[invoice._id.toString()] || 0;
       const cancelledInfo = cancelledByMap[invoice._id.toString()];
-      const cancelledByText = cancelledInfo?.user 
+      const cancelledByText = cancelledInfo?.user
         ? `${cancelledInfo.user.firstName || ''} ${cancelledInfo.user.lastName || ''}`.trim()
         : '';
       const cancelledDate = cancelledInfo?.date || invoice.updatedAt;
-      const cancelledDateText = cancelledDate 
-        ? new Date(cancelledDate).toLocaleString('en-GB', { 
-            day: '2-digit', 
-            month: '2-digit', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          })
+      const cancelledDateText = cancelledDate
+        ? new Date(cancelledDate).toLocaleString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        })
         : '';
-      
+
       invoice.items?.forEach((item, itemIndex) => {
         const row = [
           index + 1,
-          invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('en-GB') : '',
-          invoice.type === 'pro-forma' ? 'Pro Forma' : 
-          invoice.type === 'renewal' ? 'Rebooking' : 
-          invoice.type === 'membership' ? 'New Booking' : invoice.type || '',
+          getInvoiceDateValue(invoice) ? new Date(getInvoiceDateValue(invoice)).toLocaleDateString('en-GB') : '',
+          invoice.type === 'pro-forma' ? 'Tax Invoice' :
+            invoice.type === 'renewal' ? 'Rebooking' :
+              invoice.type === 'membership' ? 'New Booking' : invoice.type || '',
           invoice.branchId?.name || '',
           invoice.memberId?.memberId || '',
           `${invoice.memberId?.firstName || ''} ${invoice.memberId?.lastName || ''}`.trim(),
@@ -2751,11 +2762,9 @@ export const getInvoiceStats = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     const query = { organizationId: req.organizationId };
-    
+
     if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) query.createdAt.$gte = new Date(startDate);
-      if (endDate) query.createdAt.$lte = new Date(endDate);
+      applyDateQuery(query, buildInvoiceDateRangeQuery(startDate, endDate));
     }
 
     const totalInvoices = await Invoice.countDocuments(query);
@@ -2784,10 +2793,10 @@ export const getInvoiceStats = async (req, res) => {
 
 export const exportInvoices = async (req, res) => {
   try {
-    const { 
-      status, 
-      memberId, 
-      startDate, 
+    const {
+      status,
+      memberId,
+      startDate,
       endDate,
       dateRange = 'last-30-days',
       search,
@@ -2800,15 +2809,12 @@ export const exportInvoices = async (req, res) => {
     // Build date query (same as getInvoices)
     let dateQuery = {};
     if (startDate && endDate) {
-      dateQuery.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+      dateQuery = buildInvoiceDateRangeQuery(startDate, endDate);
     } else {
       const end = new Date();
       end.setHours(23, 59, 59, 999);
       const start = new Date();
-      
+
       switch (dateRange) {
         case 'last-7-days':
           start.setDate(start.getDate() - 7);
@@ -2831,19 +2837,16 @@ export const exportInvoices = async (req, res) => {
         default:
           start.setDate(start.getDate() - 30);
       }
-      
+
       start.setHours(0, 0, 0, 0);
-      dateQuery.createdAt = {
-        $gte: start,
-        $lte: end
-      };
+      dateQuery = buildInvoiceDateRangeQuery(start, end);
     }
 
-    const query = { 
-      organizationId: req.organizationId,
-      ...dateQuery
+    const query = {
+      organizationId: req.organizationId
     };
-    
+    applyDateQuery(query, dateQuery);
+
     if (status && status !== 'all') query.status = status;
     if (memberId) query.memberId = memberId;
     if (branchId) query.branchId = branchId;
@@ -2867,7 +2870,7 @@ export const exportInvoices = async (req, res) => {
           { memberId: searchRegex }
         ]
       }).select('_id');
-      
+
       query.$or = [
         { invoiceNumber: searchRegex },
         { memberId: { $in: memberIds.map(m => m._id) } }
@@ -2906,17 +2909,17 @@ export const exportInvoices = async (req, res) => {
       'Sales Rep Name',
       'General Trainer'
     ];
-    
+
     let csvContent = headers.join(',') + '\n';
 
     invoices.forEach((invoice, index) => {
       invoice.items?.forEach((item, itemIndex) => {
         const row = [
           index + 1,
-          invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('en-GB') : '',
-          invoice.type === 'pro-forma' ? 'Pro Forma' : 
-          invoice.type === 'renewal' ? 'Rebooking' : 
-          invoice.type === 'membership' ? 'New Booking' : invoice.type || '',
+          getInvoiceDateValue(invoice) ? new Date(getInvoiceDateValue(invoice)).toLocaleDateString('en-GB') : '',
+          invoice.type === 'pro-forma' ? 'Tax Invoice' :
+            invoice.type === 'renewal' ? 'Rebooking' :
+              invoice.type === 'membership' ? 'New Booking' : invoice.type || '',
           invoice.branchId?.name || '',
           invoice.memberId?.memberId || '',
           `${invoice.memberId?.firstName || ''} ${invoice.memberId?.lastName || ''}`.trim(),

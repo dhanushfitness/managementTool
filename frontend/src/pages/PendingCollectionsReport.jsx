@@ -131,7 +131,7 @@ export default function PendingCollectionsReport() {
   const getBillTypeLabel = (type) => {
     switch (type) {
       case 'pro-forma':
-        return 'Pro Forma'
+        return 'Tax Invoice'
       case 'membership':
       case 'other':
         return 'New Booking'

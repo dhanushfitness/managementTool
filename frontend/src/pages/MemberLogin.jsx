@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
-import { Mail, Dumbbell } from 'lucide-react'
+import { Mail, User } from 'lucide-react'
 
 export default function MemberLogin() {
   const navigate = useNavigate()
@@ -17,7 +17,7 @@ export default function MemberLogin() {
       localStorage.setItem('memberToken', token)
       localStorage.setItem('member', JSON.stringify(member))
       toast.success(`Welcome back, ${member.firstName}!`)
-      navigate('/member/dashboard')
+      navigate('/member/profile')
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Login failed')
@@ -72,14 +72,14 @@ export default function MemberLogin() {
               background: 'linear-gradient(135deg, #8BC34A 0%, #7CB342 100%)',
               boxShadow: '0 4px 20px rgba(139, 195, 74, 0.4)'
             }}>
-              <Dumbbell className="w-10 h-10 text-white" />
+              <User className="w-10 h-10 text-white" />
             </div>
           </div>
 
           {/* Title */}
           <div className="text-center space-y-2">
             <h1 className="text-4xl font-bold text-white">Good Morning</h1>
-            <p className="text-gray-300 text-sm">Enter your email to view your workout plan</p>
+            <p className="text-gray-300 text-sm">Enter your email to access your account</p>
           </div>
 
           {/* Form */}

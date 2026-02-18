@@ -3,6 +3,7 @@ import multer from 'multer';
 import {
   createEnquiry,
   getEnquiries,
+  searchEnquiries,
   getEnquiry,
   updateEnquiry,
   deleteEnquiry,
@@ -14,6 +15,7 @@ import {
   bulkArchive,
   bulkChangeStaff,
   addCallLog,
+  updateCallLog,
   getEnquiryAppointments,
   createEnquiryAppointment
 } from '../controllers/enquiry.controller.js';
@@ -39,6 +41,7 @@ router.use(authenticate);
 
 router.post('/', authorize('owner', 'manager', 'staff'), createEnquiry);
 router.get('/', getEnquiries);
+router.get('/search', searchEnquiries);
 router.get('/stats', getEnquiryStats);
 router.get('/export', authorize('owner', 'manager'), exportEnquiries);
 router.post('/import', authorize('owner', 'manager'), upload.single('file'), importEnquiries);
@@ -50,6 +53,7 @@ router.delete('/:enquiryId', authorize('owner', 'manager'), deleteEnquiry);
 router.post('/:enquiryId/convert', authorize('owner', 'manager', 'staff'), convertToMember);
 router.post('/:enquiryId/archive', authorize('owner', 'manager', 'staff'), archiveEnquiry);
 router.post('/:enquiryId/call-log', authorize('owner', 'manager', 'staff'), addCallLog);
+router.put('/:enquiryId/call-log/:callLogId', authorize('owner', 'manager', 'staff'), updateCallLog);
 router.get('/:enquiryId/appointments', getEnquiryAppointments);
 router.post('/:enquiryId/appointments', authorize('owner', 'manager', 'staff'), createEnquiryAppointment);
 

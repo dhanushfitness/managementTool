@@ -53,10 +53,33 @@ const generateEnquiryId = async (organizationId) => {
   return `ENQ${Date.now().toString().slice(-6)}`;
 };
 
+const mapCallStatusToLastCallStatus = (status) => {
+  if (!status) return undefined;
+
+  const statusMap = {
+    scheduled: 'scheduled',
+    missed: 'missed',
+    attempted: 'busy',
+    busy: 'busy',
+    'no-answer': 'no-answer',
+    'not-contacted': 'not-called',
+    'not-called': 'not-called',
+    contacted: 'answered',
+    completed: 'answered',
+    answered: 'answered',
+    enquiry: 'enquiry',
+    'future-prospect': 'future-prospect',
+    'not-interested': 'not-interested'
+  };
+
+  return statusMap[status] || undefined;
+};
+
 export const createEnquiry = async (req, res) => {
   try {
     // Handle follow-up date (map followUpDate to expectedClosureDate) - declare outside loop
     const followUpDate = req.body.followUpDate ? new Date(req.body.followUpDate) : null;
+    const hasValidFollowUpDate = Boolean(followUpDate && !Number.isNaN(followUpDate.getTime()));
     
     // Retry logic for handling duplicate key errors
     let enquiry;
@@ -97,7 +120,8 @@ export const createEnquiry = async (req, res) => {
           branchId: req.body.branchId || req.user.branchId,
           enquiryId,
           serviceName,
-          expectedClosureDate: followUpDate || req.body.expectedClosureDate,
+          expectedClosureDate: hasValidFollowUpDate ? followUpDate : req.body.expectedClosureDate,
+          followUpDate: hasValidFollowUpDate ? followUpDate : undefined,
           createdBy: req.user._id
         };
 
@@ -107,9 +131,6 @@ export const createEnquiry = async (req, res) => {
         } else {
           enquiryData.service = null;
         }
-
-        // Remove followUpDate from enquiryData as it's not in schema
-        delete enquiryData.followUpDate;
 
         // Initialize callLogs array
         enquiryData.callLogs = [];
@@ -134,7 +155,7 @@ export const createEnquiry = async (req, res) => {
         }
 
         // If follow-up date/time is provided, add to call logs before creating
-        if (followUpDate && req.body.assignedStaff) {
+        if (hasValidFollowUpDate && req.body.assignedStaff) {
           enquiryData.callLogs.push({
             date: followUpDate,
             status: 'scheduled',
@@ -162,7 +183,7 @@ export const createEnquiry = async (req, res) => {
     }
 
     // If follow-up date/time is provided, create FollowUp entry
-    if (followUpDate && req.body.assignedStaff) {
+    if (hasValidFollowUpDate && req.body.assignedStaff) {
       const FollowUp = (await import('../models/FollowUp.js')).default;
       await FollowUp.create({
         organizationId: req.organizationId,
@@ -215,7 +236,8 @@ export const getEnquiries = async (req, res) => {
       lastCallStatus,
       isMember,
       isLead,
-      isArchived
+      isArchived,
+      q
     } = req.query;
 
     const skip = (page - 1) * limit;
@@ -253,6 +275,15 @@ export const getEnquiries = async (req, res) => {
     if (isMember !== undefined) query.isMember = isMember === 'true';
     if (isLead !== undefined) query.isLead = isLead === 'true';
     if (isArchived !== undefined) query.isArchived = isArchived === 'true';
+    if (q && q.trim()) {
+      const searchTerm = q.trim();
+      query.$or = [
+        { enquiryId: { $regex: searchTerm, $options: 'i' } },
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { email: { $regex: searchTerm, $options: 'i' } },
+        { phone: { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
 
     const enquiries = await Enquiry.find(query)
       .populate('service', 'name')
@@ -276,6 +307,48 @@ export const getEnquiries = async (req, res) => {
         pages: Math.ceil(total / limit)
       }
     });
+  } catch (error) {
+    handleError(error, res, 500);
+  }
+};
+
+export const searchEnquiries = async (req, res) => {
+  try {
+    const { q, searchType } = req.query;
+
+    if (!q || !q.trim()) {
+      return res.json({ success: true, enquiries: [] });
+    }
+
+    const searchTerm = q.trim();
+    const query = {
+      organizationId: req.organizationId,
+      isArchived: false
+    };
+
+    switch (searchType) {
+      case 'email':
+        query.email = { $regex: searchTerm, $options: 'i' };
+        break;
+      case 'phone':
+        query.phone = { $regex: searchTerm, $options: 'i' };
+        break;
+      case 'enquiry-id':
+        query.enquiryId = { $regex: searchTerm, $options: 'i' };
+        break;
+      case 'member-name':
+      default:
+        query.name = { $regex: searchTerm, $options: 'i' };
+        break;
+    }
+
+    const enquiries = await Enquiry.find(query)
+      .select('name phone email enquiryId enquiryStage date')
+      .sort({ date: -1 })
+      .limit(10)
+      .lean();
+
+    res.json({ success: true, enquiries });
   } catch (error) {
     handleError(error, res, 500);
   }
@@ -345,9 +418,17 @@ export const updateEnquiry = async (req, res) => {
     }
 
     // Handle follow-up date (map followUpDate to expectedClosureDate)
-    if (req.body.followUpDate) {
-      req.body.expectedClosureDate = new Date(req.body.followUpDate);
-      delete req.body.followUpDate; // Remove followUpDate as it's not in schema
+    if (req.body.followUpDate !== undefined) {
+      if (!req.body.followUpDate) {
+        req.body.followUpDate = null;
+      } else {
+        const parsedFollowUpDate = new Date(req.body.followUpDate);
+        if (Number.isNaN(parsedFollowUpDate.getTime())) {
+          return res.status(400).json({ success: false, message: 'Invalid follow-up date' });
+        }
+        req.body.followUpDate = parsedFollowUpDate;
+        req.body.expectedClosureDate = parsedFollowUpDate;
+      }
     }
 
     Object.assign(enquiry, req.body);
@@ -838,24 +919,31 @@ export const addCallLog = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Enquiry not found' });
     }
 
-    // Always set status as 'scheduled' for new call logs
-    // The cronjob will mark them as 'missed' if the date has passed
+    const normalizedStatus = callStatus || 'scheduled';
+    const parsedScheduleAt = scheduleAt ? new Date(scheduleAt) : null;
+
+    if (normalizedStatus === 'scheduled' && (!parsedScheduleAt || Number.isNaN(parsedScheduleAt.getTime()))) {
+      return res.status(400).json({ success: false, message: 'Scheduled date is required when status is scheduled' });
+    }
+
     const callLogEntry = {
-      date: scheduleAt ? new Date(scheduleAt) : new Date(),
+      date: parsedScheduleAt && !Number.isNaN(parsedScheduleAt.getTime()) ? parsedScheduleAt : new Date(),
       type: type || 'enquiry-call',
-      status: 'scheduled',
+      status: normalizedStatus,
       notes,
-      staffId: req.user._id,
+      staffId: calledBy || req.user._id,
       calledBy: calledBy || undefined
     };
 
     enquiry.callLogs.push(callLogEntry);
 
-    // Update lastCallStatus to 'scheduled' for new call logs
-    enquiry.lastCallStatus = 'scheduled';
+    const mappedLastStatus = mapCallStatusToLastCallStatus(normalizedStatus);
+    if (mappedLastStatus) {
+      enquiry.lastCallStatus = mappedLastStatus;
+    }
 
-    if (scheduleAt) {
-      enquiry.followUpDate = new Date(scheduleAt);
+    if (normalizedStatus === 'scheduled' && parsedScheduleAt && !Number.isNaN(parsedScheduleAt.getTime())) {
+      enquiry.followUpDate = parsedScheduleAt;
     }
 
     await enquiry.save();
@@ -869,6 +957,77 @@ export const addCallLog = async (req, res) => {
       success: true,
       callLog: populatedCallLogs.callLogs[populatedCallLogs.callLogs.length - 1]
     });
+  } catch (error) {
+    handleError(error, res, 500);
+  }
+};
+
+// Update a specific call log entry in enquiry
+export const updateCallLog = async (req, res) => {
+  try {
+    const { enquiryId, callLogId } = req.params;
+    const { callStatus, notes, scheduleAt, calledBy } = req.body;
+
+    const enquiry = await Enquiry.findOne({
+      _id: enquiryId,
+      organizationId: req.organizationId
+    });
+
+    if (!enquiry) {
+      return res.status(404).json({ success: false, message: 'Enquiry not found' });
+    }
+
+    const callLog = enquiry.callLogs.id(callLogId);
+    if (!callLog) {
+      return res.status(404).json({ success: false, message: 'Call log not found' });
+    }
+
+    if (callStatus) {
+      callLog.status = callStatus;
+    }
+    if (notes !== undefined) {
+      callLog.notes = notes;
+    }
+    if (calledBy) {
+      callLog.staffId = calledBy;
+    }
+
+    if (scheduleAt !== undefined) {
+      if (!scheduleAt) {
+        if (callStatus === 'scheduled') {
+          return res.status(400).json({ success: false, message: 'Scheduled date is required when status is scheduled' });
+        }
+        callLog.date = new Date();
+      } else {
+        const parsedScheduleAt = new Date(scheduleAt);
+        if (Number.isNaN(parsedScheduleAt.getTime())) {
+          return res.status(400).json({ success: false, message: 'Invalid scheduled date' });
+        }
+        callLog.date = parsedScheduleAt;
+      }
+    } else if (callStatus === 'scheduled' && !callLog.date) {
+      return res.status(400).json({ success: false, message: 'Scheduled date is required when status is scheduled' });
+    }
+
+    const mappedLastStatus = mapCallStatusToLastCallStatus(callLog.status);
+    if (mappedLastStatus) {
+      enquiry.lastCallStatus = mappedLastStatus;
+    }
+
+    if (callLog.status === 'scheduled' && callLog.date) {
+      enquiry.followUpDate = callLog.date;
+    }
+
+    await enquiry.save();
+
+    const populatedEnquiry = await Enquiry.findOne({
+      _id: enquiryId,
+      organizationId: req.organizationId
+    }).populate('callLogs.staffId', 'firstName lastName');
+
+    const updatedLog = populatedEnquiry?.callLogs?.find((log) => String(log._id) === String(callLogId));
+
+    res.json({ success: true, callLog: updatedLog });
   } catch (error) {
     handleError(error, res, 500);
   }

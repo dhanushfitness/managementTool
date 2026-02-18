@@ -30,8 +30,6 @@ import centralPanelRoutes from './routes/centralPanel.routes.js';
 import followupRoutes from './routes/followup.routes.js';
 import leaderboardRoutes from './routes/leaderboard.routes.js';
 import clientManagementRoutes from './routes/clientManagement.routes.js';
-import exerciseRoutes, { memberExerciseRoutes } from './routes/exercise.routes.js';
-import exerciseTemplateRoutes from './routes/exerciseTemplate.routes.js';
 import memberAuthRoutes from './routes/memberAuth.routes.js';
 import { handleError } from './utils/errorHandler.js';
 
@@ -227,7 +225,6 @@ const staticOptions = {
 };
 
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), staticOptions));
-app.use('/exercises', express.static(path.join(process.cwd(), 'exercises'), staticOptions));
 
 /* ---------------------------------------------------
    LOGGING
@@ -285,9 +282,6 @@ app.use('/api/central-panel', centralPanelRoutes);
 app.use('/api/followups', followupRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/client-management', clientManagementRoutes);
-app.use('/api/exercises', exerciseRoutes);
-app.use('/api/exercise-templates', exerciseTemplateRoutes);
-app.use('/api/member/exercises', memberExerciseRoutes);
 app.use('/api/member-auth', memberAuthRoutes);
 
 /* ---------------------------------------------------

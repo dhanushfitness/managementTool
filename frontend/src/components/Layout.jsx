@@ -39,7 +39,6 @@ import {
   User,
   Users2,
   Archive,
-  Dumbbell,
   Building2,
   X,
   Mail,
@@ -110,7 +109,6 @@ const navigation = [
   { name: 'Enquiries', href: '/enquiries', icon: HelpCircle, hasSubmenu: false },
   // { name: 'Marketing', href: '/marketing', icon: Megaphone, hasSubmenu: true },
   { name: 'Client', href: '/clients', icon: Users, hasSubmenu: true },
-  { name: 'Templates', href: '/exercise-templates', icon: Dumbbell, hasSubmenu: false },
   { name: 'Staff', href: '/staff', icon: UserCog, hasSubmenu: false },
   // { name: 'Reports', href: '/reports', icon: BarChart3, hasSubmenu: true },
   { name: 'Setup', href: '/setup', icon: Settings, hasSubmenu: true },
@@ -210,93 +208,41 @@ export default function Layout() {
     }
   }, [refetchOrganization])
 
-  // Reports categories data
   const reportsCategories = [
-    // {
-    //   name: 'General Reports',
-    //   icon: FileText,
-    //   expandable: true,
-    //   subItems: [
-    //     { name: 'Biometric Report', path: '/reports/biometric' }
-    //   ]
-    // },
-    // {
-    //   name: 'Marketing',
-    //   icon: Megaphone,
-    //   expandable: true,
-    //   subItems: [
-    //     { name: 'Offers', path: '/reports/offers' },
-    //     { name: 'Lead Source', path: '/reports/lead-source' },
-    //     { name: 'Referral', path: '/reports/referral' },
-    //     { name: 'SMS Report', path: '/reports/sms' },
-    //     { name: 'Business MIS Report', path: '/reports/business-mis' },
-    //     { name: 'Marketing MIS Report', path: '/reports/marketing-mis' }
-    //   ]
-    // },
-    // {
-    //   name: 'Sales',
-    //   icon: DollarSign,
-    //   expandable: true,
-    //   subItems: [
-    //     { name: 'DSR Report', path: '/reports/sales/dsr' },
-    //     { name: 'Revenue', path: '/reports/sales/revenue' },
-    //     { name: 'Revenue - Month Till Date', path: '/reports/sales/revenue-month-till-date' },
-    //     { name: 'Service Sales', path: '/reports/sales/service-sales' },
-    //     { name: 'Service Type', path: '/reports/sales/service-type' },
-    //     { name: 'Enquiry Conversion Report', path: '/reports/sales/enquiry-conversion' }
-    //   ]
-    // },
-    // {
-    //   name: 'Finance',
-    //   icon: CreditCard,
-    //   expandable: true,
-    //   subItems: [
-    //     { name: 'All Invoices', path: '/reports/finance/all-invoices' },
-    //     { name: 'Paid Invoices', path: '/reports/finance/paid-invoices' },
-    //     { name: 'Receipts', path: '/reports/finance/receipts' },
-    //     { name: 'Pending Collections', path: '/reports/finance/pending-collections' },
-    //     { name: 'Cancelled Invoices', path: '/reports/finance/cancelled-invoices' },
-    //     { name: 'Refund Report', path: '/reports/finance/refund-report' },
-    //     { name: 'Effective Sales (Accounting)', path: '/reports/finance/effective-sales-accounting' },
-    //     { name: 'Revenue Realization', path: '/reports/finance/revenue-realization' },
-    //     { name: 'Revenue Realization (Base Value)', path: '/reports/finance/revenue-realization-base-value' },
-    //     { name: 'Collection Report', path: '/reports/finance/collection' },
-    //     { name: 'Cashflow Statement', path: '/reports/finance/cashflow-statement' },
-    //     { name: 'Payment Mode Report', path: '/reports/finance/payment-mode' },
-    //     { name: 'Backdated bills-Service Sales', path: '/reports/finance/backdated-bills' },
-    //     { name: 'Discount Report', path: '/reports/finance/discount' }
-    //   ]
-    // },
-    // {
-    //   name: 'Client Management',
-    //   icon: Users,
-    //   expandable: true,
-    //   subItems: [
-    //     { name: 'Upgrade & Cross-Sell', path: '/reports/client-management/upgrade' },
-    //     { name: 'Transfer & Extension', path: '/reports/client-management/service-transfer' },
-    //     { name: 'Freeze and Date Change', path: '/reports/client-management/freeze-and-date-change' }
-    //   ]
-    // },
-    // {
-    //   name: 'Staff',
-    //   icon: UserCog,
-    //   expandable: true,
-    //   subItems: [
-    //     { name: 'Staff Check-Ins', path: '/reports/staff/check-ins' },
-    //     { name: 'Staff Leave', path: '/reports/staff/leave' },
-    //     { name: 'Attendance Register', path: '/reports/staff/attendance-register' },
-    //     { name: 'Staff Birthday Report', path: '/reports/staff/birthday' },
-    //     { name: 'Call Log Report', path: '/reports/staff/call-log' }
-    //   ]
-    // },
-    // {
-    //   name: 'Expense',
-    //   icon: Receipt,
-    //   expandable: true,
-    //   subItems: [
-    //     { name: 'Expense Summary', path: '/reports/expense/summary' }
-    //   ]
-    // }
+    {
+      name: 'Sales',
+      icon: DollarSign,
+      expandable: true,
+      subItems: [{ name: 'Service Sales', path: '/reports/sales/service-sales' }]
+    },
+    {
+      name: 'Finance',
+      icon: CreditCard,
+      expandable: true,
+      subItems: [
+        { name: 'Service Payments Collected', path: '/reports/finance/service-payments-collected' },
+        { name: 'Pending Collections', path: '/reports/finance/pending-collections' }
+      ]
+    },
+    {
+      name: 'Client Management',
+      icon: Users,
+      expandable: true,
+      subItems: [
+        { name: 'Upgrade', path: '/reports/client-management/upgrade' },
+        { name: 'Member Check-ins', path: '/reports/client-management/member-checkins' },
+        { name: 'New Clients', path: '/reports/client-management/new-clients' },
+        { name: 'Renewals', path: '/reports/client-management/renewals' },
+        { name: 'Service Expiry', path: '/reports/client-management/service-expiry' },
+        { name: 'Birthday', path: '/reports/client-management/birthday' }
+      ]
+    },
+    {
+      name: 'Staff',
+      icon: UserCog,
+      expandable: true,
+      subItems: [{ name: 'Staff Birthday', path: '/reports/staff/birthday' }]
+    }
   ]
 
   // Client segments data
@@ -310,6 +256,12 @@ export default function Layout() {
         { name: 'Active Clients', path: '/clients?filter=validity&type=active' },
         { name: 'Inactive Clients', path: '/clients?filter=validity&type=inactive' }
       ]
+    },
+    {
+      name: 'Service Expiry',
+      icon: Calendar,
+      expandable: false,
+      path: '/reports/client-management/service-expiry'
     }
     // {
     //   name: 'Purchase Type Based',
@@ -468,26 +420,58 @@ export default function Layout() {
     }
 
     try {
-      const response = await api.get('/members/search', {
-        params: { 
-          q: memberSearchQuery.trim(),
-          searchType: memberSearchType
-        }
-      })
-      console.log('Search response:', response.data)
-      setMemberSearchResults(response.data?.members || [])
-      setShowMemberSearchResults(response.data?.members?.length > 0)
+      const query = memberSearchQuery.trim()
+      const enquirySearchType = memberSearchType === 'member-id' ? 'enquiry-id' : memberSearchType
+
+      const [memberSearchResponse, enquirySearchResponse] = await Promise.allSettled([
+        api.get('/members/search', {
+          params: {
+            q: query,
+            searchType: memberSearchType
+          }
+        }),
+        api.get('/enquiries/search', {
+          params: {
+            q: query,
+            searchType: enquirySearchType
+          }
+        })
+      ])
+
+      const memberResults = memberSearchResponse.status === 'fulfilled'
+        ? (memberSearchResponse.value.data?.members || []).map((member) => ({
+            ...member,
+            resultType: 'member'
+          }))
+        : []
+
+      const enquiryResults = enquirySearchResponse.status === 'fulfilled'
+        ? (enquirySearchResponse.value.data?.enquiries || []).map((enquiry) => ({
+            ...enquiry,
+            resultType: 'enquiry'
+          }))
+        : []
+
+      const combinedResults = [...memberResults, ...enquiryResults]
+
+      setMemberSearchResults(combinedResults)
+      setShowMemberSearchResults(combinedResults.length > 0)
     } catch (error) {
       console.error('Search error:', error)
       console.error('Error details:', error.response?.data)
       setMemberSearchResults([])
       setShowMemberSearchResults(false)
-      toast.error('Failed to search members')
+      toast.error('Failed to search')
     }
   }
 
-  const handleMemberResultClick = (member) => {
-    navigate(`/clients/${member._id}`)
+  const handleMemberResultClick = (result) => {
+    if (result.resultType === 'enquiry') {
+      const enquiryQuery = encodeURIComponent(result.enquiryId || result.name || '')
+      navigate(`/enquiries?q=${enquiryQuery}`)
+    } else {
+      navigate(`/clients/${result._id}`)
+    }
     setShowMemberSearchResults(false)
     setMemberSearchQuery('')
     setMemberSearchResults([])
@@ -986,14 +970,14 @@ export default function Layout() {
                       <option value="member-name">Member Name</option>
                       <option value="email">Email</option>
                       <option value="phone">Phone Number</option>
-                      <option value="member-id">Member ID</option>
+                      <option value="member-id">Member/Enquiry ID</option>
                     </select>
                     <ChevronDown className="absolute right-0 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
                   <div className="w-px h-6 bg-gray-300 mx-3"></div>
                   <input
                     type="text"
-                    placeholder="Search members..."
+                    placeholder="Search members and enquiries..."
                     value={memberSearchQuery}
                     onChange={(e) => setMemberSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -1033,24 +1017,47 @@ export default function Layout() {
                       </h3>
                     </div>
                     <div className="py-2">
-                      {memberSearchResults.map((member, index) => {
-                        const fullName = `${member.firstName || ''} ${member.lastName || ''}`.trim()
-                        const email = member.email || ''
-                        const phone = member.phone || ''
+                      {memberSearchResults.map((result, index) => {
+                        const isEnquiry = result.resultType === 'enquiry'
+                        const fullName = isEnquiry
+                          ? (result.name || '')
+                          : `${result.firstName || ''} ${result.lastName || ''}`.trim()
+                        const email = result.email || ''
+                        const phone = result.phone || ''
                         
                         return (
                           <button
-                            key={member._id || index}
-                            onClick={() => handleMemberResultClick(member)}
+                            key={`${result.resultType}-${result._id || index}`}
+                            onClick={() => handleMemberResultClick(result)}
                             className={`w-full text-left px-4 py-3 text-sm hover:bg-orange-50 transition-colors border-b border-gray-100 last:border-b-0 ${
                               index === 0 ? 'bg-orange-50' : 'bg-white'
                             }`}
                           >
-                            <div className="font-medium text-gray-900">{fullName || 'Unnamed Member'}</div>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="font-medium text-gray-900">{fullName || (isEnquiry ? 'Unnamed Enquiry' : 'Unnamed Member')}</div>
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                isEnquiry ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                              }`}>
+                                {isEnquiry ? (
+                                  <>
+                                    <HelpCircle className="w-3 h-3" />
+                                    Enquiry
+                                  </>
+                                ) : (
+                                  <>
+                                    <Users className="w-3 h-3" />
+                                    Member
+                                  </>
+                                )}
+                              </span>
+                            </div>
                             <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                               {email && <div className="flex items-center"><Mail className="w-3 h-3 mr-1" />{email}</div>}
                               {phone && <div className="flex items-center"><PhoneIcon className="w-3 h-3 mr-1" />{phone}</div>}
-                              {member.memberId && <div className="flex items-center"><Tag className="w-3 h-3 mr-1" />{member.memberId}</div>}
+                              {isEnquiry
+                                ? (result.enquiryId && <div className="flex items-center"><Tag className="w-3 h-3 mr-1" />{result.enquiryId}</div>)
+                                : (result.memberId && <div className="flex items-center"><Tag className="w-3 h-3 mr-1" />{result.memberId}</div>)
+                              }
                             </div>
                           </button>
                         )

@@ -138,7 +138,7 @@ export const sendInvoiceEmail = async (invoice, member, organization, pdfBuffer)
           <div class="invoice-details">
             <h3>Invoice Details</h3>
             <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-            <p><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString('en-IN')}</p>
+            <p><strong>Date:</strong> ${new Date(invoice.dateOfInvoice || invoice.createdAt).toLocaleDateString('en-IN')}</p>
             <p><strong>Total Amount:</strong> ${formattedTotal}</p>
             ${invoice.pending > 0 ? `<p><strong>Pending Amount:</strong> ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: invoice.currency || 'INR' }).format(invoice.pending)}</p>` : ''}
           </div>
@@ -213,7 +213,7 @@ export const sendInvoiceEmail = async (invoice, member, organization, pdfBuffer)
               <p><strong>Member:</strong> ${memberName}</p>
               <p><strong>Member ID:</strong> ${member.memberId || 'N/A'}</p>
               <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-              <p><strong>Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString('en-IN')}</p>
+              <p><strong>Date:</strong> ${new Date(invoice.dateOfInvoice || invoice.createdAt).toLocaleDateString('en-IN')}</p>
               <p><strong>Total Amount:</strong> ${formattedTotal}</p>
               <p><strong>Status:</strong> ${invoice.status}</p>
             </div>

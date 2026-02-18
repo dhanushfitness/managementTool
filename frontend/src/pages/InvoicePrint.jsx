@@ -359,13 +359,13 @@ export default function InvoicePrint() {
                 <div>
                   <span className="text-gray-600 font-medium">Invoice Type:</span>
                   <span className="ml-2 font-semibold text-gray-900 capitalize">
-                    {invoice.type?.replace('-', ' ') || 'New Booking'}
+                    {invoice.type === 'pro-forma' ? 'Tax Invoice' : (invoice.type?.replace('-', ' ') || 'New Booking')}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600 font-medium">Date, Time:</span>
                   <span className="ml-2 font-semibold text-gray-900">
-                    {formatDateTime(invoice.createdAt)}
+                    {formatDateTime(invoice.dateOfInvoice || invoice.createdAt)}
                   </span>
                 </div>
                 <div>
@@ -615,4 +615,3 @@ export default function InvoicePrint() {
     </>
   )
 }
-

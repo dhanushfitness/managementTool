@@ -1,14 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Home, Dumbbell, TrendingUp, User, Search } from 'lucide-react'
+import { User } from 'lucide-react'
 
 export default function MemberLayout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
 
   const navItems = [
-    { path: '/member/dashboard', icon: Home, label: 'Home' },
-    { path: '/member/workouts', icon: Dumbbell, label: 'Workouts' },
-    { path: '/member/progress', icon: TrendingUp, label: 'Progress' },
     { path: '/member/profile', icon: User, label: 'Profile' },
   ]
 

@@ -5327,7 +5327,7 @@ export const getCollectionReport = async (req, res) => {
         branch: payment.branchId?.name || '-',
         sequence: 'Branch Sequence',
         billNo: invoice.invoiceNumber || '-',
-        billType: invoice.type === 'pro-forma' ? 'Pro Forma' : 
+        billType: invoice.type === 'pro-forma' ? 'Tax Invoice' : 
                  invoice.type === 'renewal' ? 'Rebooking' : 'New Bill',
         paidInvoiceNo: invoice.invoiceNumber || '-',
         receiptNo: payment.receiptNumber || '-',
@@ -5456,7 +5456,7 @@ export const exportCollectionReport = async (req, res) => {
         branch: payment.branchId?.name || '-',
         sequence: 'Branch Sequence',
         billNo: invoice.invoiceNumber || '-',
-        billType: invoice.type === 'pro-forma' ? 'Pro Forma' : 
+        billType: invoice.type === 'pro-forma' ? 'Tax Invoice' : 
                  invoice.type === 'renewal' ? 'Rebooking' : 'New Bill',
         paidInvoiceNo: invoice.invoiceNumber || '-',
         receiptNo: payment.receiptNumber || '-',
@@ -5852,7 +5852,7 @@ export const getPaymentModeReport = async (req, res) => {
         sequence: 'Branch Sequence',
         paymode,
         billNo: invoice.invoiceNumber || '-',
-        billType: invoice.type === 'pro-forma' ? 'Pro Forma' : 
+        billType: invoice.type === 'pro-forma' ? 'Tax Invoice' : 
                  invoice.type === 'renewal' ? 'Rebooking' : 'New Bill',
         paidInvoiceNo: invoice.invoiceNumber || '-',
         receiptNo: payment.receiptNumber || '-',
@@ -5986,7 +5986,7 @@ export const exportPaymentModeReport = async (req, res) => {
         sequence: 'Branch Sequence',
         paymode,
         billNo: invoice.invoiceNumber || '-',
-        billType: invoice.type === 'pro-forma' ? 'Pro Forma' : 
+        billType: invoice.type === 'pro-forma' ? 'Tax Invoice' : 
                  invoice.type === 'renewal' ? 'Rebooking' : 'New Bill',
         paidInvoiceNo: invoice.invoiceNumber || '-',
         receiptNo: payment.receiptNumber || '-',
@@ -6173,7 +6173,7 @@ export const getBackdatedBillsReport = async (req, res) => {
         records.push({
           _id: `${invoice._id}-${item._id || Math.random()}`,
           purchaseDate: invoice.createdAt,
-          billType: invoice.type === 'pro-forma' ? 'Pro Forma' :
+          billType: invoice.type === 'pro-forma' ? 'Tax Invoice' :
                    invoice.type === 'renewal' || invoice.type === 'upgrade' || invoice.type === 'downgrade' ? 'Rebooking' :
                    'New Booking',
           branchLocation: invoice.branchId?.name || '-',
@@ -6342,7 +6342,7 @@ export const exportBackdatedBillsReport = async (req, res) => {
 
         records.push({
           purchaseDate: formatDate(invoice.createdAt),
-          billType: invoice.type === 'pro-forma' ? 'Pro Forma' :
+          billType: invoice.type === 'pro-forma' ? 'Tax Invoice' :
                    invoice.type === 'renewal' || invoice.type === 'upgrade' || invoice.type === 'downgrade' ? 'Rebooking' :
                    'New Booking',
           branchLocation: invoice.branchId?.name || '-',
@@ -11751,6 +11751,7 @@ export const getServiceExpiryReport = async (req, res) => {
       memberType = 'all',
       staffId,
       serviceId,
+      membershipDuration,
       page = 1, 
       limit = 50 
     } = req.query;
@@ -11788,6 +11789,18 @@ export const getServiceExpiryReport = async (req, res) => {
       const d = new Date(date);
       d.setUTCHours(0, 0, 0, 0);
       return d;
+    };
+
+    const getMembershipDurationBucket = (itemStartDate, itemExpiryDate) => {
+      if (!itemStartDate || !itemExpiryDate) return 'others';
+      const start = normalizeToDateOnly(itemStartDate);
+      const end = normalizeToDateOnly(itemExpiryDate);
+      const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 27 && diffDays <= 35) return '1-month';
+      if (diffDays >= 56 && diffDays <= 66) return '2-month';
+      if (diffDays >= 170 && diffDays <= 190) return '6-month';
+      return 'others';
     };
 
     // Debug logging
@@ -11919,6 +11932,12 @@ export const getServiceExpiryReport = async (req, res) => {
         if (serviceId && serviceId !== 'all') {
           const itemServiceId = item.serviceId?.toString() || item.serviceId;
           if (itemServiceId !== serviceId) continue;
+        }
+
+        // Filter by membership duration bucket if specified
+        if (membershipDuration && membershipDuration !== 'all') {
+          const durationBucket = getMembershipDurationBucket(item.startDate, item.expiryDate);
+          if (durationBucket !== membershipDuration) continue;
         }
 
         membersWithExpiringPlans.push({
@@ -12196,13 +12215,30 @@ export const exportServiceExpiryReport = async (req, res) => {
       search, 
       memberType = 'all',
       staffId,
-      serviceId
+      serviceId,
+      membershipDuration
     } = req.query;
 
     const start = fromDate ? new Date(fromDate) : new Date();
     start.setHours(0, 0, 0, 0);
     const end = toDate ? new Date(toDate) : new Date();
     end.setHours(23, 59, 59, 999);
+
+    const getMembershipDurationBucket = (itemStartDate, itemExpiryDate) => {
+      if (!itemStartDate || !itemExpiryDate) return 'others';
+      const start = new Date(itemStartDate);
+      const expiry = new Date(itemExpiryDate);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(expiry.getTime())) return 'others';
+
+      start.setHours(0, 0, 0, 0);
+      expiry.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((expiry.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 27 && diffDays <= 35) return '1-month';
+      if (diffDays >= 56 && diffDays <= 66) return '2-month';
+      if (diffDays >= 170 && diffDays <= 190) return '6-month';
+      return 'others';
+    };
 
     // Build invoice query
     const invoiceQuery = {
@@ -12337,6 +12373,11 @@ export const exportServiceExpiryReport = async (req, res) => {
         if (!item.expiryDate) continue;
         const expiryDate = new Date(item.expiryDate);
         if (expiryDate < start || expiryDate > end) continue;
+
+        if (membershipDuration && membershipDuration !== 'all') {
+          const durationBucket = getMembershipDurationBucket(item.startDate, item.expiryDate);
+          if (durationBucket !== membershipDuration) continue;
+        }
 
         const serviceName = item.serviceId?.name || item.description || '';
         if (serviceName.toLowerCase().includes('pt') || 

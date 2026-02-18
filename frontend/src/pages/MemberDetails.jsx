@@ -9,12 +9,10 @@ import LoadingPage from '../components/LoadingPage'
 import AttendanceTab from '../components/AttendanceTab'
 import DateInput from '../components/DateInput'
 import Breadcrumbs from '../components/Breadcrumbs'
-import RazorpayPayment from '../components/RazorpayPayment'
 import RecordPaymentModal from '../components/RecordPaymentModal'
 import UpgradeMembershipModal from '../components/UpgradeMembershipModal'
 import AddInvoiceModal from '../components/AddInvoiceModal'
 import CameraCaptureModal from '../components/CameraCaptureModal'
-import { exercises as staticExercises } from '../data/exercises'
 import toast from 'react-hot-toast'
 import {
   User,
@@ -52,9 +50,7 @@ import {
   Trash2,
   QrCode,
   X as XIcon,
-  Loader,
-  Utensils,
-  Copy
+  Loader
 } from 'lucide-react'
 
 // EMPTY
@@ -131,7 +127,9 @@ export default function MemberDetails() {
 
   // Check URL params for tab
   const searchParams = new URLSearchParams(location.search)
-  const initialTab = searchParams.get('tab') || 'profile'
+  const isAllowedTab = (tab) =>
+    ['profile', 'service-card', 'payments', 'call-log'].includes(tab)
+  const initialTab = isAllowedTab(searchParams.get('tab')) ? searchParams.get('tab') : 'profile'
 
   const [activeTab, setActiveTab] = useState(initialTab)
   const [activeSubTab, setActiveSubTab] = useState('personal')
@@ -181,9 +179,7 @@ export default function MemberDetails() {
   // Update active tab when URL changes
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab) {
-      setActiveTab(tab)
-    }
+    setActiveTab(isAllowedTab(tab) ? tab : 'profile')
   }, [location.search])
 
   const updateMutation = useMutation({
@@ -474,8 +470,6 @@ export default function MemberDetails() {
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'workout', label: 'Workout', icon: Dumbbell },
-    { id: 'diet', label: 'Diet', icon: Utensils },
     { id: 'service-card', label: 'Service Card', icon: CreditCard },
     { id: 'payments', label: 'Payments', icon: DollarSign },
     { id: 'call-log', label: 'Call Log', icon: PhoneCall },
@@ -1317,14 +1311,6 @@ export default function MemberDetails() {
           />
         )}
 
-        {activeTab === 'workout' && (
-          <WorkoutTab member={member} />
-        )}
-
-        {activeTab === 'diet' && (
-          <DietTab member={member} />
-        )}
-
         {activeTab === 'attendance' && (
           <AttendanceTab member={member} />
         )}
@@ -1333,7 +1319,7 @@ export default function MemberDetails() {
           <TermsConditionsTab member={member} />
         )}
 
-        {activeTab !== 'profile' && activeTab !== 'workout' && activeTab !== 'service-card' && activeTab !== 'payments' && activeTab !== 'call-log' && activeTab !== 'referrals' && activeTab !== 'attendance' && activeTab !== 'terms' && (
+        {activeTab !== 'profile' && activeTab !== 'service-card' && activeTab !== 'payments' && activeTab !== 'call-log' && activeTab !== 'referrals' && activeTab !== 'attendance' && activeTab !== 'terms' && (
           <div className="p-6 text-center py-12 text-gray-500">
             {tabs.find(t => t.id === activeTab)?.label} section coming soon
           </div>
@@ -2088,7 +2074,6 @@ function FreezeModal({ invoice, itemIndex, member, onClose, onSave, isLoading })
 function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilter, page, setPage, navigate }) {
   const queryClient = useQueryClient()
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
-  const [showPaymentModal, setShowPaymentModal] = useState(null)
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(null)
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null) // { invoice: {...}, show: true }
 
@@ -2134,7 +2119,6 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
     if (invoice.payments && invoice.payments.length > 0) {
       const payment = invoice.payments[0]
       const modeMap = {
-        'razorpay': 'Online Payment',
         'cash': 'Cash',
         'card': 'Card',
         'upi': 'UPI',
@@ -2145,7 +2129,6 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
     }
     if (invoice.paymentMethod) {
       const modeMap = {
-        'razorpay': 'Online Payment',
         'cash': 'Cash',
         'card': 'Card',
         'upi': 'UPI',
@@ -2200,7 +2183,7 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
                 <option value="all">All</option>
                 <option value="paid">Paid</option>
                 <option value="pending">Pending</option>
-                <option value="pro-forma">Pro Forma</option>
+                <option value="pro-forma">Tax Invoice</option>
               </select>
             </div>
           </div>
@@ -2442,18 +2425,6 @@ function PaymentsTab({ member, invoices, pagination, isLoading, filter, setFilte
         </div>
       </div>
 
-      {/* Razorpay Payment Modal */}
-      {showPaymentModal && (
-        <RazorpayPayment
-          invoice={showPaymentModal}
-          onClose={() => setShowPaymentModal(null)}
-          onSuccess={() => {
-            setShowPaymentModal(null)
-            // The query will auto-refresh due to invalidation in RazorpayPayment component
-          }}
-        />
-      )}
-
       {/* Record Payment Modal */}
       {showRecordPaymentModal && (
         <RecordPaymentModal
@@ -2684,6 +2655,10 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
   }
 
   const handleSaveUpdate = () => {
+    if (updateForm.status === 'scheduled' && !updateForm.scheduledAt) {
+      toast.error('Schedule is required when status is Scheduled')
+      return
+    }
     if (editingCall) {
       updateMutation.mutate(editingCall)
     }
@@ -2960,7 +2935,14 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
                                     <select
                                       value={updateForm.status}
-                                      onChange={(e) => setUpdateForm({ ...updateForm, status: e.target.value })}
+                                      onChange={(e) => {
+                                        const nextStatus = e.target.value
+                                        setUpdateForm({
+                                          ...updateForm,
+                                          status: nextStatus,
+                                          scheduledAt: nextStatus === 'scheduled' ? updateForm.scheduledAt : ''
+                                        })
+                                      }}
                                       className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
                                     >
                                       {statuses.map(s => (
@@ -2977,15 +2959,17 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
                                       className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
                                     />
                                   </div>
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Schedule</label>
-                                    <input
-                                      type="datetime-local"
-                                      value={updateForm.scheduledAt}
-                                      onChange={(e) => setUpdateForm({ ...updateForm, scheduledAt: e.target.value })}
-                                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
-                                    />
-                                  </div>
+                                  {updateForm.status === 'scheduled' && (
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 mb-1">Schedule</label>
+                                      <input
+                                        type="datetime-local"
+                                        value={updateForm.scheduledAt}
+                                        onChange={(e) => setUpdateForm({ ...updateForm, scheduledAt: e.target.value })}
+                                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500"
+                                      />
+                                    </div>
+                                  )}
                                   <div className="flex items-center space-x-2">
                                     <button
                                       onClick={handleSaveUpdate}
@@ -3103,7 +3087,14 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
                     </label>
                     <select
                       value={form.status}
-                      onChange={(e) => setForm({ ...form, status: e.target.value })}
+                      onChange={(e) => {
+                        const nextStatus = e.target.value
+                        setForm({
+                          ...form,
+                          status: nextStatus,
+                          scheduledAt: nextStatus === 'scheduled' ? form.scheduledAt : ''
+                        })
+                      }}
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     >
                       {statuses.map(s => (
@@ -3124,15 +3115,17 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
                     placeholder="Maximum 1800 characters"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
                   />
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Schedule</label>
-                    <input
-                      type="datetime-local"
-                      value={form.scheduledAt}
-                      onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    />
-                  </div>
+                  {form.status === 'scheduled' && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Schedule</label>
+                      <input
+                        type="datetime-local"
+                        value={form.scheduledAt}
+                        onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -3148,7 +3141,13 @@ function CallLogTab({ member, showCallModal, setShowCallModal }) {
               </button>
               <button
                 onClick={() => createMutation.mutate()}
-                disabled={!form.callType || !form.calledBy || !form.notes.trim() || createMutation.isLoading}
+                disabled={
+                  !form.callType ||
+                  !form.calledBy ||
+                  !form.notes.trim() ||
+                  (form.status === 'scheduled' && !form.scheduledAt) ||
+                  createMutation.isLoading
+                }
                 className="px-6 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit
@@ -3416,1180 +3415,6 @@ function ReferralsTab({ member, showReferralModal, setShowReferralModal }) {
   )
 }
 
-// Terms & Conditions Tab Component
-// Helper function to get exercise image URL from frontend public/exercises folder
-const getExerciseImageUrl = (exerciseName) => {
-  if (!exerciseName) return null
-
-  // Normalize exercise name for matching
-  const normalizeName = (name) => {
-    return name.toUpperCase()
-      .replace(/[^A-Z0-9\s]/g, '')
-      .replace(/\s+/g, '-')
-      .trim()
-  }
-
-  const normalizedName = normalizeName(exerciseName)
-
-  // Map exercise names to image files in public/exercises folder
-  const exerciseImageMap = {
-    'PUSH-UPS': 'Push Ups.jpg',
-    'BENCH-PRESS': 'flat dumbell press.jpg',
-    'CHEST-PRESS': 'chest pres.jpg',
-    'FLAT DB-PRESS': 'flat dumbell press.jpg',
-    'INCLINE DB-PRESS': 'Incline Dumbbell Press.jpg',
-    'DECLINE DB-PRESS': 'Dumbbell Decline Fly.jpg',
-    'DB-FLY': 'pec fly.jpg',
-    'CABLE-CROSS': 'Cable Crossover.jpg',
-    'PEC-DECK': 'pec fly.jpg',
-    'BENT-OVER-ROW': 'Bent Over Row.jpg',
-    'DB-BENT-OVER-ROW': 'Dumbbell Bent Over Row.jpg',
-    'ONE-ARM-DB-ROW': 'Dumbbell One Arm Bent Over Row.jpg',
-    'LAT-PULLDOWN': 'Lat pull-down.jpg',
-    'PULL-UPS': 'Lat pull-down.jpg',
-    'T-BAR-ROW': 'Bent Over Row.jpg',
-    'SEATED-ROW': 'seated back row.jpg',
-    'DEAD-LIFT': 'ROMANIAN DEADLIFT.jpg',
-    'ROMANIAN-DEADLIFT': 'ROMANIAN DEADLIFT.jpg',
-    'HYPEREXTENSION': 'Hyperextension.jpg',
-    'BACK-EXTENSION': 'Back Extension.jpg',
-    'SHOULDER-PRESS': 'Overhead Dumbbell Press.jpg',
-    'DB-SHOULDER-PRESS': 'seated dumbell press.jpg',
-    'LATERAL-RAISE': 'Dumbbell Lateral Raise.jpg',
-    'FRONT-RAISE': 'Dumbbell Lateral Raise.jpg',
-    'UPRIGHT-ROW': 'upright row.jpg',
-    'SHRUGS': 'Dumbbell Shrug.jpg',
-    'REAR-DELT-FLY': 'bend over lateral raise.jpg',
-    'SQUATS': 'free squats.jpg',
-    'LEG-PRESS': 'leg press.jpg',
-    'LEG-EXTENSION': 'leg press.jpg',
-    'LEG-CURL': 'seated leg curl.jpg',
-    'LUNGES': 'Lunge With.jpg',
-    'BULGARIAN-SPLIT-SQUAT': 'Bulgarian Split Squat.jpg',
-    'CALF-RAISE': 'calf raises.jpg',
-    'STEP-UPS': 'Dumbbell Step Up.jpg',
-    'BICEP-CURL': 'dumbell curl.jpg',
-    'HAMMER-CURL': 'Dumbbell Close Grip Curl.jpg',
-    'PREACHER-CURL': 'Preacher Curl.jpg',
-    'CABLE-CURL': 'Biceps cable curl.jpg',
-    'CONCENTRATION-CURL': 'Dumbbell Incline Biceps Curl.jpg',
-    'TRICEP-EXTENSION': 'Dumbbell Standing Triceps Extension.jpg',
-    'OVERHEAD-TRICEP': 'Dumbbell Seated Triceps Extension.jpg',
-    'TRICEP-PUSHDOWN': 'Cable Tricep Pushdown.jpg',
-    'CLOSE-GRIP-BENCH': 'Barbell Close Grip Bench Press.jpg',
-    'SKULL-CRUSHERS': 'skull crusher.jpg',
-    'CRUNCHES': 'crunches.jpg',
-    'SIT-UPS': 'crunches.jpg',
-    'PLANK': 'plank.jpg',
-    'SIDE-PLANK': 'Side Plank Oblique Crunch.jpg',
-    'RUSSIAN-TWIST': 'Russian Twist.jpg',
-    'MOUNTAIN-CLIMBER': 'Mountain Climber.jpg',
-    'LEG-RAISE': 'abs leg raises.jpg',
-    'TREADMILL': 'Treadmill.jpg',
-    'RUNNING': 'Treadmill.jpg',
-    'BIKE': 'recumbent bike.jpg',
-    'CYCLE': 'recumbent bike.jpg',
-    'ROWING': 'seated rowing.jpg',
-    'ELLIPTICAL': 'elliptical.jpg',
-  }
-
-  // Try to find exact match first
-  if (exerciseImageMap[normalizedName]) {
-    return `/exercises/${exerciseImageMap[normalizedName]}`
-  }
-
-  // Try partial matching - check if any key is contained in the normalized name or vice versa
-  for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
-    if (normalizedName.includes(key) || key.includes(normalizedName)) {
-      return `/exercises/${imageFile}`
-    }
-  }
-
-  // Try word-based matching - check if significant words match
-  const exerciseWords = normalizedName.split('-').filter(w => w.length > 3)
-  for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
-    const keyWords = key.split('-').filter(w => w.length > 3)
-    const matchingWords = exerciseWords.filter(word =>
-      keyWords.some(keyWord => keyWord.includes(word) || word.includes(keyWord))
-    )
-    if (matchingWords.length >= 1) {
-      return `/exercises/${imageFile}`
-    }
-  }
-
-  // Final fallback: try to match by first significant word in image filename
-  if (exerciseWords.length > 0) {
-    const firstWord = exerciseWords[0]
-    for (const [key, imageFile] of Object.entries(exerciseImageMap)) {
-      const imageNameUpper = imageFile.toUpperCase().replace('.JPG', '').replace(/[^A-Z0-9]/g, '')
-      if (imageNameUpper.includes(firstWord) && firstWord.length > 4) {
-        return `/exercises/${imageFile}`
-      }
-    }
-  }
-
-  // Ultimate fallback: return a default image that should always exist
-  return `/exercises/Push Ups.jpg`
-}
-
-// Workout Tab Component
-const getEmbedUrl = (url) => {
-  if (!url) return null;
-
-  try {
-    // Handle YouTube Shorts
-    if (url.includes('youtube.com/shorts/')) {
-      const videoId = url.split('youtube.com/shorts/')[1].split('?')[0];
-      return `https://www.youtube.com/embed/${videoId}`;
-    }
-
-    // Handle youtu.be
-    if (url.includes('youtu.be/')) {
-      const videoId = url.split('youtu.be/')[1].split('?')[0];
-      return `https://www.youtube.com/embed/${videoId}`;
-    }
-
-    // Handle standard youtube watch
-    if (url.includes('youtube.com/watch')) {
-      // Handle simple v param manually to avoid URL object issues in some environments if url is partial
-      const vParam = url.split('v=')[1];
-      if (vParam) {
-        const videoId = vParam.split('&')[0];
-        return `https://www.youtube.com/embed/${videoId}`;
-      }
-    }
-  } catch (e) {
-    console.error('Error parsing video URL:', e);
-  }
-
-  return url;
-}
-
-function WorkoutTab({ member }) {
-  const [exercises, setExercises] = useState([])
-  const [selectedExercise, setSelectedExercise] = useState(null)
-  const [showAssignModal, setShowAssignModal] = useState(false)
-  const [assignments, setAssignments] = useState([])
-  const [weekDay, setWeekDay] = useState(new Date().getDay())
-  const [selectedAssignmentDay, setSelectedAssignmentDay] = useState(null)
-  const [activeExerciseTab, setActiveExerciseTab] = useState('all')
-  const [playingVideo, setPlayingVideo] = useState(null)
-  const [isSearching, setIsSearching] = useState(false)
-  const searchTimeoutRef = useRef(null)
-  const queryClient = useQueryClient()
-
-  // Bulk selection state
-  const [selectedExercises, setSelectedExercises] = useState([])
-  const [isSelectionMode, setIsSelectionMode] = useState(false)
-
-  // Template Logic
-  const [showTemplateModal, setShowTemplateModal] = useState(false)
-
-  const { data: templatesData } = useQuery({
-    queryKey: ['exercise-templates'],
-    queryFn: () => api.get('/exercise-templates').then(res => res.data),
-    enabled: showTemplateModal
-  })
-
-  const assignTemplateMutation = useMutation({
-    mutationFn: (templateId) => api.post('/exercise-templates/assign', {
-      templateId,
-      memberId: member._id
-    }),
-    onSuccess: () => {
-      toast.success('Template assigned successfully')
-      setShowTemplateModal(false)
-      queryClient.invalidateQueries(['member-exercises', member._id])
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to assign template')
-    }
-  })
-
-  const { data: exercisesData, isLoading: exercisesLoading } = { data: { exercises: staticExercises }, isLoading: false }
-
-  const { data: assignmentsData, isLoading: assignmentsLoading } = useQuery({
-    queryKey: ['member-exercises', member._id, weekDay],
-    queryFn: () => api.get(`/exercises/member/${member._id}`, {
-      params: { weekDay }
-    }).then(res => res.data),
-    enabled: !!member._id
-  })
-
-  useEffect(() => {
-    if (exercisesData?.exercises) {
-      filterExercisesByTab(exercisesData.exercises, activeExerciseTab)
-    }
-  }, [exercisesData, activeExerciseTab])
-
-  const filterExercisesByTab = (allExercises, tab, returnArray = false) => {
-    if (!allExercises) return returnArray ? [] : null
-
-    let filtered = []
-    if (tab === 'all') {
-      filtered = allExercises
-    } else if (tab === 'cardio') {
-      filtered = allExercises.filter(ex => ex.category === 'cardio')
-    } else if (tab === 'chest') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('chest'))
-    } else if (tab === 'back') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('back'))
-    } else if (tab === 'shoulder') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('shoulders'))
-    } else if (tab === 'lower body') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('legs'))
-    } else if (tab === 'biceps') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('biceps'))
-    } else if (tab === 'triceps') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('triceps'))
-    } else if (tab === 'abs') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('abs'))
-    } else if (tab === 'warm up') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('warm-up'))
-    } else if (tab === 'cool down') {
-      filtered = allExercises.filter(ex => ex.muscleGroups?.includes('cool-down'))
-    }
-
-    if (returnArray) {
-      return filtered
-    } else {
-      setExercises(filtered)
-    }
-  }
-
-  useEffect(() => {
-    if (assignmentsData?.assignments) {
-      setAssignments(assignmentsData.assignments)
-    }
-  }, [assignmentsData])
-
-  const assignExerciseMutation = useMutation({
-    mutationFn: (data) => api.post('/exercises/assign', {
-      ...data,
-      memberId: member._id
-    }),
-    onSuccess: () => {
-      toast.success('Exercise assigned successfully')
-      queryClient.invalidateQueries(['member-exercises', member._id])
-      // Return to exercise selection instead of closing modal
-      setSelectedExercise(null)
-      setSelectedVariation(null)
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to assign exercise')
-    }
-  })
-
-  const deleteAssignmentMutation = useMutation({
-    mutationFn: (assignmentId) => api.delete(`/exercises/assignment/${assignmentId}`),
-    onSuccess: () => {
-      toast.success('Exercise removed successfully')
-      queryClient.invalidateQueries(['member-exercises', member._id])
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to remove exercise')
-    }
-  })
-
-  // Bulk delete mutation
-  const bulkDeleteMutation = useMutation({
-    mutationFn: (assignmentIds) => api.post('/exercises/bulk-delete', { assignmentIds }),
-    onSuccess: () => {
-      toast.success(`${selectedExercises.length} exercise(s) removed successfully`)
-      setSelectedExercises([])
-      setIsSelectionMode(false)
-      queryClient.invalidateQueries(['member-exercises', member._id])
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to remove exercises')
-    }
-  })
-
-  // Selection helper functions
-  const handleSelectAll = () => {
-    if (selectedExercises.length === assignments.length) {
-      setSelectedExercises([])
-    } else {
-      setSelectedExercises(assignments.map(a => a._id))
-    }
-  }
-
-  const handleSelectExercise = (assignmentId) => {
-    setSelectedExercises(prev =>
-      prev.includes(assignmentId)
-        ? prev.filter(id => id !== assignmentId)
-        : [...prev, assignmentId]
-    )
-  }
-
-  const handleBulkDelete = () => {
-    if (selectedExercises.length === 0) {
-      toast.error('Please select exercises to delete')
-      return
-    }
-
-    if (window.confirm(`Delete ${selectedExercises.length} selected exercise(s)?`)) {
-      bulkDeleteMutation.mutate(selectedExercises)
-    }
-  }
-
-  const handleAssign = (exercise) => {
-    if (typeof selectedAssignmentDay !== 'number') {
-      toast.error('Please select a day first')
-      return
-    }
-    setSelectedExercise(exercise)
-    setSelectedVariation(null)
-  }
-
-  const handleOpenAssignModal = () => {
-    setSelectedAssignmentDay(weekDay)
-    setSelectedExercise(null)
-    setSelectedVariation(null)
-    setShowAssignModal(true)
-  }
-
-  const [selectedVariation, setSelectedVariation] = useState(null)
-
-  const handleSubmitAssignment = (e) => {
-    e.preventDefault()
-    if (typeof selectedAssignmentDay !== 'number') {
-      toast.error('Pick a day to assign this exercise')
-      return
-    }
-
-    // Check for duplicate assignment - same exercise on same day
-    const isDuplicate = assignments.some(assignment =>
-      assignment.exerciseId?._id === selectedExercise._id &&
-      assignment.weekDay === selectedAssignmentDay
-    )
-
-    if (isDuplicate) {
-      toast.error('This exercise is already assigned for this day')
-      return
-    }
-
-    const formData = new FormData(e.target)
-    const variationId = formData.get('variationId')
-    const variation = selectedExercise.variations?.find(v => v._id === variationId)
-
-    // Check if this is a cardio exercise
-    const isCardio = selectedExercise.category === 'cardio'
-
-    const assignmentData = {
-      exerciseId: selectedExercise._id, // Might be undefined for static exercises
-      name: selectedExercise.name,
-      category: selectedExercise.category,
-      muscleGroups: selectedExercise.muscleGroups,
-      description: selectedExercise.description,
-      imageUrl: selectedExercise.imageUrl,
-      videoUrl: selectedExercise.videoUrl, // Add videoUrl here
-      weekDay: selectedAssignmentDay,
-      weekNumber: null, // null means repeats every week
-      isRecurring: true, // Always recurring
-      variationId: variationId || null,
-      order: 0,
-      notes: null
-    }
-
-    if (isCardio) {
-      // For cardio exercises, use duration and distance
-      const duration = formData.get('duration')
-      const distance = formData.get('distance')
-      assignmentData.duration = duration ? parseFloat(duration) : null
-      assignmentData.distance = distance ? parseFloat(distance) : null
-      // Set sets/reps to null for cardio
-      assignmentData.sets = null
-      assignmentData.reps = null
-      assignmentData.weight = null
-      assignmentData.restTime = null
-    } else {
-      // For non-cardio exercises, use sets/reps/weight
-      assignmentData.sets = formData.get('sets') ? parseInt(formData.get('sets')) : (variation?.sets || selectedExercise.sets) || null
-      assignmentData.reps = formData.get('reps') || (variation?.reps || selectedExercise.reps) || null
-      assignmentData.weight = formData.get('weight') || (variation?.weight || null)
-      assignmentData.restTime = formData.get('restTime') || (variation?.restTime || selectedExercise.restTime) || null
-      // Set duration/distance to null for non-cardio
-      assignmentData.duration = null
-      assignmentData.distance = null
-    }
-
-    assignExerciseMutation.mutate(assignmentData)
-  }
-
-  const weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-  const [showQRModal, setShowQRModal] = useState(false)
-  const [qrCodeUrl, setQrCodeUrl] = useState('')
-
-  // Generate QR code URL for member login
-  useEffect(() => {
-    if (showQRModal && member?.email) {
-      // Create a login URL with email parameter for auto-login
-      const baseUrl = window.location.origin
-      const loginUrl = `${baseUrl}/member/login?email=${encodeURIComponent(member.email)}&auto=true`
-      setQrCodeUrl(loginUrl)
-    }
-  }, [showQRModal, member?.email])
-
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Workout Plan</h2>
-        <div className="flex items-center gap-3">
-          {assignments.length > 0 && (
-            <button
-              onClick={() => {
-                setIsSelectionMode(!isSelectionMode)
-                setSelectedExercises([])
-              }}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${isSelectionMode
-                ? 'bg-gray-500 text-white hover:bg-gray-600'
-                : 'bg-purple-500 text-white hover:bg-purple-600'
-                }`}
-            >
-              <CheckCircle className="w-4 h-4" />
-              {isSelectionMode ? 'Cancel Selection' : 'Select Multiple'}
-            </button>
-          )}
-
-          {isSelectionMode && selectedExercises.length > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              disabled={bulkDeleteMutation.isLoading}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete Selected ({selectedExercises.length})
-            </button>
-          )}
-
-          <button
-            onClick={() => setShowQRModal(true)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
-          >
-            <QrCode className="w-4 h-4" />
-            QR Code
-          </button>
-          <button
-            onClick={() => setShowTemplateModal(true)}
-            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center gap-2"
-          >
-            <Copy className="w-4 h-4" />
-            Use Template
-          </button>
-          <button
-            onClick={handleOpenAssignModal}
-            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Assign Exercise
-          </button>
-        </div>
-      </div>
-
-      {/* Week Day Selector - Exercises repeat every week */}
-      <div className="flex items-center gap-4">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Week Day</label>
-          <select
-            value={weekDay}
-            onChange={(e) => setWeekDay(parseInt(e.target.value))}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-          >
-            {weekDays.map((day, index) => (
-              <option key={index} value={index}>{day}</option>
-            ))}
-          </select>
-        </div>
-        <div className="mt-6">
-          <span className="text-sm text-gray-600 italic">Exercises repeat every week</span>
-        </div>
-      </div>
-
-      {/* Assigned Exercises */}
-      {assignmentsLoading ? (
-        <div className="text-center py-12 text-gray-500">Loading exercises...</div>
-      ) : assignments.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          No exercises assigned for {weekDays[weekDay]}
-        </div>
-      ) : (
-        <>
-          {/* Select All Checkbox */}
-          {isSelectionMode && assignments.length > 0 && (
-            <div className="flex items-center gap-3 p-4 bg-purple-50 border border-purple-200 rounded-lg mb-4">
-              <input
-                type="checkbox"
-                checked={selectedExercises.length === assignments.length}
-                onChange={handleSelectAll}
-                className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
-              />
-              <label className="text-sm font-medium text-gray-700 cursor-pointer" onClick={handleSelectAll}>
-                Select All ({assignments.length} exercises)
-              </label>
-              {selectedExercises.length > 0 && (
-                <span className="ml-auto text-sm text-purple-600 font-semibold">
-                  {selectedExercises.length} selected
-                </span>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {assignments.map((assignment) => {
-              const exercise = assignment.exerciseId
-              if (!exercise) return null
-
-              // Get image from public/exercises folder first, then fallback to database imageUrl
-              let exerciseImageUrl = getExerciseImageUrl(exercise.name)
-
-              // If no match found in local folder, try database imageUrl (but skip Unsplash URLs)
-              if (!exerciseImageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-                exerciseImageUrl = exercise.imageUrl?.startsWith('http')
-                  ? exercise.imageUrl
-                  : `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`
-              }
-
-              return (
-                <div key={assignment._id} className={`bg-white border-2 rounded-xl p-4 shadow-sm hover:shadow-md transition-all ${isSelectionMode && selectedExercises.includes(assignment._id)
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-gray-200'
-                  }`}>
-                  <div className="flex gap-4">
-                    {/* Checkbox on the left when in selection mode */}
-                    {isSelectionMode && (
-                      <div className="flex-shrink-0 flex items-start pt-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedExercises.includes(assignment._id)}
-                          onChange={() => handleSelectExercise(assignment._id)}
-                          className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
-                        />
-                      </div>
-                    )}
-
-                    {/* Image on Left */}
-                    {/* Video/Image on Left */}
-                    <div className="flex-shrink-0 w-56 aspect-video rounded-lg overflow-hidden border border-gray-200 bg-black relative group">
-                      {(() => {
-                        // Resolve video URL inside rendering scope to avoid closure issues
-                        const staticExercise = staticExercises.find(e =>
-                          e.name.toLowerCase() === exercise.name.toLowerCase() ||
-                          e.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === exercise.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-                        )
-                        const currentVideoUrl = exercise.videoUrl || staticExercise?.videoUrl
-
-                        // Extract video ID immediately
-                        let videoId = null
-                        if (currentVideoUrl) {
-                          try {
-                            if (currentVideoUrl.includes('shorts/')) {
-                              videoId = currentVideoUrl.split('shorts/')[1].split('?')[0]
-                            } else if (currentVideoUrl.includes('youtu.be/')) {
-                              videoId = currentVideoUrl.split('youtu.be/')[1].split('?')[0]
-                            } else if (currentVideoUrl.includes('v=')) {
-                              videoId = currentVideoUrl.split('v=')[1].split('&')[0]
-                            }
-                          } catch (e) {
-                            console.error('Error extracting video ID for', exercise.name, e)
-                          }
-                        }
-
-                        const thumbnailUrl = videoId
-                          ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                          : null
-
-                        return (
-                          <>
-                            <img
-                              src={thumbnailUrl || exerciseImageUrl || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80'}
-                              alt={exercise.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                // Fallback to static image if thumbnail fails
-                                if (thumbnailUrl && exerciseImageUrl && e.target.src !== exerciseImageUrl) {
-                                  e.target.src = exerciseImageUrl
-                                } else {
-                                  e.target.style.display = 'none'
-                                  e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-gray-400"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
-                                }
-                              }}
-                            />
-                            {currentVideoUrl && (
-                              <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded flex items-center gap-1">
-                                <Play className="w-3 h-3" />
-                                Video
-                              </div>
-                            )}
-                          </>
-                        )
-                      })()}
-                    </div>
-
-                    {/* Details on Right */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">{exercise.name}</h3>
-                        </div>
-                        {/* Only show individual delete button when NOT in selection mode */}
-                        {!isSelectionMode && (
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Remove this exercise from the workout plan?')) {
-                                deleteAssignmentMutation.mutate(assignment._id)
-                              }
-                            }}
-                            className="text-red-500 hover:text-red-700 flex-shrink-0 ml-2 p-1 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        {exercise.category === 'cardio' ? (
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-700">Duration:</span>
-                              <span className="text-gray-900">{assignment.duration ? `${assignment.duration} min` : (exercise.duration ? `${exercise.duration} min` : 'N/A')}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-700">Distance:</span>
-                              <span className="text-gray-900">{assignment.distance ? `${assignment.distance} km` : (exercise.distance ? `${exercise.distance} km` : 'N/A')}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-700">Sets:</span>
-                              <span className="text-gray-900">{assignment.sets || exercise.sets || 'N/A'}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-700">Reps:</span>
-                              <span className="text-gray-900">{assignment.reps || exercise.reps || 'N/A'}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-700">Weight:</span>
-                              <span className="text-orange-600 font-medium">
-                                {assignment.weight || exercise.weight || 'N/A'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-700">Rest:</span>
-                              <span className="text-gray-900">{assignment.restTime || exercise.restTime || 'N/A'}</span>
-                            </div>
-                          </div>
-                        )}
-                        {assignment.variationId && exercise.variations && (
-                          <div className="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-md inline-block">
-                            Variation: {exercise.variations.find(v => v._id === assignment.variationId)?.name || 'Custom'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Template Selection Modal */}
-      {showTemplateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowTemplateModal(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
-            onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <h3 className="text-xl font-bold text-gray-900">Select Workout Template</h3>
-              <button onClick={() => setShowTemplateModal(false)} className="text-gray-400 hover:text-gray-600">
-                <XIcon className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6">
-              {templatesData?.templates?.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">No templates found. Create one in the Templates section.</p>
-              ) : (
-                <div className="space-y-3">
-                  {templatesData?.templates?.map(template => (
-                    <button
-                      key={template._id}
-                      onClick={() => assignTemplateMutation.mutate(template._id)}
-                      disabled={assignTemplateMutation.isLoading}
-                      className="w-full text-left p-4 rounded-xl border border-gray-200 hover:border-indigo-500 hover:shadow-md transition-all group relative overflow-hidden"
-                    >
-                      <div className="relative z-10 flex justify-between items-center">
-                        <div>
-                          <h4 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                            {template.name}
-                          </h4>
-                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">{template.description}</p>
-                          <div className="flex gap-2 mt-2">
-                            <span className="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600">
-                              {template.category}
-                            </span>
-                            <span className="text-xs px-2 py-1 bg-gray-100 rounded-md text-gray-600">
-                              {template.exercises?.length || 0} exercises
-                            </span>
-                          </div>
-                        </div>
-                        {assignTemplateMutation.isLoading ? (
-                          <Loader className="w-5 h-5 text-indigo-500 animate-spin" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Plus className="w-5 h-5" />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* QR Code Modal */}
-      {showQRModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            margin: 0,
-            padding: 0,
-            width: '100vw',
-            height: '100vh'
-          }}
-        >
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Member Login QR Code</h3>
-              <button
-                onClick={() => setShowQRModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XIcon className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 text-center">
-                Scan this QR code with your phone to automatically log in and view your workout plan
-              </p>
-
-              {qrCodeUrl ? (
-                <div className="flex justify-center p-4 bg-gray-50 rounded-lg">
-                  <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
-                    <QRCodeSVG
-                      value={qrCodeUrl}
-                      size={256}
-                      level="H"
-                      includeMargin={true}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex justify-center p-8">
-                  <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs text-blue-800 font-semibold mb-1">Member Email:</p>
-                <p className="text-sm text-blue-900">{member?.email || 'N/A'}</p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(qrCodeUrl)
-                    toast.success('Login link copied to clipboard!')
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium"
-                >
-                  Copy Link
-                </button>
-                <button
-                  onClick={() => setShowQRModal(false)}
-                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Assign Exercise Modal */}
-      {showAssignModal && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            margin: 0,
-            padding: 0,
-            width: '100vw',
-            height: '100vh'
-          }}
-        >
-          <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">
-                {selectedExercise ? `Assign: ${selectedExercise.name}` : 'Select Exercise'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowAssignModal(false)
-                  setSelectedExercise(null)
-                  setSelectedVariation(null)
-                  setSelectedAssignmentDay(null)
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {!selectedExercise ? (
-              <div className="p-6">
-                <div className="mb-6">
-                  <p className="text-sm font-semibold text-gray-700 mb-3">Choose the day for this workout *</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                    {weekDays.map((day, index) => {
-                      const isSelected = selectedAssignmentDay === index
-                      return (
-                        <button
-                          key={day}
-                          type="button"
-                          onClick={() => setSelectedAssignmentDay(index)}
-                          className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${isSelected
-                            ? 'bg-orange-500 text-white border-orange-500 shadow-md'
-                            : 'border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'
-                            }`}
-                        >
-                          <span className="block">{day}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {typeof selectedAssignmentDay !== 'number' && (
-                    <p className="mt-2 text-xs text-red-500">Select a day to see available exercises.</p>
-                  )}
-                </div>
-
-                {/* Search/Filter */}
-                <div className="mb-4">
-                  <input
-                    type="text"
-                    placeholder="Search exercises..."
-                    onChange={(e) => {
-                      const rawValue = e.target.value
-                      const searchTerm = rawValue.toLowerCase().replace(/[^a-z0-9]/g, '')
-                      setIsSearching(true)
-
-                      // Clear previous timeout
-                      if (searchTimeoutRef.current) {
-                        clearTimeout(searchTimeoutRef.current)
-                      }
-
-                      // Debounce search
-                      searchTimeoutRef.current = setTimeout(() => {
-                        let baseExercises = exercisesData?.exercises || []
-
-                        // First filter by active tab
-                        if (activeExerciseTab !== 'all') {
-                          baseExercises = filterExercisesByTab(baseExercises, activeExerciseTab, true)
-                        }
-
-                        // Then filter by search term
-                        if (searchTerm) {
-                          setExercises(baseExercises.filter(ex => {
-                            const normalizedName = ex.name.toLowerCase().replace(/[^a-z0-9]/g, '')
-                            const normalizedCategory = ex.category?.toLowerCase() || ''
-
-                            return (
-                              normalizedName.includes(searchTerm) ||
-                              normalizedCategory.includes(searchTerm) ||
-                              ex.muscleGroups?.some(mg => mg.toLowerCase().includes(searchTerm))
-                            )
-                          }))
-                        } else {
-                          setExercises(baseExercises)
-                        }
-                        setIsSearching(false)
-                      }, 500)
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  />
-                </div>
-
-                {/* Exercise Tabs */}
-                <div className="mb-4 border-b border-gray-200">
-                  <div className="flex space-x-1 overflow-x-auto">
-                    {['all', 'cardio', 'chest', 'back', 'shoulder', 'lower body', 'biceps', 'triceps', 'abs', 'warm up', 'cool down'].map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => {
-                          setActiveExerciseTab(tab)
-                          filterExercisesByTab(exercisesData?.exercises || [], tab)
-                        }}
-                        className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors capitalize ${activeExerciseTab === tab
-                          ? 'border-orange-500 text-orange-600'
-                          : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                          }`}
-                      >
-                        {tab === 'lower body' ? 'Lower Body' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-2 min-h-[500px] relative">
-                  {typeof selectedAssignmentDay !== 'number' ? (
-                    <div className="col-span-full flex flex-col items-center justify-center min-h-[500px] text-gray-500">
-                      <p>Pick a week day to start assigning exercises.</p>
-                    </div>
-                  ) : exercisesLoading || isSearching ? (
-                    <div className="col-span-full flex flex-col items-center justify-center min-h-[500px] text-gray-500">
-                      <Loader className="w-10 h-10 text-orange-500 animate-spin mb-4" />
-                      <p>{isSearching ? 'Searching...' : 'Loading exercises...'}</p>
-                    </div>
-                  ) : exercises.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center min-h-[500px] text-gray-500">
-                      <p className="mb-2">No exercises available</p>
-                      <p className="text-xs text-gray-400">Try a different search term or category</p>
-                    </div>
-                  ) : (
-                    exercises.map((exercise) => {
-                      const hasVideo = !!exercise.videoUrl
-                      const uniqueId = exercise._id || exercise.name
-                      const isPlaying = playingVideo === uniqueId
-
-                      // Get video ID for thumbnail
-                      let videoId = null
-                      if (hasVideo) {
-                        try {
-                          if (exercise.videoUrl.includes('shorts/')) videoId = exercise.videoUrl.split('shorts/')[1].split('?')[0]
-                          else if (exercise.videoUrl.includes('youtu.be/')) videoId = exercise.videoUrl.split('youtu.be/')[1].split('?')[0]
-                          else if (exercise.videoUrl.includes('v=')) videoId = exercise.videoUrl.split('v=')[1].split('&')[0]
-                        } catch (e) { console.error(e) }
-                      }
-
-                      const thumbnailUrl = videoId
-                        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                        : null
-
-                      // Fallback image logic
-                      let imageUrl = getExerciseImageUrl(exercise.name)
-                      if (!imageUrl && exercise.imageUrl && !exercise.imageUrl.includes('unsplash.com')) {
-                        if (exercise.imageUrl.startsWith('http')) imageUrl = exercise.imageUrl
-                        else imageUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}${exercise.imageUrl}`
-                      }
-                      if (!imageUrl) imageUrl = 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80'
-
-                      return (
-                        <div
-                          key={uniqueId}
-                          onClick={() => handleAssign(exercise)}
-                          className="group relative bg-white border-2 border-gray-200 rounded-xl overflow-hidden hover:border-orange-500 hover:shadow-lg transition-all duration-300 flex flex-col cursor-pointer"
-                        >
-                          {/* Video/Image Area - Aspect Ratio 16:9 */}
-                          <div className="relative w-full aspect-video bg-black">
-                            {hasVideo && isPlaying ? (
-                              <iframe
-                                width="100%"
-                                height="100%"
-                                src={`${getEmbedUrl(exercise.videoUrl)}?autoplay=1&mute=1&rel=0&modestbranding=1`}
-                                title={exercise.name}
-                                frameBorder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                                className="w-full h-full"
-                              />
-                            ) : hasVideo ? (
-                              <div
-                                className="relative w-full h-full"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setPlayingVideo(uniqueId)
-                                }}
-                              >
-                                <img
-                                  src={thumbnailUrl || imageUrl}
-                                  alt={exercise.name}
-                                  className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
-                                  <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
-                                    <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
-                                  </div>
-                                </div>
-                                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 text-white text-xs font-medium rounded">
-                                  Video
-                                </div>
-                              </div>
-                            ) : (
-                              <img
-                                src={imageUrl}
-                                alt={exercise.name}
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                          </div>
-                          <div
-                            className="absolute inset-0 flex items-center justify-center bg-gray-100 -z-10"
-                            style={{ display: 'none' }}
-                          >
-                            <Dumbbell className="w-12 h-12 text-gray-400" />
-                          </div>
-
-                          <div className="p-4 bg-white flex items-center justify-between">
-                            <h4 className="font-bold text-gray-900 text-lg leading-tight line-clamp-1 group-hover:text-orange-600 transition-colors">
-                              {exercise.name}
-                            </h4>
-                            <span className="text-xs font-medium px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full capitalize">
-                              {exercise.muscleGroups?.[0] || 'General'}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmitAssignment} className="p-6 space-y-4">
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-orange-600 font-semibold">Assigning for</p>
-                    <p className="text-lg font-bold text-orange-900">
-                      {weekDays[selectedAssignmentDay] || 'Select day'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedExercise(null)
-                      setSelectedVariation(null)
-                    }}
-                    className="text-sm font-semibold text-orange-600 hover:text-orange-700"
-                  >
-                    Change exercise
-                  </button>
-                </div>
-
-                {/* Show different fields based on exercise category */}
-                {selectedExercise.category === 'cardio' ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Duration (minutes) *</label>
-                      <input
-                        type="number"
-                        name="duration"
-                        placeholder={selectedExercise.duration ? `${selectedExercise.duration} min` : 'e.g., 20'}
-                        min="1"
-                        step="1"
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Distance (km) *</label>
-                      <input
-                        type="number"
-                        name="distance"
-                        placeholder={selectedExercise.distance ? `${selectedExercise.distance} km` : 'e.g., 3.5'}
-                        min="0"
-                        step="0.1"
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Sets</label>
-                        <input
-                          type="number"
-                          name="sets"
-                          placeholder={selectedExercise.sets || 'Default'}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Reps</label>
-                        <input
-                          type="text"
-                          name="reps"
-                          placeholder={selectedExercise.reps || 'Default'}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Weight</label>
-                        <input
-                          type="text"
-                          name="weight"
-                          placeholder={selectedExercise.weight || 'e.g., 20 kg or 45 lbs'}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Rest Time</label>
-                      <input
-                        type="text"
-                        name="restTime"
-                        placeholder={selectedExercise.restTime || 'Default'}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedExercise(null)
-                    }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={assignExerciseMutation.isLoading}
-                    className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
-                  >
-                    {assignExerciseMutation.isLoading ? 'Assigning...' : 'Assign Exercise'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 function TermsConditionsTab({ member }) {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
@@ -4816,3 +3641,4 @@ function TermsConditionsTab({ member }) {
     </div>
   )
 }
+
