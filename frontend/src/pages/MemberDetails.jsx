@@ -1455,9 +1455,45 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
 
   const displayedServices = activeServiceStatus === 'active' ? activeServices : expiredServices
 
-  // Calculate actual membership status based on active services
-  // If member has active services, status should be "Active", otherwise use member's stored status
-  const actualMembershipStatus = activeServices.length > 0 ? 'active' : (member?.membershipStatus || 'pending')
+  // Calculate effective membership status from plan validity + paid/partial invoice validity.
+  // This avoids showing "active" when no active membership/invoice exists.
+  const now = new Date()
+  const hasActiveCurrentPlan = Boolean(member?.currentPlan?.endDate && (() => {
+    const planEnd = new Date(member.currentPlan.endDate)
+    planEnd.setHours(23, 59, 59, 999)
+    return planEnd >= now
+  })())
+
+  const hasActiveServiceInvoice = invoices.some((inv) =>
+    (inv.status === 'paid' || inv.status === 'partial') &&
+    (inv.items || []).some((item) => {
+      if (!item?.expiryDate) return false
+      const expiry = new Date(item.expiryDate)
+      expiry.setHours(23, 59, 59, 999)
+      return expiry >= now
+    })
+  )
+
+  const hasAnyExpiredServiceInvoice = invoices.some((inv) =>
+    (inv.status === 'paid' || inv.status === 'partial' || inv.status === 'sent' || inv.status === 'overdue') &&
+    (inv.items || []).some((item) => {
+      if (!item?.expiryDate) return false
+      const expiry = new Date(item.expiryDate)
+      expiry.setHours(23, 59, 59, 999)
+      return expiry < now
+    })
+  )
+
+  let actualMembershipStatus = member?.membershipStatus || 'pending'
+  if (member?.membershipStatus !== 'frozen' && member?.membershipStatus !== 'cancelled') {
+    if (hasActiveCurrentPlan || hasActiveServiceInvoice) {
+      actualMembershipStatus = 'active'
+    } else if (member?.currentPlan?.endDate || hasAnyExpiredServiceInvoice || member?.membershipStatus === 'active') {
+      actualMembershipStatus = 'expired'
+    } else {
+      actualMembershipStatus = 'pending'
+    }
+  }
 
   if (isLoading) {
     return (
@@ -1497,9 +1533,13 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
             {/* Current Membership Status */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
               <p className="text-xs font-medium text-green-700 mb-2">Current Membership Status</p>
-              <p className={`text-xl font-bold ${actualMembershipStatus === 'active' ? 'text-green-700' :
-                actualMembershipStatus === 'pending' ? 'text-red-600' :
-                  'text-gray-900'
+              <p className={`text-xl font-bold ${actualMembershipStatus === 'active'
+                ? 'text-green-700'
+                : actualMembershipStatus === 'expired'
+                  ? 'text-red-600'
+                  : actualMembershipStatus === 'pending'
+                    ? 'text-amber-600'
+                    : 'text-gray-900'
                 }`}>
                 {actualMembershipStatus ? actualMembershipStatus.charAt(0).toUpperCase() + actualMembershipStatus.slice(1) : 'Pending'}
               </p>

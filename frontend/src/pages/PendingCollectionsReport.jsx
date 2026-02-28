@@ -463,9 +463,8 @@ export default function PendingCollectionsReport() {
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Service</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Start Date</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">End Date</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">PT Name</th>
+                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Pending Amount</th>
                     <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Sales Rep</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">General Trainer</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -497,10 +496,20 @@ export default function PendingCollectionsReport() {
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <button
                             onClick={() => navigate(`/members/${invoice.memberId?._id}`)}
-                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-semibold"
+                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline font-semibold"
                           >
-                            <User className="w-3 h-3" />
-                            {invoice.memberId ? `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim() : '-'}
+                            {invoice.memberId?.profilePicture ? (
+                              <img
+                                src={invoice.memberId.profilePicture}
+                                alt={`${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim() || 'Member'}
+                                className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                              />
+                            ) : (
+                              <span className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border border-gray-200">
+                                <User className="w-3 h-3 text-gray-500" />
+                              </span>
+                            )}
+                            <span>{invoice.memberId ? `${invoice.memberId.firstName || ''} ${invoice.memberId.lastName || ''}`.trim() : '-'}</span>
                           </button>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-mono">
@@ -540,13 +549,10 @@ export default function PendingCollectionsReport() {
                           {item.expiryDate ? formatDate(item.expiryDate) : '-'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                          -
+                          ₹{formatCurrency(invoice.pendingAmount || invoice.pending || 0)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-medium">
                           {invoice.createdBy ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim() || '-' : '-'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                          -
                         </td>
                       </tr>
                     ))

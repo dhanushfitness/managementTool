@@ -1845,7 +1845,9 @@ export const getServiceExpiryReport = async (req, res) => {
 
       if (diffDays >= 27 && diffDays <= 35) return '1-month';
       if (diffDays >= 56 && diffDays <= 66) return '2-month';
+      if (diffDays >= 84 && diffDays <= 97) return '3-month';
       if (diffDays >= 170 && diffDays <= 190) return '6-month';
+      if (diffDays >= 350 && diffDays <= 380) return '1-year';
       return 'others';
     };
 
@@ -2195,6 +2197,7 @@ export const getServiceExpiryReport = async (req, res) => {
         _id: `invoice-${invoice._id}-item-${item._id || Math.random()}`,
         memberId,
         memberName,
+        profilePicture: member.profilePicture || '',
         mobile,
         email,
         status,
@@ -2203,6 +2206,7 @@ export const getServiceExpiryReport = async (req, res) => {
         serviceName: serviceName.split(' - ')[0] || serviceName,
         serviceVariationName,
         amount: amount.toFixed(2),
+        pendingAmount: Number(invoice.pending || 0),
         serviceDuration,
         expiryDate: expiryDateStr,
         lastInvoiceDate,
@@ -2282,7 +2286,9 @@ export const exportServiceExpiryReport = async (req, res) => {
 
       if (diffDays >= 27 && diffDays <= 35) return '1-month';
       if (diffDays >= 56 && diffDays <= 66) return '2-month';
+      if (diffDays >= 84 && diffDays <= 97) return '3-month';
       if (diffDays >= 170 && diffDays <= 190) return '6-month';
+      if (diffDays >= 350 && diffDays <= 380) return '1-year';
       return 'others';
     };
 

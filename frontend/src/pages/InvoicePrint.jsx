@@ -114,18 +114,6 @@ export default function InvoicePrint() {
     })
   }
 
-  const formatDateTime = (date) => {
-    if (!date) return '-'
-    return new Date(date).toLocaleString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    })
-  }
-
   const formatCurrency = (amount) => {
     if (!amount && amount !== 0) return '₹0.00'
     return new Intl.NumberFormat('en-IN', {
@@ -360,12 +348,6 @@ export default function InvoicePrint() {
                   <span className="text-gray-600 font-medium">Invoice Type:</span>
                   <span className="ml-2 font-semibold text-gray-900 capitalize">
                     {invoice.type === 'pro-forma' ? 'Tax Invoice' : (invoice.type?.replace('-', ' ') || 'New Booking')}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600 font-medium">Date, Time:</span>
-                  <span className="ml-2 font-semibold text-gray-900">
-                    {formatDateTime(invoice.dateOfInvoice || invoice.createdAt)}
                   </span>
                 </div>
                 <div>

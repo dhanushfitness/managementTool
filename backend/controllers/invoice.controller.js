@@ -774,7 +774,7 @@ export const createInvoice = async (req, res) => {
 
           // Send email with PDF attachment
           const { sendInvoiceEmail } = await import('../utils/email.js');
-          const emailResults = await sendInvoiceEmail(populatedInvoice, member, organization, pdfBuffer);
+          // const emailResults = await sendInvoiceEmail(populatedInvoice, member, organization, pdfBuffer);
 
           if (emailResults.memberEmail.success) {
             console.log('Invoice email sent to member:', member.email);
@@ -959,7 +959,7 @@ export const getInvoices = async (req, res) => {
 
     // Get invoices with populated data
     let invoicesQuery = Invoice.find(query)
-      .populate('memberId', 'firstName lastName phone memberId')
+      .populate('memberId', 'firstName lastName phone memberId profilePicture')
       .populate('planId', 'name')
       .populate('branchId', 'name')
       .populate('createdBy', 'firstName lastName')
@@ -1504,12 +1504,12 @@ export const sendInvoiceViaEmail = async (req, res) => {
 
     // Send email with PDF attachment
     const { sendInvoiceEmail } = await import('../utils/email.js');
-    const emailResults = await sendInvoiceEmail(
-      invoice,
-      invoice.memberId,
-      invoice.organizationId,
-      pdfBuffer
-    );
+    // const emailResults = await sendInvoiceEmail(
+    //   invoice,
+    //   invoice.memberId,
+    //   invoice.organizationId,
+    //   pdfBuffer
+    // );
 
     if (emailResults.memberEmail.success) {
       res.json({
@@ -1621,7 +1621,7 @@ export const getPaidInvoices = async (req, res) => {
 
     // Get invoices with populated data
     let invoicesQuery = Invoice.find(query)
-      .populate('memberId', 'firstName lastName phone memberId')
+      .populate('memberId', 'firstName lastName phone memberId profilePicture')
       .populate('planId', 'name')
       .populate('branchId', 'name')
       .populate('createdBy', 'firstName lastName')
@@ -1963,7 +1963,7 @@ export const getPendingCollections = async (req, res) => {
 
     // Get invoices with populated data (using lean for better performance)
     let invoicesQuery = Invoice.find(query)
-      .populate('memberId', 'firstName lastName phone memberId')
+      .populate('memberId', 'firstName lastName phone memberId profilePicture')
       .populate('planId', 'name')
       .populate('branchId', 'name')
       .populate('createdBy', 'firstName lastName')

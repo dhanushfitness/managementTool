@@ -341,8 +341,10 @@ export default function ServiceExpiry() {
               >
                 <option value="all">All Durations</option>
                 <option value="1-month">1 Month</option>
-                <option value="2-month">2 Month</option>
-                <option value="6-month">6 Month</option>
+                <option value="2-month">2 Months</option>
+                <option value="3-month">3 Months</option>
+                <option value="6-month">6 Months</option>
+                <option value="1-year">1 Year</option>
                 <option value="others">Others</option>
               </select>
             </div>
@@ -422,11 +424,10 @@ export default function ServiceExpiry() {
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Mobile</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Email</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Status</th>
-                  <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Sales Rep</th>
-                  <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">General Trainer</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Service Name</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Service Variation</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Amount</th>
+                  <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Pending Amount</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Duration</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Expiry Date</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Last Invoice</th>
@@ -440,7 +441,7 @@ export default function ServiceExpiry() {
               <tbody className="bg-white divide-y divide-gray-100">
                 {records.length === 0 ? (
                   <tr>
-                    <td colSpan="20" className="py-16 text-center">
+                    <td colSpan="19" className="py-16 text-center">
                       <div className="flex flex-col items-center gap-4">
                         <div className="p-4 bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl shadow-lg">
                           <AlertTriangle className="h-10 w-10 text-white" />
@@ -472,10 +473,20 @@ export default function ServiceExpiry() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         <button
                           onClick={() => window.open(`/clients/${record.memberMongoId}`, '_blank', 'noopener,noreferrer')}
-                          className="inline-flex items-center gap-1.5 text-sm font-bold text-orange-600 hover:text-orange-800 hover:underline"
+                          className="inline-flex items-center gap-2 text-sm font-bold text-orange-600 hover:text-orange-800 hover:underline"
                         >
-                          <User className="w-3 h-3" />
-                          {record.memberName}
+                          {record.profilePicture ? (
+                            <img
+                              src={record.profilePicture}
+                              alt={record.memberName || 'Member'}
+                              className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <span className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border border-gray-200">
+                              <User className="w-3 h-3 text-gray-500" />
+                            </span>
+                          )}
+                          <span>{record.memberName}</span>
                         </button>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -499,11 +510,10 @@ export default function ServiceExpiry() {
                           {record.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 font-medium whitespace-nowrap">{record.salesRep}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 font-medium whitespace-nowrap">{record.generalTrainer}</td>
                       <td className="px-4 py-3 text-sm text-gray-900 font-semibold whitespace-nowrap">{record.serviceName}</td>
                       <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{record.serviceVariationName}</td>
                       <td className="px-4 py-3 text-sm text-gray-900 font-bold whitespace-nowrap">₹{record.amount}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 font-bold whitespace-nowrap">₹{formatCurrency(record.pendingAmount)}</td>
                       <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{record.serviceDuration}</td>
                       <td className="px-4 py-3 text-sm font-bold text-red-600 whitespace-nowrap">{record.expiryDate}</td>
                       <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{record.lastInvoiceDate}</td>
