@@ -33,13 +33,15 @@ export default function NewClientsReport() {
     return new Date().toISOString().split('T')[0]
   }
 
-  const [filters, setFilters] = useState({
+  const defaultFilters = {
     fromDate: getDefaultFromDate(),
     toDate: getDefaultToDate(),
     serviceId: 'all',
     serviceVariationId: 'all',
     gender: 'all'
-  })
+  }
+  const [filters, setFilters] = useState(defaultFilters)
+  const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
   const [page, setPage] = useState(1)
   const [hasSearched, setHasSearched] = useState(true)
 
@@ -49,13 +51,13 @@ export default function NewClientsReport() {
   })
 
   const { data: reportData, isLoading } = useQuery({
-    queryKey: ['new-clients-report', filters, page],
+    queryKey: ['new-clients-report', appliedFilters, page],
     queryFn: () => getNewClientsReport({
-      fromDate: filters.fromDate,
-      toDate: filters.toDate,
-      serviceId: filters.serviceId !== 'all' ? filters.serviceId : undefined,
-      serviceVariationId: filters.serviceVariationId !== 'all' ? filters.serviceVariationId : undefined,
-      gender: filters.gender !== 'all' ? filters.gender : undefined,
+      fromDate: appliedFilters.fromDate,
+      toDate: appliedFilters.toDate,
+      serviceId: appliedFilters.serviceId !== 'all' ? appliedFilters.serviceId : undefined,
+      serviceVariationId: appliedFilters.serviceVariationId !== 'all' ? appliedFilters.serviceVariationId : undefined,
+      gender: appliedFilters.gender !== 'all' ? appliedFilters.gender : undefined,
       page,
       limit: 20
     }),
@@ -69,10 +71,10 @@ export default function NewClientsReport() {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))
-    setPage(1)
   }
 
   const handleSearch = () => {
+    setAppliedFilters(filters)
     setPage(1)
     setHasSearched(true)
   }
@@ -80,11 +82,11 @@ export default function NewClientsReport() {
   const handleExportExcel = async () => {
     try {
       const response = await exportNewClientsReport({
-        fromDate: filters.fromDate,
-        toDate: filters.toDate,
-        serviceId: filters.serviceId !== 'all' ? filters.serviceId : undefined,
-        serviceVariationId: filters.serviceVariationId !== 'all' ? filters.serviceVariationId : undefined,
-        gender: filters.gender !== 'all' ? filters.gender : undefined
+        fromDate: appliedFilters.fromDate,
+        toDate: appliedFilters.toDate,
+        serviceId: appliedFilters.serviceId !== 'all' ? appliedFilters.serviceId : undefined,
+        serviceVariationId: appliedFilters.serviceVariationId !== 'all' ? appliedFilters.serviceVariationId : undefined,
+        gender: appliedFilters.gender !== 'all' ? appliedFilters.gender : undefined
       })
       const blob = new Blob([response.data], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
@@ -160,17 +162,17 @@ export default function NewClientsReport() {
             <div className="text-center">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Date Range</p>
               <p className="text-sm font-semibold text-gray-900">
-                {formatDate(filters.fromDate)} - {formatDate(filters.toDate)}
+                {formatDate(appliedFilters.fromDate)} - {formatDate(appliedFilters.toDate)}
               </p>
             </div>
             <div className="h-16 w-px bg-gray-300"></div>
             <div className="text-center">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Filters Applied</p>
               <p className="text-sm font-semibold text-gray-900">
-                {filters.serviceId !== 'all' ? 'Specific Service' : 'All Services'}
+                {appliedFilters.serviceId !== 'all' ? 'Specific Service' : 'All Services'}
               </p>
               <p className="text-xs text-gray-600">
-                {filters.gender !== 'all' ? filters.gender.charAt(0).toUpperCase() + filters.gender.slice(1) : 'All Genders'}
+                {appliedFilters.gender !== 'all' ? appliedFilters.gender.charAt(0).toUpperCase() + appliedFilters.gender.slice(1) : 'All Genders'}
               </p>
             </div>
           </div>

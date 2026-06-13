@@ -105,8 +105,9 @@ export default function ServiceSalesReport() {
   const location = useLocation()
   const navigate = useNavigate()
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS)
   const [page, setPage] = useState(1)
-  const [hasSearched, setHasSearched] = useState(true) // Start as true to auto-load data
+  const [hasSearched, setHasSearched] = useState(true)
   const [initialParamsApplied, setInitialParamsApplied] = useState(false)
 
   // Apply date filter from URL params on mount
@@ -120,17 +121,16 @@ export default function ServiceSalesReport() {
     
     if (dateFilter) {
       const converted = convertDashboardDateFilter(dateFilter, fromDate, toDate)
-      setFilters(prev => ({
-        ...prev,
+      const update = {
         dateRange: converted.dateRange,
         ...(converted.startDate && converted.endDate ? {
           startDate: converted.startDate,
           endDate: converted.endDate
         } : {})
-      }))
+      }
+      setFilters(prev => ({ ...prev, ...update }))
+      setAppliedFilters(prev => ({ ...prev, ...update }))
     }
-    // Always enable search immediately, even if no dateFilter in URL (use default filters)
-    // This ensures data loads when navigating from dashboard
     setHasSearched(true)
     setInitialParamsApplied(true)
   }, [location.search, initialParamsApplied])
@@ -143,9 +143,9 @@ export default function ServiceSalesReport() {
   const plans = plansData?.plans || []
 
   const { data: reportData, isLoading } = useQuery({
-    queryKey: ['service-sales-report', filters, page],
+    queryKey: ['service-sales-report', appliedFilters, page],
     queryFn: () => getServiceSalesReport({
-      ...filters,
+      ...appliedFilters,
       page,
       limit: 20
     }).then(res => {
@@ -166,24 +166,25 @@ export default function ServiceSalesReport() {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))
-    setPage(1)
   }
 
   const handleSearch = (event) => {
-     if (event) event.preventDefault()
+    if (event) event.preventDefault()
+    setAppliedFilters(filters)
     setPage(1)
     setHasSearched(true)
   }
 
   const handleReset = () => {
     setFilters(DEFAULT_FILTERS)
+    setAppliedFilters(DEFAULT_FILTERS)
     setPage(1)
     setHasSearched(true)
   }
 
   const handleExportExcel = async () => {
     try {
-      const response = await exportServiceSalesReport(filters)
+      const response = await exportServiceSalesReport(appliedFilters)
       const blob = new Blob([response.data], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -218,18 +219,17 @@ export default function ServiceSalesReport() {
   }
 
   const { startDate, endDate } = useMemo(() => {
-    // If custom range with explicit dates, use them
-    if (filters.dateRange === 'custom' && filters.startDate && filters.endDate) {
+    if (appliedFilters.dateRange === 'custom' && appliedFilters.startDate && appliedFilters.endDate) {
       return {
-        startDate: new Date(filters.startDate),
-        endDate: new Date(filters.endDate)
+        startDate: new Date(appliedFilters.startDate),
+        endDate: new Date(appliedFilters.endDate)
       }
     }
 
     const end = new Date()
     const start = new Date()
 
-    switch (filters.dateRange) {
+    switch (appliedFilters.dateRange) {
       case 'last-7-days':
         start.setDate(start.getDate() - 6)
         break
@@ -253,7 +253,7 @@ export default function ServiceSalesReport() {
     }
 
     return { startDate: start, endDate: end }
-  }, [filters.dateRange, filters.startDate, filters.endDate])
+  }, [appliedFilters.dateRange, appliedFilters.startDate, appliedFilters.endDate])
 
   const summaryCards = useMemo(() => {
     const grossSales = totals.listPrice || 0
@@ -567,10 +567,10 @@ export default function ServiceSalesReport() {
                             onClick={() => navigate(`/clients/${booking.member._id}`)}
                             className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline text-left"
                           >
-                            {[booking.member?.firstName, booking.member?.lastName].filter(Boolean).join(' ') || '—'}
+                            {[booking.member?.firstName, booking.member?.lastName].filter(Boolean).join(' ') || 'ï¿½'}
                           </button>
                         ) : (
-                          <span className="text-sm text-gray-500">—</span>
+                          <span className="text-sm text-gray-500">ï¿½</span>
                         )}
                       </td>
                       <td className="px-4 py-4">

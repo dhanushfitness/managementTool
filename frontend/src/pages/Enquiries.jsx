@@ -64,14 +64,20 @@ export default function Enquiries() {
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [isDetailsLoading, setIsDetailsLoading] = useState(false)
   const [selectedEnquiryDetails, setSelectedEnquiryDetails] = useState(null)
-  // Filter states
-  const [filters, setFilters] = useState({
+  // Filter states — staged (what user selects) vs applied (what fires the query)
+  const defaultFilters = {
     enquiryStage: '',
     leadSource: '',
     service: '',
     gender: '',
     callTag: '',
     staffId: ''
+  }
+  const [filters, setFilters] = useState(defaultFilters)
+  const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
+  const [appliedDateParams, setAppliedDateParams] = useState(() => {
+    if (dateFilter === 'custom' && fromDate && toDate) return { dateFilter, fromDate, toDate }
+    return { dateFilter }
   })
 
   const [initialQueryApplied, setInitialQueryApplied] = useState(false)
@@ -89,6 +95,10 @@ export default function Enquiries() {
         fromDate: incomingFrom || '',
         toDate: incomingTo || ''
       })
+      const newDateParams = incomingFilter === 'custom' && incomingFrom && incomingTo
+        ? { dateFilter: incomingFilter, fromDate: incomingFrom, toDate: incomingTo }
+        : { dateFilter: incomingFilter }
+      setAppliedDateParams(newDateParams)
     }
     setInitialQueryApplied(true)
   }, [location.search, initialQueryApplied, applyFilterParams])
@@ -103,13 +113,12 @@ export default function Enquiries() {
     return { dateFilter }
   }
 
-  // Build query params
+  // Build query params from APPLIED state only — changes only on Apply button click
   const queryParams = {
     page,
     limit,
-    ...buildDateParams(),
-    ...(enquirySearchQuery ? { q: enquirySearchQuery } : {}),
-    ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
+    ...(enquirySearchQuery ? { q: enquirySearchQuery } : appliedDateParams),
+    ...Object.fromEntries(Object.entries(appliedFilters).filter(([_, v]) => v))
   }
 
   // Fetch enquiries
@@ -120,8 +129,8 @@ export default function Enquiries() {
 
   // Fetch stats
   const { data: stats } = useQuery({
-    queryKey: ['enquiry-stats', dateFilter, fromDate, toDate],
-    queryFn: () => api.get('/enquiries/stats', { params: buildDateParams() }).then(res => res.data)
+    queryKey: ['enquiry-stats', appliedDateParams],
+    queryFn: () => api.get('/enquiries/stats', { params: appliedDateParams }).then(res => res.data)
   })
 
   // Fetch staff for filters
@@ -309,14 +318,8 @@ export default function Enquiries() {
   }
 
   const handleClearFilters = () => {
-    setFilters({
-      enquiryStage: '',
-      leadSource: '',
-      service: '',
-      gender: '',
-      callTag: '',
-      staffId: ''
-    })
+    setFilters(defaultFilters)
+    setAppliedFilters(defaultFilters)
     setPage(1)
   }
 
@@ -414,8 +417,8 @@ export default function Enquiries() {
                     toast.error('From date cannot be after To date')
                     return
                   }
+                  setAppliedDateParams({ dateFilter, fromDate, toDate })
                   setPage(1)
-                  refetch()
                 }}
                 className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-medium shadow-lg hover:shadow-xl"
               >
@@ -426,7 +429,10 @@ export default function Enquiries() {
 
           {dateFilter !== 'custom' && (
             <button
-              onClick={() => refetch()}
+              onClick={() => {
+                setAppliedDateParams({ dateFilter })
+                setPage(1)
+              }}
               className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-medium shadow-lg hover:shadow-xl"
             >
               Apply Filter
@@ -651,6 +657,18 @@ export default function Enquiries() {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={() => {
+                setAppliedFilters(filters)
+                setPage(1)
+              }}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl"
+            >
+              Apply Filters
+            </button>
           </div>
         </div>
       )}

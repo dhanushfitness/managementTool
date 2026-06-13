@@ -29,8 +29,8 @@ export default function AddInvoiceModal({
       description: '',
       duration: '',
       quantity: 1,
-      unitPrice: 0,
-      discount: { type: 'percentage', value: 0 },
+      unitPrice: '',
+      discount: { type: 'percentage', value: '' },
       taxRate: 0,
       taxType: 'No tax',
       startDate: '',
@@ -40,7 +40,7 @@ export default function AddInvoiceModal({
     discountReason: '',
     paymentModes: [{
       method: '',
-      amount: 0
+      amount: ''
     }]
   })
   const [memberSearch, setMemberSearch] = useState('')
@@ -328,8 +328,8 @@ export default function AddInvoiceModal({
         description: '',
         duration: '',
         quantity: 1,
-        unitPrice: 0,
-        discount: { type: 'percentage', value: 0 },
+        unitPrice: '',
+        discount: { type: 'percentage', value: '' },
         taxRate: 0,
         taxType: 'No tax',
         startDate: '',
@@ -342,7 +342,7 @@ export default function AddInvoiceModal({
       termsAndConditions: '',
       paymentModes: [{
         method: '',
-        amount: 0
+        amount: ''
       }]
     })
     setMemberSearch('')
@@ -527,8 +527,8 @@ export default function AddInvoiceModal({
         description: '',
         duration: '',
         quantity: 1,
-        unitPrice: 0,
-        discount: { type: 'percentage', value: 0 },
+        unitPrice: '',
+        discount: { type: 'percentage', value: '' },
         taxRate: 0,
         taxType: 'No tax',
         startDate: '',
@@ -550,7 +550,7 @@ export default function AddInvoiceModal({
   const addPaymentMode = () => {
     setFormData(prev => ({
       ...prev,
-      paymentModes: [...prev.paymentModes, { method: '', amount: 0 }]
+      paymentModes: [...prev.paymentModes, { method: '', amount: '' }]
     }))
   }
 
@@ -579,7 +579,7 @@ export default function AddInvoiceModal({
       handleItemChange(index, 'selectedServiceId', '')
       handleItemChange(index, 'serviceId', '')
       handleItemChange(index, 'description', '')
-      handleItemChange(index, 'unitPrice', 0)
+      handleItemChange(index, 'unitPrice', '')
       handleItemChange(index, 'taxRate', 0)
       return
     }
@@ -587,7 +587,7 @@ export default function AddInvoiceModal({
     handleItemChange(index, 'selectedServiceId', selectedServiceId)
     handleItemChange(index, 'serviceId', '')
     handleItemChange(index, 'description', '')
-    handleItemChange(index, 'unitPrice', 0)
+    handleItemChange(index, 'unitPrice', '')
     handleItemChange(index, 'taxRate', 0)
   }
 
@@ -596,7 +596,7 @@ export default function AddInvoiceModal({
     if (!selectedServiceId || !variationId) {
       handleItemChange(index, 'serviceId', '')
       handleItemChange(index, 'description', '')
-      handleItemChange(index, 'unitPrice', 0)
+      handleItemChange(index, 'unitPrice', '')
       handleItemChange(index, 'taxRate', 0)
       return
     }
@@ -1035,7 +1035,7 @@ export default function AddInvoiceModal({
                           <input
                             type="number"
                             value={item.unitPrice}
-                            onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                             placeholder="0.00"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-sm"
                           />
@@ -1047,7 +1047,7 @@ export default function AddInvoiceModal({
                             <input
                               type="number"
                               value={item.discount.value}
-                              onChange={(e) => handleItemChange(index, 'discount.value', parseFloat(e.target.value) || 0)}
+                              onChange={(e) => handleItemChange(index, 'discount.value', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                               placeholder="0"
                               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-sm"
                             />
@@ -1185,7 +1185,7 @@ export default function AddInvoiceModal({
                         <input
                           type="number"
                           value={pm.amount}
-                          onChange={(e) => handlePaymentModeChange(index, 'amount', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => handlePaymentModeChange(index, 'amount', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                           placeholder="Amount"
                           className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white text-sm"
                         />

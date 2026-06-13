@@ -22,21 +22,30 @@ import { getBranches } from '../api/organization'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 import AddInvoiceModal from '../components/AddInvoiceModal'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import dayjs from 'dayjs'
 
 export default function PendingCollectionsReport() {
   const navigate = useNavigate()
   const location = useLocation()
   const [showAddModal, setShowAddModal] = useState(false)
-  const [filters, setFilters] = useState({
+  const defaultFilters = {
     dateRange: 'last-30-days',
+    startDate: '',
+    endDate: '',
     billType: 'all',
     invoiceType: 'all',
     branchId: '',
     salesRepId: '',
     ptId: '',
     generalTrainerId: ''
-  })
+  }
+  const [filters, setFilters] = useState(defaultFilters)
+  const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
   const [search, setSearch] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [hasSearched, setHasSearched] = useState(true)
 
@@ -59,15 +68,31 @@ export default function PendingCollectionsReport() {
     queryFn: () => api.get('/staff').then(res => res.data).catch(() => ({ staff: [] }))
   })
 
-  // Fetch pending collections
-  const { data: collectionsData, isLoading, refetch } = useQuery({
-    queryKey: ['pending-collections', filters, search, page],
-    queryFn: () => getPendingCollections({
-      ...filters,
-      search: search || undefined,
+  // Fetch pending collections — built from appliedFilters, only updates when Apply/Search clicked
+  const queryParams = (() => {
+    const params = {
       page,
-      limit: 20
-    }).then(res => res.data),
+      limit: 20,
+      search: appliedSearch || undefined,
+      billType: appliedFilters.billType,
+      invoiceType: appliedFilters.invoiceType,
+      branchId: appliedFilters.branchId || undefined,
+      salesRepId: appliedFilters.salesRepId || undefined,
+      ptId: appliedFilters.ptId || undefined,
+      generalTrainerId: appliedFilters.generalTrainerId || undefined
+    }
+    if (appliedFilters.dateRange === 'custom' && appliedFilters.startDate && appliedFilters.endDate) {
+      params.startDate = appliedFilters.startDate
+      params.endDate = appliedFilters.endDate
+    } else if (appliedFilters.dateRange !== 'custom') {
+      params.dateRange = appliedFilters.dateRange
+    }
+    return params
+  })()
+
+  const { data: collectionsData, isLoading, refetch } = useQuery({
+    queryKey: ['pending-collections', queryParams],
+    queryFn: () => getPendingCollections(queryParams).then(res => res.data),
     enabled: hasSearched
   })
 
@@ -84,18 +109,18 @@ export default function PendingCollectionsReport() {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))
-    setPage(1)
   }
 
   const handleSearch = () => {
+    setAppliedFilters(filters)
+    setAppliedSearch(search)
     setHasSearched(true)
     setPage(1)
-    refetch()
   }
 
   const handleExportExcel = async () => {
     try {
-      const response = await exportPendingCollections({ ...filters, search: search || undefined })
+      const response = await exportPendingCollections({ ...appliedFilters, search: appliedSearch || undefined })
       const blob = new Blob([response.data], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -298,6 +323,7 @@ export default function PendingCollectionsReport() {
               <option value="last-90-days">Last 90 days</option>
               <option value="this-month">This Month</option>
               <option value="last-month">Last Month</option>
+              <option value="custom">Custom Range</option>
             </select>
 
             <select
@@ -382,6 +408,83 @@ export default function PendingCollectionsReport() {
               Apply Filters
             </button>
           </div>
+
+          {/* Custom Date Range Inputs */}
+          {filters.dateRange === 'custom' && (
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <div className="grid gap-3 md:grid-cols-2 pt-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">Start Date</label>
+                  <DatePicker
+                    value={filters.startDate ? dayjs(filters.startDate) : null}
+                    format="DD/MM/YYYY"
+                    onChange={(newValue) => {
+                      const dateStr = newValue ? newValue.format('YYYY-MM-DD') : ''
+                      handleFilterChange('startDate', dateStr)
+                    }}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: "small",
+                        sx: {
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                            '& fieldset': {
+                              borderWidth: '2px',
+                              borderColor: '#E5E7EB',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#F97316',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#F97316',
+                            },
+                          },
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">End Date</label>
+                  <DatePicker
+                    value={filters.endDate ? dayjs(filters.endDate) : null}
+                    format="DD/MM/YYYY"
+                    onChange={(newValue) => {
+                      const dateStr = newValue ? newValue.format('YYYY-MM-DD') : ''
+                      handleFilterChange('endDate', dateStr)
+                    }}
+                    minDate={filters.startDate ? dayjs(filters.startDate) : undefined}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: "small",
+                        sx: {
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                            '& fieldset': {
+                              borderWidth: '2px',
+                              borderColor: '#E5E7EB',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#F97316',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#F97316',
+                            },
+                          },
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </LocalizationProvider>
+          )}
         </div>
       </div>
 

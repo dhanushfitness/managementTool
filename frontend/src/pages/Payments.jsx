@@ -97,7 +97,7 @@ export default function Payments() {
   const location = useLocation()
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
-  const [filters, setFilters] = useState({
+  const defaultFilters = {
     dateRange: 'last-7-days',
     startDate: '',
     endDate: '',
@@ -105,7 +105,9 @@ export default function Payments() {
     branchId: 'all',
     salesRepId: 'all',
     search: ''
-  })
+  }
+  const [filters, setFilters] = useState(defaultFilters)
+  const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
   const [exporting, setExporting] = useState(false)
   const [sendingEmail, setSendingEmail] = useState({})
   const [initialParamsApplied, setInitialParamsApplied] = useState(false)
@@ -121,12 +123,13 @@ export default function Payments() {
     
     if (dateFilter) {
       const converted = convertDashboardDateFilterToPayments(dateFilter, fromDate, toDate)
-      setFilters(prev => ({
-        ...prev,
+      const update = {
         dateRange: converted.dateRange,
         startDate: converted.startDate || '',
         endDate: converted.endDate || ''
-      }))
+      }
+      setFilters(prev => ({ ...prev, ...update }))
+      setAppliedFilters(prev => ({ ...prev, ...update }))
     }
     
     setInitialParamsApplied(true)
@@ -138,21 +141,20 @@ export default function Payments() {
       limit: PAGE_SIZE
     }
 
-    // Handle custom date range
-    if (filters.dateRange === 'custom' && filters.startDate && filters.endDate) {
-      params.startDate = filters.startDate
-      params.endDate = filters.endDate
-    } else if (filters.dateRange !== 'custom') {
-      params.dateRange = filters.dateRange
+    if (appliedFilters.dateRange === 'custom' && appliedFilters.startDate && appliedFilters.endDate) {
+      params.startDate = appliedFilters.startDate
+      params.endDate = appliedFilters.endDate
+    } else if (appliedFilters.dateRange !== 'custom') {
+      params.dateRange = appliedFilters.dateRange
     }
 
-    if (filters.search) params.search = filters.search
-    if (filters.invoiceType !== 'all') params.invoiceType = filters.invoiceType
-    if (filters.branchId !== 'all') params.branchId = filters.branchId
-    if (filters.salesRepId !== 'all') params.salesRepId = filters.salesRepId
+    if (appliedFilters.search) params.search = appliedFilters.search
+    if (appliedFilters.invoiceType !== 'all') params.invoiceType = appliedFilters.invoiceType
+    if (appliedFilters.branchId !== 'all') params.branchId = appliedFilters.branchId
+    if (appliedFilters.salesRepId !== 'all') params.salesRepId = appliedFilters.salesRepId
 
     return params
-  }, [page, filters])
+  }, [page, appliedFilters])
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['payments', 'receipts', queryParams],
@@ -290,12 +292,11 @@ export default function Payments() {
   }, [receipts])
 
   const handleApplyFilters = useCallback(() => {
-    setFilters((prev) => ({
-      ...prev,
-      search: searchInput.trim()
-    }))
+    const newFilters = { ...filters, search: searchInput.trim() }
+    setFilters(newFilters)
+    setAppliedFilters(newFilters)
     setPage(1)
-  }, [searchInput])
+  }, [filters, searchInput])
 
   const handleExport = useCallback(async () => {
     try {
@@ -494,10 +495,7 @@ export default function Payments() {
           <div className="grid gap-3 md:grid-cols-4">
             <select
               value={filters.dateRange}
-              onChange={(e) => {
-                setFilters((prev) => ({ ...prev, dateRange: e.target.value }))
-                setPage(1)
-              }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, dateRange: e.target.value }))}
               className="rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
             >
               <option value="last-7-days">Last 7 days</option>
@@ -510,10 +508,7 @@ export default function Payments() {
 
             <select
               value={filters.invoiceType}
-              onChange={(e) => {
-                setFilters((prev) => ({ ...prev, invoiceType: e.target.value }))
-                setPage(1)
-              }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, invoiceType: e.target.value }))}
               className="rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
             >
               <option value="all">All Types</option>
@@ -526,10 +521,7 @@ export default function Payments() {
 
             <select
               value={filters.branchId}
-              onChange={(e) => {
-                setFilters((prev) => ({ ...prev, branchId: e.target.value }))
-                setPage(1)
-              }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, branchId: e.target.value }))}
               className="rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
             >
               <option value="all">All Branches</option>
@@ -542,10 +534,7 @@ export default function Payments() {
 
             <select
               value={filters.salesRepId}
-              onChange={(e) => {
-                setFilters((prev) => ({ ...prev, salesRepId: e.target.value }))
-                setPage(1)
-              }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, salesRepId: e.target.value }))}
               className="rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-medium focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
             >
               <option value="all">All Sales Reps</option>
@@ -565,10 +554,10 @@ export default function Payments() {
                   <label className="block text-xs font-semibold text-gray-700 mb-2">Start Date</label>
                   <DatePicker
                     value={filters.startDate ? dayjs(filters.startDate) : null}
+                    format="DD/MM/YYYY"
                     onChange={(newValue) => {
                       const dateStr = newValue ? newValue.format('YYYY-MM-DD') : ''
                       setFilters((prev) => ({ ...prev, startDate: dateStr }))
-                      setPage(1)
                     }}
                     slotProps={{
                       textField: {
@@ -599,10 +588,10 @@ export default function Payments() {
                   <label className="block text-xs font-semibold text-gray-700 mb-2">End Date</label>
                   <DatePicker
                     value={filters.endDate ? dayjs(filters.endDate) : null}
+                    format="DD/MM/YYYY"
                     onChange={(newValue) => {
                       const dateStr = newValue ? newValue.format('YYYY-MM-DD') : ''
                       setFilters((prev) => ({ ...prev, endDate: dateStr }))
-                      setPage(1)
                     }}
                     minDate={filters.startDate ? dayjs(filters.startDate) : undefined}
                     slotProps={{

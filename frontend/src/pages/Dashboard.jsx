@@ -68,6 +68,9 @@ export default function Dashboard() {
 
   const queryParams = getQueryParams();
 
+  // Applied params — only updated when user clicks Apply Filter
+  const [appliedQueryParams, setAppliedQueryParams] = useState(() => getQueryParams());
+
   const buildDateSearch = () => {
     const params = new URLSearchParams();
     params.set('dateFilter', dateFilter);
@@ -88,8 +91,8 @@ export default function Dashboard() {
 
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
-    queryKey: ['dashboard-stats', queryParams],
-    queryFn: () => api.get('/dashboard/stats', { params: queryParams }).then(res => res.data),
+    queryKey: ['dashboard-stats', appliedQueryParams],
+    queryFn: () => api.get('/dashboard/stats', { params: appliedQueryParams }).then(res => res.data),
     enabled: !!token
   });
 
@@ -109,8 +112,8 @@ export default function Dashboard() {
 
   // Fetch enquiry stats
   const { data: enquiryStats, refetch: refetchEnquiryStats } = useQuery({
-    queryKey: ['enquiry-stats', queryParams],
-    queryFn: () => api.get('/enquiries/stats', { params: queryParams }).then(res => res.data),
+    queryKey: ['enquiry-stats', appliedQueryParams],
+    queryFn: () => api.get('/enquiries/stats', { params: appliedQueryParams }).then(res => res.data),
     enabled: !!token
   });
 
@@ -130,8 +133,8 @@ export default function Dashboard() {
 
   // Fetch payment collected by mode
   const { data: paymentCollected, refetch: refetchPaymentCollected } = useQuery({
-    queryKey: ['payment-collected', queryParams],
-    queryFn: () => api.get('/dashboard/payment-collected', { params: queryParams }).then(res => res.data),
+    queryKey: ['payment-collected', appliedQueryParams],
+    queryFn: () => api.get('/dashboard/payment-collected', { params: appliedQueryParams }).then(res => res.data),
     enabled: !!token
   });
 
@@ -237,6 +240,7 @@ export default function Dashboard() {
       alert('From date cannot be greater than To date');
       return;
     }
+    setAppliedQueryParams(getQueryParams());
     setShowCustomDateRange(false);
   };
 
@@ -291,7 +295,7 @@ export default function Dashboard() {
             <option value="custom">Custom Range</option>
           </select>
 
-          {showCustomDateRange && (
+          {showCustomDateRange ? (
             <div className="flex items-center gap-3 flex-1">
               <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-700 font-medium">From:</label>
@@ -317,6 +321,13 @@ export default function Dashboard() {
                 Apply
               </button>
             </div>
+          ) : (
+            <button
+              onClick={() => setAppliedQueryParams(getQueryParams())}
+              className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-medium shadow-lg hover:shadow-xl"
+            >
+              Apply Filter
+            </button>
           )}
         </div>
       </div>
@@ -548,12 +559,12 @@ export default function Dashboard() {
                 icon={Gift}
                 onClick={() => navigate(`/reports/client-management/birthday?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
-              <SummaryItem 
+              {/* <SummaryItem 
                 title="Staff birthdays" 
                 count={summaryData?.data?.staffBirthdays || 0}
                 icon={Gift}
                 onClick={() => navigate(`/reports/staff/birthday?fromDate=${summaryDate}&toDate=${summaryDate}`)}
-              />
+              /> */}
             </div>
           </div>
 

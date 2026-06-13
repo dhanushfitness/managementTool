@@ -21,7 +21,7 @@ const generateEnquiryId = async (organizationId) => {
     .lean();
 
   let nextNumber = 1;
-  
+
   if (lastEnquiry && lastEnquiry.enquiryId) {
     // Extract the number from the last enquiryId (e.g., "ENQ000014" -> 14)
     const match = lastEnquiry.enquiryId.match(/\d+$/);
@@ -33,22 +33,22 @@ const generateEnquiryId = async (organizationId) => {
   // Generate ID and check for collisions (retry up to 10 times)
   let attempts = 0;
   const maxAttempts = 10;
-  
+
   while (attempts < maxAttempts) {
     const enquiryId = `ENQ${String(nextNumber).padStart(6, '0')}`;
-    
+
     // Check if this ID already exists
     const exists = await Enquiry.findOne({ enquiryId }).select('_id').lean();
-    
+
     if (!exists) {
       return enquiryId;
     }
-    
+
     // If it exists, try the next number
     nextNumber++;
     attempts++;
   }
-  
+
   // Fallback: use timestamp-based ID if all attempts fail
   return `ENQ${Date.now().toString().slice(-6)}`;
 };
@@ -80,20 +80,20 @@ export const createEnquiry = async (req, res) => {
     // Handle follow-up date (map followUpDate to expectedClosureDate) - declare outside loop
     const followUpDate = req.body.followUpDate ? new Date(req.body.followUpDate) : null;
     const hasValidFollowUpDate = Boolean(followUpDate && !Number.isNaN(followUpDate.getTime()));
-    
+
     // Retry logic for handling duplicate key errors
     let enquiry;
     let retries = 0;
     const maxRetries = 5;
-    
+
     while (retries < maxRetries) {
       try {
         const enquiryId = await generateEnquiryId(req.organizationId);
-        
+
         // If service is provided, fetch its name (could be Service or Plan)
         let serviceName = req.body.serviceName;
         let serviceId = req.body.service;
-        
+
         if (serviceId && !serviceName) {
           // Try to find as Plan first
           const Plan = (await import('../models/Plan.js')).default;
@@ -113,7 +113,7 @@ export const createEnquiry = async (req, res) => {
             }
           }
         }
-        
+
         const enquiryData = {
           ...req.body,
           organizationId: req.organizationId,
@@ -323,7 +323,10 @@ export const searchEnquiries = async (req, res) => {
     const searchTerm = q.trim();
     const query = {
       organizationId: req.organizationId,
-      isArchived: false
+      isArchived: false,
+      convertedToMember: { $exists: false },
+      isMember: { $ne: true },
+      enquiryStage: { $ne: 'converted' }
     };
 
     switch (searchType) {
@@ -496,7 +499,7 @@ export const convertToMember = async (req, res) => {
     // Check for duplicate phone number before creating member
     if (enquiry.phone) {
       const normalizedPhone = normalizePhone(enquiry.phone);
-      
+
       if (normalizedPhone) {
         const allMembers = await Member.find({
           organizationId: req.organizationId,
@@ -524,7 +527,7 @@ export const convertToMember = async (req, res) => {
     };
 
     const memberId = await generateMemberId(req.organizationId);
-    
+
     const member = await Member.create({
       organizationId: req.organizationId,
       branchId: enquiry.branchId,
@@ -540,7 +543,7 @@ export const convertToMember = async (req, res) => {
     });
 
     // Add call log entry for conversion
-    const conversionMessage = comments 
+    const conversionMessage = comments
       ? `Enquiry converted to member. Member ID: ${memberId}. ${comments}`
       : `Enquiry converted to member. Member ID: ${memberId}`;
     const callLogEntry = {
@@ -599,12 +602,12 @@ export const archiveEnquiry = async (req, res) => {
 export const getEnquiryStats = async (req, res) => {
   try {
     const { dateFilter, startDate, endDate, fromDate, toDate } = req.query;
-    
+
     const dateQuery = {};
     // Support both startDate/endDate and fromDate/toDate
     const from = fromDate || startDate;
     const to = toDate || endDate;
-    
+
     if (from && to) {
       // Custom date range
       const fromDateObj = new Date(from);
@@ -666,16 +669,16 @@ export const importEnquiries = async (req, res) => {
   try {
     // Validate that a file was uploaded
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please upload a CSV file' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload a CSV file'
       });
     }
 
     const fs = await import('fs');
     const csv = await import('csv-parser');
     const { default: csvParser } = csv;
-    
+
     const results = [];
     const errors = [];
     let lineNumber = 1;
@@ -686,7 +689,7 @@ export const importEnquiries = async (req, res) => {
 
     for await (const row of stream) {
       lineNumber++;
-      
+
       try {
         // Validate required fields
         if (!row.name || !row.phone) {
@@ -718,7 +721,7 @@ export const importEnquiries = async (req, res) => {
         let enquiry;
         let retries = 0;
         const maxRetries = 5;
-        
+
         while (retries < maxRetries) {
           try {
             enquiry = await Enquiry.create(enquiryData);
@@ -739,13 +742,13 @@ export const importEnquiries = async (req, res) => {
             throw error;
           }
         }
-        
+
         results.push(enquiry);
       } catch (error) {
-        errors.push({ 
-          line: lineNumber, 
+        errors.push({
+          line: lineNumber,
           error: error.message,
-          row: row.name || row.phone 
+          row: row.name || row.phone
         });
       }
     }
@@ -753,8 +756,8 @@ export const importEnquiries = async (req, res) => {
     // Clean up uploaded file
     fs.default.unlinkSync(req.file.path);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `Imported ${results.length} enquiries`,
       imported: results.length,
       errors: errors.length > 0 ? errors : undefined
@@ -820,7 +823,7 @@ export const exportEnquiries = async (req, res) => {
 
     // Convert to CSV format
     const headers = ['S.No', 'Enquiry ID', 'Date', 'Name', 'Phone', 'Email', 'Service', 'Lead Source', 'Enquiry Stage', 'Last Call Status', 'Call Tag', 'Staff', 'Gender', 'Notes'];
-    
+
     const escapeCsvField = (field) => {
       if (field === null || field === undefined) return '';
       const str = String(field);
@@ -831,7 +834,7 @@ export const exportEnquiries = async (req, res) => {
     };
 
     let csvContent = headers.join(',') + '\n';
-    
+
     enquiries.forEach((enquiry, index) => {
       const row = [
         index + 1,

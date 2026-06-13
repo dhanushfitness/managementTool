@@ -30,18 +30,20 @@ export default function RenewalsReport() {
     return new Date().toISOString().split('T')[0]
   }
 
-  const [filters, setFilters] = useState({
+  const defaultFilters = {
     fromDate: getDefaultFromDate(),
     toDate: getDefaultToDate()
-  })
+  }
+  const [filters, setFilters] = useState(defaultFilters)
+  const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
   const [page, setPage] = useState(1)
   const [hasSearched, setHasSearched] = useState(false)
 
-  const { data: reportData, isLoading, refetch } = useQuery({
-    queryKey: ['renewals-report', filters, page],
+  const { data: reportData, isLoading } = useQuery({
+    queryKey: ['renewals-report', appliedFilters, page],
     queryFn: () => getRenewalsReport({
-      fromDate: filters.fromDate,
-      toDate: filters.toDate,
+      fromDate: appliedFilters.fromDate,
+      toDate: appliedFilters.toDate,
       page,
       limit: 20
     }),
@@ -53,20 +55,19 @@ export default function RenewalsReport() {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))
-    setPage(1)
   }
 
   const handleSearch = () => {
+    setAppliedFilters(filters)
     setHasSearched(true)
     setPage(1)
-    refetch()
   }
 
   const handleExportExcel = async () => {
     try {
       const response = await exportRenewalsReport({
-        fromDate: filters.fromDate,
-        toDate: filters.toDate
+        fromDate: appliedFilters.fromDate,
+        toDate: appliedFilters.toDate
       })
       const blob = new Blob([response.data], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
@@ -141,7 +142,7 @@ export default function RenewalsReport() {
           <div className="text-center">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Date Range</p>
             <p className="text-sm font-semibold text-gray-900">
-              {formatDate(filters.fromDate)} - {formatDate(filters.toDate)}
+              {formatDate(appliedFilters.fromDate)} - {formatDate(appliedFilters.toDate)}
             </p>
           </div>
         </div>
