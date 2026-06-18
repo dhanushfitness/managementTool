@@ -194,10 +194,10 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email }).populate('organizationId');
-    
-    // if (!user || !await user.comparePassword(password)) {
-    //   return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    // }
+
+    if (!user || !await user.comparePassword(password)) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
 
     if (!user.isActive) {
       return res.status(401).json({ success: false, message: 'Account is inactive' });
@@ -409,4 +409,3 @@ export const changePassword = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
