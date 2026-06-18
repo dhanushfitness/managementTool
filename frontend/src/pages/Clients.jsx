@@ -4,15 +4,15 @@ import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
-import { 
-  Search, 
-  Download, 
-  Mail, 
+import {
+  Search,
+  Download,
+  Mail,
   Users,
-  Filter, 
-  Plus, 
-  Eye, 
-  Info, 
+  Filter,
+  Plus,
+  Eye,
+  Info,
   Calendar,
   Dumbbell,
   Archive,
@@ -31,11 +31,23 @@ import ClientFilterModal from '../components/ClientFilterModal'
 import Breadcrumbs from '../components/Breadcrumbs'
 import { deleteMember } from '../api/members'
 
+const getMemberStatusMeta = (member) => {
+  const isActive = member?.membershipStatus === 'active'
+
+  return {
+    label: isActive ? 'Active' : 'Inactive',
+    className: isActive
+      ? 'border-green-200 bg-green-50 text-green-700'
+      : 'border-red-200 bg-red-50 text-red-700'
+  }
+}
+
 // Info Popup Component using Portal
 function InfoPopup({ member }) {
   const [isOpen, setIsOpen] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const buttonRef = useRef(null)
+  const statusMeta = getMemberStatusMeta(member)
 
   useEffect(() => {
     if (!isOpen || !buttonRef.current) return
@@ -89,8 +101,8 @@ function InfoPopup({ member }) {
           >
             <div className="flex justify-between font-semibold text-sm mb-2">
               <span>Status</span>
-              <span className={`${member.membershipStatus === 'active' ? 'text-green-600' : 'text-gray-600'}`}>
-                {member.membershipStatus ? member.membershipStatus.replace(/^\w/, c => c.toUpperCase()) : 'Unknown'}
+              <span className={statusMeta.className.includes('green') ? 'text-green-600' : 'text-red-600'}>
+                {statusMeta.label}
               </span>
             </div>
             {member.currentPlan?.planName && (
@@ -137,12 +149,12 @@ export default function Clients() {
     invoice: '',
     gender: []
   })
-  
+
   // Get filter from URL params
   const searchParams = new URLSearchParams(location.search)
   const validityFilter = searchParams.get('type') || 'all'
   const filterType = searchParams.get('filter') || 'all'
-  
+
   // Build breadcrumb based on filter
   const getBreadcrumbItems = () => {
     const baseItems = [
@@ -165,14 +177,14 @@ export default function Clients() {
   }
 
   const breadcrumbItems = getBreadcrumbItems()
-  
+
   // Build query params
   const queryParams = {
     page,
     limit,
     search: searchQuery || undefined
   }
-  
+
   // Add status filter based on validity type
   if (filterType === 'validity' && validityFilter !== 'all') {
     if (validityFilter === 'active') {
@@ -256,16 +268,16 @@ export default function Clients() {
     onSuccess: (response) => {
       const deletedRecords = response.data?.deletedRecords || {}
       const recordCount = Object.values(deletedRecords).reduce((sum, count) => sum + count, 0)
-      
+
       toast.success(
         `Member and ${recordCount} related records deleted successfully`,
         { duration: 5000 }
       )
-      
+
       // Invalidate queries to refresh the list
       queryClient.invalidateQueries(['members'])
       queryClient.invalidateQueries(['member-stats'])
-      
+
       setDeleteConfirmModal(null)
     },
     onError: (error) => {
@@ -349,81 +361,31 @@ export default function Clients() {
 
   return (
     <div className="space-y-4 md:space-y-6 tablet-container">
-      {/* Top Section - Improved Structure */}
-      <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4 md:p-6">
-        {/* Breadcrumb and Title */}
-        <div className="mb-4 md:mb-6">
-          <Breadcrumbs items={breadcrumbItems} className="mb-2" />
-          <h1 className="text-2xl md:text-3xl lg:text-3xl font-bold text-gray-900 tablet-responsive-heading">All Members</h1>
-        </div>
-
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6 tablet-grid-stats">
-          <div className="relative overflow-hidden bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl md:rounded-2xl border-2 border-orange-200 p-3 md:p-6 shadow-sm hover:shadow-lg transition-all group">
-            <div className="absolute -right-4 -top-4 w-16 md:w-24 h-16 md:h-24 bg-white/40 rounded-full blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center justify-between mb-1 md:mb-2">
-                <p className="text-[10px] md:text-xs font-bold text-gray-600 uppercase tracking-wider">Total Members</p>
-                <div className="p-1.5 md:p-2 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg md:rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                  <Users className="h-3 w-3 md:h-4 md:w-4 text-white" />
-                </div>
-              </div>
-              <p className="text-2xl md:text-3xl lg:text-4xl font-black text-orange-600">{displayStats.total}</p>
-            </div>
-          </div>
-          <div className="relative overflow-hidden bg-gradient-to-br from-green-50 to-green-100 rounded-xl md:rounded-2xl border-2 border-green-200 p-3 md:p-6 shadow-sm hover:shadow-lg transition-all group">
-            <div className="absolute -right-4 -top-4 w-16 md:w-24 h-16 md:h-24 bg-white/40 rounded-full blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center justify-between mb-1 md:mb-2">
-                <p className="text-[10px] md:text-xs font-bold text-gray-600 uppercase tracking-wider">Active Members</p>
-                <div className="p-1.5 md:p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg md:rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                  <User className="h-3 w-3 md:h-4 md:w-4 text-white" />
-                </div>
-              </div>
-              <p className="text-2xl md:text-3xl lg:text-4xl font-black text-green-600">{displayStats.active}</p>
-            </div>
-          </div>
-          <div className="relative overflow-hidden bg-gradient-to-br from-red-50 to-red-100 rounded-xl md:rounded-2xl border-2 border-red-200 p-3 md:p-6 shadow-sm hover:shadow-lg transition-all group">
-            <div className="absolute -right-4 -top-4 w-16 md:w-24 h-16 md:h-24 bg-white/40 rounded-full blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center justify-between mb-1 md:mb-2">
-                <p className="text-[10px] md:text-xs font-bold text-gray-600 uppercase tracking-wider">Inactive Members</p>
-                <div className="p-1.5 md:p-2 bg-gradient-to-br from-red-500 to-pink-500 rounded-lg md:rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                  <Archive className="h-3 w-3 md:h-4 md:w-4 text-white" />
-                </div>
-              </div>
-              <p className="text-2xl md:text-3xl lg:text-4xl font-black text-red-600">{displayStats.inactive}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        {/* <div className="flex items-center justify-end">
-          <button className="px-5 py-2.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all font-semibold border-2 border-gray-300 shadow-sm">
-            Import Member Details
-          </button>
-        </div> */}
-      </div>
-
       {/* Filter and Action Bar */}
-      <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border-2 border-gray-200 p-3 md:p-4">
+      <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border-2 border-gray-200 p-1 md:p-4">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-0 tablet-action-bar">
           {/* Left Side - Filters and Controls */}
-          <div className="flex items-center space-x-2 md:space-x-3 overflow-x-auto tablet-scrollbar-hide">
-            <select 
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white rounded-2xl p-1">
+            <select
               value={validityFilter === 'all' ? 'all-clients' : validityFilter}
               onChange={(e) => {
                 const value = e.target.value === 'all-clients' ? 'all' : e.target.value
                 navigate(`/clients?filter=validity&type=${value}`)
                 setPage(1)
               }}
-              className="px-3 md:px-4 py-2 md:py-2.5 border-2 border-gray-200 rounded-lg md:rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-xs md:text-sm font-semibold text-gray-700 transition-all tablet-touch-target whitespace-nowrap"
+              className="appearance-none bg-gradient-to-r from-orange-50 to-white border border-orange-200 rounded-xl pl-4 pr-12 py-3 text-sm font-semibold text-gray-700 shadow-sm hover:border-orange-400 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-orange-100 transition-all cursor-pointer"
             >
               <option value="all-clients">All Clients</option>
               <option value="active">Active Clients</option>
               <option value="inactive">Inactive Clients</option>
             </select>
-            
+
+            <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg">
+              <p className="text-l font-bold">
+                {displayStats.total.toLocaleString()}
+              </p>
+            </div>
+
             {/* <select className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-semibold text-gray-700 transition-all">
               <option>Mailer list</option>
             </select> */}
@@ -537,10 +499,23 @@ export default function Clients() {
           </div>
         ) : (
           <div className="overflow-x-auto tablet-table-wrapper tablet-scrollbar-hide" style={{ overflowY: 'visible' }}>
-            <table className="w-full min-w-[900px]">
+            <table className="w-full min-w-[1080px] table-fixed">
+              <colgroup>
+                <col className="w-12" />
+                <col className="w-[240px]" />
+                <col className="w-[120px]" />
+                <col className="w-[100px]" />
+                <col className="w-[120px]" />
+                <col className="w-[120px]" />
+                <col className="w-[100px]" />
+                <col className="w-[80px]" />
+                <col className="w-[100px]" />
+                <col className="w-[90px]" />
+                <col className="w-[80px]" />
+              </colgroup>
               <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                 <tr>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4">
+                  <th className="text-center py-3 md:py-4 px-2 md:px-4">
                     <input
                       type="checkbox"
                       checked={selectedMembers.length === members.length && members.length > 0}
@@ -549,20 +524,21 @@ export default function Clients() {
                     />
                   </th>
                   <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Profile</th>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Billing</th>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Service Card</th>
+                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Status</th>
+                  <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Billing</th>
+                  <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Service Card</th>
                   <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Attendance ID</th>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Call Log</th>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Info</th>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Training</th>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Archive</th>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Delete</th>
+                  <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Call Log</th>
+                  <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Info</th>
+                  <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Training</th>
+                  <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Archive</th>
+                  <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Delete</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {members.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                       No members found
                     </td>
                   </tr>
@@ -570,43 +546,44 @@ export default function Clients() {
                   members.map((member) => {
                     const hasCallLog = member.callLogs && member.callLogs.length > 0
                     const hasMeeting = false // TODO: Implement meeting tracking
-                    
+
                     // Check if member is expired with no active membership plan
                     const isExpiredNoActivePlan = () => {
                       // Check if membership status is expired
                       if (member.membershipStatus === 'expired') {
                         return true
                       }
-                      
+
                       // Check if currentPlan exists and endDate is in the past
                       if (member.currentPlan?.endDate) {
                         const endDate = new Date(member.currentPlan.endDate)
                         const today = new Date()
                         today.setHours(0, 0, 0, 0)
                         endDate.setHours(0, 0, 0, 0)
-                        
+
                         // If endDate is in the past and membership is not active
                         if (endDate < today && member.membershipStatus !== 'active') {
                           return true
                         }
                       }
-                      
+
                       // If no currentPlan exists and membership is not active
                       if (!member.currentPlan && member.membershipStatus !== 'active') {
                         return true
                       }
-                      
+
                       return false
                     }
-                    
+
                     const isExpired = isExpiredNoActivePlan()
-                    
+                    const statusMeta = getMemberStatusMeta(member)
+
                     return (
-                      <tr 
-                        key={member._id} 
+                      <tr
+                        key={member._id}
                         className={`transition-all ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50'}`}
                       >
-                        <td className="py-3 md:py-4 px-2 md:px-4">
+                        <td className="py-3 md:py-4 px-2 md:px-4 text-center align-middle">
                           <input
                             type="checkbox"
                             checked={selectedMembers.includes(member._id)}
@@ -614,11 +591,11 @@ export default function Clients() {
                             className="rounded border-2 border-gray-300 text-orange-500 focus:ring-orange-500 w-4 h-4"
                           />
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4">
+                        <td className="py-3 md:py-4 px-2 md:px-4 align-middle">
                           <div className="flex items-center space-x-2 md:space-x-3">
                             {member.profilePicture ? (
-                              <img 
-                                src={member.profilePicture} 
+                              <img
+                                src={member.profilePicture}
                                 alt={`${member.firstName} ${member.lastName}`}
                                 className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-gray-200"
                               />
@@ -627,20 +604,25 @@ export default function Clients() {
                                 <User className="w-4 h-4 md:w-6 md:h-6 text-gray-500" />
                               </div>
                             )}
-                            <Link 
+                            <Link
                               to={`/clients/${member._id}`}
-                              className="font-bold text-orange-600 hover:text-orange-700 hover:underline text-xs md:text-sm tablet-touch-target"
+                              className="min-w-0 truncate font-bold text-orange-600 hover:text-orange-700 hover:underline text-xs md:text-sm tablet-touch-target"
                             >
                               {member.firstName?.toUpperCase()} {member.lastName?.toUpperCase()}
                             </Link>
                           </div>
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4">
+                        <td className="py-3 md:py-4 px-2 md:px-4 align-middle">
+                          <span className={`inline-flex w-24 items-center justify-center rounded-full border px-3 py-1 text-xs font-bold ${statusMeta.className}`}>
+                            {statusMeta.label}
+                          </span>
+                        </td>
+                        <td className="py-3 md:py-4 px-2 md:px-4 text-center align-middle">
                           <button className="text-orange-600 hover:text-orange-700 font-semibold hover:underline text-xs md:text-sm tablet-touch-target">
                             Payments
                           </button>
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4">
+                        <td className="py-3 md:py-4 px-2 md:px-4 text-center align-middle">
                           <Link
                             to={`/clients/${member._id}?tab=service-card`}
                             className="text-orange-600 hover:text-orange-700 font-semibold hover:underline text-xs md:text-sm tablet-touch-target"
@@ -648,11 +630,11 @@ export default function Clients() {
                             View
                           </Link>
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium text-gray-600">
+                        <td className="py-3 md:py-4 px-2 md:px-4 align-middle text-xs md:text-sm font-medium text-gray-600">
                           {member.memberId || '-'}
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4">
-                          <div className="flex items-center space-x-1 md:space-x-1.5">
+                        <td className="py-3 md:py-4 px-2 md:px-4 align-middle">
+                          <div className="flex items-center justify-center space-x-1 md:space-x-1.5">
                             <button
                               className="p-1.5 md:p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-all border border-transparent hover:border-orange-200 tablet-touch-target"
                               title="Add call log"
@@ -671,20 +653,20 @@ export default function Clients() {
                             )}
                           </div>
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4">
+                        <td className="py-3 md:py-4 px-2 md:px-4 text-center align-middle">
                           <InfoPopup member={member} />
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4">
+                        <td className="py-3 md:py-4 px-2 md:px-4 text-center align-middle">
                           <button className="text-orange-600 hover:text-orange-700 font-semibold hover:underline text-xs md:text-sm tablet-touch-target">
                             View
                           </button>
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4">
+                        <td className="py-3 md:py-4 px-2 md:px-4 text-center align-middle">
                           <button className="text-orange-600 hover:text-orange-700 font-semibold hover:underline text-xs md:text-sm tablet-touch-target">
                             Archive
                           </button>
                         </td>
-                        <td className="py-3 md:py-4 px-2 md:px-4">
+                        <td className="py-3 md:py-4 px-2 md:px-4 text-center align-middle">
                           <button
                             onClick={() => handleDeleteClick(member)}
                             disabled={memberHasActivePlan(member)}
@@ -775,87 +757,89 @@ export default function Clients() {
       />
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirmModal?.show && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            margin: 0,
-            padding: 0,
-            width: '100vw',
-            height: '100vh'
-          }}
-        >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border-2 border-gray-200">
-            <div className="p-6">
-              <div className="flex items-start space-x-4 mb-6">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-red-200 rounded-xl flex items-center justify-center border-2 border-red-300">
-                    <AlertTriangle className="w-6 h-6 text-red-600" />
+      {
+        deleteConfirmModal?.show && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              margin: 0,
+              padding: 0,
+              width: '100vw',
+              height: '100vh'
+            }}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border-2 border-gray-200">
+              <div className="p-6">
+                <div className="flex items-start space-x-4 mb-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-red-200 rounded-xl flex items-center justify-center border-2 border-red-300">
+                      <AlertTriangle className="w-6 h-6 text-red-600" />
+                    </div>
                   </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-black text-gray-900 mb-2">
+                      Delete Member Permanently?
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      This will permanently delete <strong>{deleteConfirmModal.member?.firstName} {deleteConfirmModal.member?.lastName}</strong> and <strong>ALL</strong> their related records including:
+                    </p>
+                    <ul className="text-xs text-gray-600 space-y-1 mb-4 list-disc list-inside">
+                      <li>All Invoices</li>
+                      <li>All Payments</li>
+                      <li>All Attendance Records</li>
+                      <li>All Call Logs</li>
+                      <li>All Follow-ups</li>
+                      <li>All Appointments</li>
+                      <li>All Referrals</li>
+                      <li>And other related data</li>
+                    </ul>
+                    <p className="text-sm font-bold text-red-600">
+                      This action cannot be undone!
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setDeleteConfirmModal(null)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-black text-gray-900 mb-2">
-                    Delete Member Permanently?
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    This will permanently delete <strong>{deleteConfirmModal.member?.firstName} {deleteConfirmModal.member?.lastName}</strong> and <strong>ALL</strong> their related records including:
-                  </p>
-                  <ul className="text-xs text-gray-600 space-y-1 mb-4 list-disc list-inside">
-                    <li>All Invoices</li>
-                    <li>All Payments</li>
-                    <li>All Attendance Records</li>
-                    <li>All Call Logs</li>
-                    <li>All Follow-ups</li>
-                    <li>All Appointments</li>
-                    <li>All Referrals</li>
-                    <li>And other related data</li>
-                  </ul>
-                  <p className="text-sm font-bold text-red-600">
-                    This action cannot be undone!
-                  </p>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setDeleteConfirmModal(null)}
+                    disabled={deleteMemberMutation.isPending}
+                    className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteConfirm}
+                    disabled={deleteMemberMutation.isPending}
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 font-semibold shadow-lg"
+                  >
+                    {deleteMemberMutation.isPending ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>Delete Permanently</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <button
-                  onClick={() => setDeleteConfirmModal(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setDeleteConfirmModal(null)}
-                  disabled={deleteMemberMutation.isPending}
-                  className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteConfirm}
-                  disabled={deleteMemberMutation.isPending}
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 font-semibold shadow-lg"
-                >
-                  {deleteMemberMutation.isPending ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Deleting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      <span>Delete Permanently</span>
-                    </>
-                  )}
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   )
 }
