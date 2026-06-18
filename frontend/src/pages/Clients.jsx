@@ -551,43 +551,12 @@ export default function Clients() {
                   members.map((member) => {
                     const hasCallLog = member.callLogs && member.callLogs.length > 0
                     const hasMeeting = false // TODO: Implement meeting tracking
-                    const membershipStatus = member.effectiveMembershipStatus || member.membershipStatus
-
-                    // Check if member is expired with no active membership plan
-                    const isExpiredNoActivePlan = () => {
-                      // Check if membership status is expired
-                      if (membershipStatus === 'expired') {
-                        return true
-                      }
-
-                      // Check if currentPlan exists and endDate is in the past
-                      if (member.currentPlan?.endDate) {
-                        const endDate = new Date(member.currentPlan.endDate)
-                        const today = new Date()
-                        today.setHours(0, 0, 0, 0)
-                        endDate.setHours(0, 0, 0, 0)
-
-                        // If endDate is in the past and membership is not active
-                        if (endDate < today && membershipStatus !== 'active') {
-                          return true
-                        }
-                      }
-
-                      // If no currentPlan exists and membership is not active
-                      if (!member.currentPlan && membershipStatus !== 'active') {
-                        return true
-                      }
-
-                      return false
-                    }
-
-                    const isExpired = isExpiredNoActivePlan()
                     const statusMeta = getMemberStatusMeta(member)
 
                     return (
                       <tr
                         key={member._id}
-                        className={`transition-all ${isExpired ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50'}`}
+                        className="transition-all hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50"
                       >
                         <td className="py-3 md:py-4 px-2 md:px-4 text-center align-middle">
                           <input
