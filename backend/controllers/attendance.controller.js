@@ -3,6 +3,171 @@ import Member from '../models/Member.js';
 import Invoice from '../models/Invoice.js';
 import Plan from '../models/Plan.js';
 import AuditLog from '../models/AuditLog.js';
+import Branch from '../models/Branch.js';
+
+const getHeaderValue = (req, headerName) => req.get(headerName) || req.get(headerName.toLowerCase());
+
+const isValidDeviceSecret = (req) => {
+  const configuredSecret = process.env.ZKT_DEVICE_SECRET || process.env.BIOMETRIC_DEVICE_SECRET;
+
+  if (!configuredSecret) {
+    return process.env.NODE_ENV !== 'production';
+  }
+
+  const providedSecret =
+    getHeaderValue(req, 'X-ZKT-DEVICE-KEY') ||
+    getHeaderValue(req, 'X-BIOMETRIC-DEVICE-KEY') ||
+    req.query.deviceKey ||
+    req.body?.deviceKey;
+
+  return providedSecret === configuredSecret;
+};
+
+const getDeviceIdFromRequest = (req) => {
+  const source = { ...req.query, ...(req.body || {}) };
+  return source.deviceId || source.device_id || source.sn || source.SN || source.deviceSN || source.DeviceID;
+};
+
+const getBiometricIdentifier = (body = {}) => (
+  body.fingerprintId ||
+  body.fingerprint_id ||
+  body.userId ||
+  body.user_id ||
+  body.uid ||
+  body.pin ||
+  body.PIN ||
+  body.cardNo ||
+  body.cardno ||
+  body.memberId ||
+  body.attendanceId
+);
+
+const getPunchTime = (body = {}) => {
+  const rawTimestamp = body.timestamp || body.time || body.punchTime || body.punch_time || body.DateTime;
+  const parsed = rawTimestamp ? new Date(rawTimestamp) : new Date();
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
+const getMemberAccessStatus = (member, checkInTime, allowManualOverride = false) => {
+  if (allowManualOverride) {
+    return { status: 'success', blockedReason: null };
+  }
+
+  let status = 'success';
+  let blockedReason = null;
+
+  if (member.currentPlan && member.currentPlan.endDate) {
+    const endDate = new Date(member.currentPlan.endDate);
+    endDate.setHours(23, 59, 59, 999);
+    if (endDate < checkInTime) {
+      status = 'expired';
+      blockedReason = 'Membership has expired';
+    }
+  }
+
+  if (member.membershipStatus === 'expired') {
+    const timeSlotValidation = validateTimeSlotAccess(member, checkInTime);
+    if (!timeSlotValidation.allowed) {
+      status = 'expired';
+      blockedReason = timeSlotValidation.message;
+    } else {
+      status = 'success';
+      blockedReason = null;
+    }
+  } else if (member.membershipStatus === 'frozen') {
+    status = 'frozen';
+    blockedReason = 'Membership is frozen';
+  } else if (member.membershipStatus === 'cancelled') {
+    status = 'blocked';
+    blockedReason = 'Membership is cancelled';
+  } else if (member.membershipStatus !== 'active') {
+    status = 'blocked';
+    blockedReason = 'Membership is not active';
+  }
+
+  return { status, blockedReason };
+};
+
+const updateMemberAttendanceStats = async (member, checkInTime) => {
+  const previousLastCheckIn = member.attendanceStats?.lastCheckIn
+    ? new Date(member.attendanceStats.lastCheckIn)
+    : null;
+
+  member.attendanceStats.totalCheckIns = (member.attendanceStats.totalCheckIns || 0) + 1;
+  member.attendanceStats.lastCheckIn = checkInTime;
+
+  const yesterday = new Date(checkInTime);
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(0, 0, 0, 0);
+
+  if (previousLastCheckIn) {
+    previousLastCheckIn.setHours(0, 0, 0, 0);
+    if (previousLastCheckIn.getTime() === yesterday.getTime()) {
+      member.attendanceStats.currentStreak = (member.attendanceStats.currentStreak || 0) + 1;
+    } else if (previousLastCheckIn.getTime() < yesterday.getTime()) {
+      member.attendanceStats.currentStreak = 1;
+    }
+  } else {
+    member.attendanceStats.currentStreak = 1;
+  }
+
+  if ((member.attendanceStats.currentStreak || 0) > (member.attendanceStats.longestStreak || 0)) {
+    member.attendanceStats.longestStreak = member.attendanceStats.currentStreak;
+  }
+
+  await member.save();
+};
+
+export const authenticateBiometricDevice = async (req, res, next) => {
+  try {
+    const deviceId = getDeviceIdFromRequest(req);
+
+    if (!deviceId) {
+      return res.status(400).json({ success: false, message: 'Device ID is required' });
+    }
+
+    if (!isValidDeviceSecret(req)) {
+      return res.status(401).json({ success: false, message: 'Invalid biometric device credentials' });
+    }
+
+    const deviceMatch = process.env.NODE_ENV === 'production'
+      ? { $elemMatch: { deviceId: String(deviceId), status: 'active' } }
+      : { $elemMatch: { deviceId: String(deviceId) } };
+
+    const branch = await Branch.findOne({
+      biometricDevices: deviceMatch,
+      isActive: true
+    });
+
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Biometric device is not registered to an active branch'
+      });
+    }
+
+    const device = branch.biometricDevices.find((item) => item.deviceId === String(deviceId));
+    if (device) {
+      device.lastSeen = new Date();
+      if (device.status === 'offline') {
+        device.status = 'active';
+      }
+      await branch.save();
+    }
+
+    req.organizationId = branch.organizationId;
+    req.biometricDevice = {
+      deviceId: String(deviceId),
+      deviceName: device?.deviceName,
+      branchId: branch._id,
+      organizationId: branch.organizationId
+    };
+
+    next();
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 /**
  * Validate if member can access at the given time based on time slots
@@ -108,43 +273,7 @@ export const checkIn = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
-    // Check membership status
-    let status = 'success';
-    let blockedReason = null;
-
-    // Check if membership is active and not expired
     const now = new Date();
-    if (member.currentPlan && member.currentPlan.endDate) {
-      const endDate = new Date(member.currentPlan.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      if (endDate < now && !allowManualOverride) {
-        status = 'expired';
-        blockedReason = 'Membership has expired';
-      }
-    }
-
-    if (member.membershipStatus === 'expired' && !allowManualOverride) {
-      // Check time slot access for expired members
-      const timeSlotValidation = validateTimeSlotAccess(member, checkInDateTime);
-      if (!timeSlotValidation.allowed) {
-        status = 'expired';
-        blockedReason = timeSlotValidation.message;
-      } else {
-        // Expired member but within time slot - allow access
-        status = 'success';
-      }
-    } else if (member.membershipStatus === 'frozen' && !allowManualOverride) {
-      status = 'frozen';
-      blockedReason = 'Membership is frozen';
-    } else if (member.membershipStatus === 'cancelled' && !allowManualOverride) {
-      status = 'blocked';
-      blockedReason = 'Membership is cancelled';
-    } else if (member.membershipStatus !== 'active' && !allowManualOverride) {
-      status = 'blocked';
-      blockedReason = 'Membership is not active';
-    }
-
-    // Parse check-in date and time
     let checkInDateTime = new Date();
     if (checkInDate && checkInTime) {
       const [hours, minutes] = checkInTime.split(':');
@@ -154,6 +283,8 @@ export const checkIn = async (req, res) => {
       checkInDateTime = new Date(checkInDate);
       checkInDateTime.setHours(now.getHours(), now.getMinutes(), 0, 0);
     }
+
+    const { status, blockedReason } = getMemberAccessStatus(member, checkInDateTime, allowManualOverride);
 
     // Check if already checked in on the same day (if not manual override)
     if (!allowManualOverride) {
@@ -585,73 +716,46 @@ export const updateAttendance = async (req, res) => {
   }
 };
 
-// Fingerprint check-in endpoint (for future device integration)
+// Fingerprint/ZKT punch endpoint
 export const fingerprintCheckIn = async (req, res) => {
   try {
-    const { fingerprintId, deviceId, deviceName } = req.body;
+    const fingerprintId = getBiometricIdentifier(req.body);
+    const deviceId = req.biometricDevice?.deviceId || getDeviceIdFromRequest(req);
+    const deviceName = req.body.deviceName || req.body.device_name || req.biometricDevice?.deviceName;
+    const punchTime = getPunchTime(req.body);
 
     if (!fingerprintId) {
-      return res.status(400).json({ success: false, message: 'Fingerprint ID is required' });
+      return res.status(400).json({ success: false, message: 'Fingerprint/user ID is required' });
     }
 
-    // Find member by fingerprint
+    const identifier = String(fingerprintId).trim();
     const member = await Member.findOne({
       organizationId: req.organizationId,
-      'biometricData.fingerprint': fingerprintId,
-      isActive: true
+      isActive: true,
+      $or: [
+        { 'biometricData.fingerprint': identifier },
+        { attendanceId: identifier },
+        { memberId: identifier.toUpperCase() }
+      ]
     }).populate('currentPlan.planId');
 
     if (!member) {
       return res.status(404).json({ 
         success: false, 
-        message: 'Member not found with this fingerprint',
+        message: 'Member not found for this fingerprint/user ID',
         status: 'not_found'
       });
     }
 
-    // Check membership status
-    let status = 'success';
-    let blockedReason = null;
-    const now = new Date();
-
-    // Check if membership is expired
-    if (member.currentPlan && member.currentPlan.endDate) {
-      const endDate = new Date(member.currentPlan.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      if (endDate < now) {
-        status = 'expired';
-        blockedReason = 'Membership has expired';
-      }
-    }
-
-    if (member.membershipStatus === 'expired') {
-      // Check time slot access for expired members
-      const timeSlotValidation = validateTimeSlotAccess(member, now);
-      if (!timeSlotValidation.allowed) {
-        status = 'expired';
-        blockedReason = timeSlotValidation.message;
-      } else {
-        // Expired member but within time slot - allow access
-        status = 'success';
-      }
-    } else if (member.membershipStatus === 'frozen') {
-      status = 'frozen';
-      blockedReason = 'Membership is frozen';
-    } else if (member.membershipStatus === 'cancelled') {
-      status = 'blocked';
-      blockedReason = 'Membership is cancelled';
-    } else if (member.membershipStatus !== 'active') {
-      status = 'blocked';
-      blockedReason = 'Membership is not active';
-    }
+    const { status, blockedReason } = getMemberAccessStatus(member, punchTime);
 
     // If expired or blocked, deny access
     if (status !== 'success') {
       const attendance = await Attendance.create({
         organizationId: req.organizationId,
-        branchId: member.branchId,
+        branchId: req.biometricDevice?.branchId || member.branchId,
         memberId: member._id,
-        checkInTime: now,
+        checkInTime: punchTime,
         method: 'biometric',
         deviceId,
         deviceName,
@@ -675,11 +779,13 @@ export const fingerprintCheckIn = async (req, res) => {
     }
 
     // Check if already checked in today
-    const today = new Date();
+    const today = new Date(punchTime);
     today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
     const existingCheckIn = await Attendance.findOne({
       memberId: member._id,
-      checkInTime: { $gte: today },
+      checkInTime: { $gte: today, $lte: endOfDay },
       checkOutTime: null
     });
 
@@ -694,9 +800,9 @@ export const fingerprintCheckIn = async (req, res) => {
     // Create attendance record
     const attendance = await Attendance.create({
       organizationId: req.organizationId,
-      branchId: member.branchId,
+      branchId: req.biometricDevice?.branchId || member.branchId,
       memberId: member._id,
-      checkInTime: now,
+      checkInTime: punchTime,
       method: 'biometric',
       deviceId,
       deviceName,
@@ -705,40 +811,7 @@ export const fingerprintCheckIn = async (req, res) => {
       notes: 'Fingerprint check-in'
     });
 
-    // Update member stats
-    member.attendanceStats.totalCheckIns += 1;
-    member.attendanceStats.lastCheckIn = now;
-    
-    // Update streak
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(0, 0, 0, 0);
-    
-    const lastCheckIn = member.attendanceStats.lastCheckIn ? new Date(member.attendanceStats.lastCheckIn) : null;
-    if (lastCheckIn) {
-      lastCheckIn.setHours(0, 0, 0, 0);
-      if (lastCheckIn.getTime() === yesterday.getTime()) {
-        member.attendanceStats.currentStreak += 1;
-      } else if (lastCheckIn.getTime() < yesterday.getTime()) {
-        member.attendanceStats.currentStreak = 1;
-      }
-    } else {
-      member.attendanceStats.currentStreak = 1;
-    }
-
-    if (member.attendanceStats.currentStreak > member.attendanceStats.longestStreak) {
-      member.attendanceStats.longestStreak = member.attendanceStats.currentStreak;
-    }
-
-    await member.save();
-
-    await AuditLog.create({
-      organizationId: req.organizationId,
-      userId: null, // System action
-      action: 'attendance.checkin.biometric',
-      entityType: 'Attendance',
-      entityId: attendance._id
-    });
+    await updateMemberAttendanceStats(member, punchTime);
 
     const populated = await Attendance.findById(attendance._id)
       .populate('memberId', 'firstName lastName memberId phone profilePicture');
@@ -754,6 +827,11 @@ export const fingerprintCheckIn = async (req, res) => {
         lastName: member.lastName,
         memberId: member.memberId,
         profilePicture: member.profilePicture
+      },
+      device: {
+        deviceId,
+        deviceName,
+        branchId: req.biometricDevice?.branchId
       }
     });
   } catch (error) {
@@ -936,4 +1014,3 @@ export const faceCheckIn = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-

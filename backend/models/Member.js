@@ -254,6 +254,8 @@ memberSchema.methods.toJSON = function() {
 // Indexes
 memberSchema.index({ organizationId: 1, memberId: 1 }, { unique: true });
 memberSchema.index({ organizationId: 1, phone: 1 });
+memberSchema.index({ organizationId: 1, attendanceId: 1 });
+memberSchema.index({ organizationId: 1, 'biometricData.fingerprint': 1 });
 memberSchema.index({ organizationId: 1, createdAt: -1 });
 memberSchema.index({ organizationId: 1, membershipStatus: 1, isActive: 1 });
 memberSchema.index({ branchId: 1, membershipStatus: 1 });
@@ -262,4 +264,3 @@ memberSchema.index({ 'currentPlan.endDate': 1 });
 const Member = mongoose.model('Member', memberSchema);
 
 export default Member;
-

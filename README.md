@@ -100,6 +100,7 @@ PORT=5000
 MONGODB_URI=mongodb://localhost:27017/gym_management
 JWT_SECRET=your_super_secret_jwt_key_min_32_chars
 FRONTEND_URL=http://localhost:5173
+ZKT_DEVICE_SECRET=your_zkt_device_shared_secret
 ```
 
 **Payment Gateway (Required for payments):**
@@ -307,4 +308,3 @@ MIT
 ## Support
 
 For issues and questions, please open an issue on the repository.
-
