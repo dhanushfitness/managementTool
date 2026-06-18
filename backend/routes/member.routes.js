@@ -22,6 +22,7 @@ import {
   getMemberReferrals,
   createMemberReferral,
   importMembers,
+  exportMembers,
   searchMembers,
   getMemberStats,
   setMemberTimeSlots,
@@ -39,6 +40,7 @@ router.post('/', authorize('owner', 'manager', 'staff'), createMember);
 router.get('/', getMembers);
 router.get('/stats', getMemberStats);
 router.get('/search', searchMembers);
+router.get('/export', authorize('owner', 'manager', 'staff'), exportMembers);
 router.get('/:memberId', getMember);
 router.put('/:memberId', authorize('owner', 'manager', 'staff'), updateMember);
 router.delete('/:memberId', authorize('owner', 'manager'), deleteMember);
@@ -71,4 +73,3 @@ router.put('/:memberId/time-slots', authorize('owner', 'manager', 'staff'), setM
 router.post('/import', authorize('owner', 'manager'), importMembers);
 
 export default router;
-

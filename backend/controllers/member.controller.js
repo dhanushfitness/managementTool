@@ -7,6 +7,7 @@ import Referral from '../models/Referral.js';
 import Attendance from '../models/Attendance.js';
 import Organization from '../models/Organization.js';
 import AuditLog from '../models/AuditLog.js';
+import XLSX from 'xlsx';
 import { sendWelcomeMessage } from '../utils/whatsapp.js';
 import { handleError } from '../utils/errorHandler.js';
 
@@ -95,6 +96,131 @@ const getEffectiveMembershipStatus = (member, activeMemberIds = []) => {
   }
 
   return member.membershipStatus || 'pending';
+};
+
+const formatExportDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB');
+};
+
+const formatUserName = (user) => {
+  if (!user) return '';
+  return [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+};
+
+const formatAddress = (address) => {
+  if (!address) return '';
+  return [
+    address.street,
+    address.city,
+    address.state,
+    address.zipCode,
+    address.country
+  ].filter(Boolean).join(', ');
+};
+
+const applyMemberFilters = async (req, query) => {
+  const {
+    status,
+    membershipStatus,
+    branchId,
+    search,
+    service,
+    ageGroup,
+    memberManager,
+    leadSource,
+    serviceCategory,
+    salesRep,
+    generalTrainer,
+    invoice,
+    gender
+  } = req.query;
+
+  let activeMemberIdsForStatus = null;
+  let statusMemberIds = null;
+
+  const memberStatus = membershipStatus || status;
+  if (memberStatus) {
+    if (memberStatus === 'active' || memberStatus === 'inactive' || memberStatus === 'pending') {
+      const activeMemberIds = await getActiveMembershipMemberIds(req.organizationId);
+      activeMemberIdsForStatus = activeMemberIds;
+      if (memberStatus === 'active') {
+        statusMemberIds = activeMemberIds;
+        query.membershipStatus = { $nin: ['frozen', 'cancelled'] };
+      } else {
+        const inactiveMembers = await Member.find({
+          organizationId: req.organizationId,
+          isActive: true,
+          $or: [
+            { _id: { $nin: activeMemberIds } },
+            { membershipStatus: { $in: ['frozen', 'cancelled'] } }
+          ]
+        }).select('_id').lean();
+        statusMemberIds = inactiveMembers.map(member => member._id);
+      }
+      query._id = { $in: statusMemberIds };
+    } else {
+      query.membershipStatus = memberStatus;
+    }
+  }
+
+  if (service) query['currentPlan.planId'] = service;
+  if (memberManager) query.memberManager = memberManager;
+  if (leadSource) query.source = leadSource;
+  if (salesRep) query.salesRep = salesRep;
+  if (generalTrainer) query.generalTrainer = generalTrainer;
+  if (gender) {
+    const genders = gender.split(',').map(g => g.trim()).filter(Boolean);
+    if (genders.length > 0) query.gender = { $in: genders };
+  }
+
+  if (ageGroup) {
+    const [minAge, maxAge] = ageGroup.split('-').map(a => parseInt(a.trim()));
+    if (minAge && maxAge) {
+      const today = new Date();
+      const maxDate = new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate());
+      const minDate = new Date(today.getFullYear() - maxAge - 1, today.getMonth(), today.getDate());
+      query.dateOfBirth = { $gte: minDate, $lte: maxDate };
+    } else if (ageGroup === '65+') {
+      const today = new Date();
+      const maxDate = new Date(today.getFullYear() - 65, today.getMonth(), today.getDate());
+      query.dateOfBirth = { $lte: maxDate };
+    }
+  }
+
+  if (serviceCategory) {
+    const plansWithCategory = await Plan.find({
+      organizationId: req.organizationId,
+      serviceType: serviceCategory
+    }).select('_id');
+    const planIds = plansWithCategory.map(p => p._id);
+    query['currentPlan.planId'] = planIds.length > 0 ? { $in: planIds } : null;
+  }
+
+  if (branchId) query.branchId = branchId;
+  if (search) {
+    query.$or = [
+      { firstName: { $regex: search, $options: 'i' } },
+      { lastName: { $regex: search, $options: 'i' } },
+      { phone: { $regex: search, $options: 'i' } },
+      { memberId: { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  if (invoice) {
+    let memberIdsWithInvoice = await Invoice.distinct('memberId', {
+      organizationId: req.organizationId,
+      status: invoice
+    });
+    if (statusMemberIds) {
+      memberIdsWithInvoice = intersectIds(memberIdsWithInvoice, statusMemberIds);
+    }
+    query._id = { $in: query._id?.$in ? intersectIds(query._id.$in, memberIdsWithInvoice) : memberIdsWithInvoice };
+  }
+
+  return { activeMemberIdsForStatus, statusMemberIds };
 };
 
 export const createMember = async (req, res) => {
@@ -355,6 +481,127 @@ export const getMembers = async (req, res) => {
         pages: Math.ceil(total / limit)
       }
     });
+  } catch (error) {
+    handleError(error, res, 500);
+  }
+};
+
+export const exportMembers = async (req, res) => {
+  try {
+    const query = { organizationId: req.organizationId, isActive: true };
+    const { activeMemberIdsForStatus } = await applyMemberFilters(req, query);
+
+    const selectedIds = (req.query.ids || '')
+      .split(',')
+      .map(id => id.trim())
+      .filter(Boolean);
+
+    if (selectedIds.length > 0) {
+      query._id = {
+        $in: query._id?.$in ? intersectIds(query._id.$in, selectedIds) : selectedIds
+      };
+    }
+
+    const activeMemberIds = activeMemberIdsForStatus || await getActiveMembershipMemberIds(req.organizationId);
+
+    const members = await Member.find(query)
+      .populate('currentPlan.planId', 'name price type duration billingCycle serviceName')
+      .populate('branchId', 'name code')
+      .populate('memberManager', 'firstName lastName')
+      .populate('salesRep', 'firstName lastName')
+      .populate('generalTrainer', 'firstName lastName')
+      .populate('createdBy', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const rows = members.map((member, index) => {
+      const effectiveStatus = getEffectiveMembershipStatus(member, activeMemberIds);
+      const currentPlan = member.currentPlan || {};
+      const plan = currentPlan.planId || {};
+
+      return {
+        'S.No': index + 1,
+        'Member ID': member.memberId || '',
+        'Attendance ID': member.attendanceId || '',
+        'Club ID': member.clubId || '',
+        'First Name': member.firstName || '',
+        'Last Name': member.lastName || '',
+        'Full Name': [member.firstName, member.lastName].filter(Boolean).join(' ').trim(),
+        'Email': member.email || '',
+        'Phone': member.phone || '',
+        'Alternate Phone': member.alternatePhone || '',
+        'Date Of Birth': formatExportDate(member.dateOfBirth),
+        'Gender': member.gender || '',
+        'Customer Type': member.customerType || '',
+        'Effective Membership Status': effectiveStatus,
+        'Stored Membership Status': member.membershipStatus || '',
+        'Current Plan Name': currentPlan.planName || plan.name || '',
+        'Current Plan Service Name': plan.serviceName || '',
+        'Current Plan Type': plan.type || '',
+        'Current Plan Billing Cycle': plan.billingCycle || '',
+        'Current Plan Price': plan.price ?? '',
+        'Plan Start Date': formatExportDate(currentPlan.startDate),
+        'Plan End Date': formatExportDate(currentPlan.endDate),
+        'Total Sessions': currentPlan.sessions?.total ?? '',
+        'Used Sessions': currentPlan.sessions?.used ?? '',
+        'Remaining Sessions': currentPlan.sessions?.remaining ?? '',
+        'Branch Name': member.branchId?.name || '',
+        'Branch Code': member.branchId?.code || '',
+        'Sales Rep': formatUserName(member.salesRep),
+        'Member Manager': formatUserName(member.memberManager),
+        'General Trainer': formatUserName(member.generalTrainer),
+        'Lead Source': member.source || '',
+        'GST No': member.gstNo || '',
+        'Address': formatAddress(member.address),
+        'Street': member.address?.street || '',
+        'City': member.address?.city || '',
+        'State': member.address?.state || '',
+        'Zip Code': member.address?.zipCode || '',
+        'Country': member.address?.country || '',
+        'Emergency Contact Name': member.emergencyContact?.name || '',
+        'Emergency Contact Country Code': member.emergencyContact?.countryCode || '',
+        'Emergency Contact Phone': member.emergencyContact?.phone || '',
+        'Emergency Contact Relationship': member.emergencyContact?.relationship || '',
+        'Total Check Ins': member.attendanceStats?.totalCheckIns ?? 0,
+        'Last Check In': formatExportDate(member.attendanceStats?.lastCheckIn),
+        'Current Streak': member.attendanceStats?.currentStreak ?? 0,
+        'Longest Streak': member.attendanceStats?.longestStreak ?? 0,
+        'Average Visits Per Week': member.attendanceStats?.averageVisitsPerWeek ?? '',
+        'SMS Preference': member.communicationPreferences?.sms ?? '',
+        'Mail Preference': member.communicationPreferences?.mail ?? '',
+        'Push Preference': member.communicationPreferences?.pushNotification ?? '',
+        'WhatsApp Preference': member.communicationPreferences?.whatsapp ?? '',
+        'Biometric Registered At': formatExportDate(member.biometricData?.registeredAt),
+        'Subscription ID': member.subscription?.subscriptionId || '',
+        'Subscription Status': member.subscription?.status || '',
+        'Subscription Next Billing Date': formatExportDate(member.subscription?.nextBillingDate),
+        'Subscription Auto Renew': member.subscription?.autoRenew ?? '',
+        'Freeze Days Used': member.totalFreezeDaysUsed ?? 0,
+        'Tags': (member.tags || []).join(', '),
+        'Terms Agreement Date': formatExportDate(member.termsAndConditions?.agreementDate),
+        'Diet Plan': member.dietPlan || '',
+        'Profile Picture': member.profilePicture || '',
+        'Created By': formatUserName(member.createdBy) || member.createdBy?.email || '',
+        'Created At': formatExportDate(member.createdAt),
+        'Updated At': formatExportDate(member.updatedAt)
+      };
+    });
+
+    const worksheetRows = rows.length > 0 ? rows : [{ 'No Clients': 'No clients found for this export' }];
+    const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
+    worksheet['!cols'] = Object.keys(worksheetRows[0]).map(key => ({
+      wch: Math.min(Math.max(key.length + 2, 14), 34)
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clients');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const exportScope = selectedIds.length > 0 ? 'selected' : 'filtered';
+    const filename = `clients-${exportScope}-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   } catch (error) {
     handleError(error, res, 500);
   }

@@ -137,6 +137,7 @@ export default function Clients() {
   const [limit] = useState(20)
   const [selectedMembers, setSelectedMembers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null) // { member: {...}, show: true }
   const [filters, setFilters] = useState({
@@ -350,10 +351,57 @@ export default function Clients() {
   }
 
   const handleExport = async () => {
+    setIsExporting(true)
     try {
-      toast.success('Export functionality coming soon')
+      const exportParams = { ...queryParams }
+      delete exportParams.page
+      delete exportParams.limit
+
+      if (selectedMembers.length > 0) {
+        exportParams.ids = selectedMembers.join(',')
+      }
+
+      const response = await api.get('/members/export', {
+        params: exportParams,
+        responseType: 'blob'
+      })
+
+      const contentDisposition = response.headers?.['content-disposition'] || ''
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/)
+      
+      const now = new Date();
+      const timestamp = now
+        .toISOString()
+        .replace("T", "_")
+        .replace(/:/g, "-")
+        .split(".")[0];
+      const clientCount =
+        selectedMembers.length > 0
+          ? selectedMembers.length
+          : displayStats.total;
+      const filename = `AirFit_${clientCount}_Clients_${timestamp}.xlsx`;
+
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+
+      toast.success(
+        selectedMembers.length > 0
+          ? `Exported ${selectedMembers.length} selected client${selectedMembers.length === 1 ? '' : 's'}`
+          : 'Filtered clients exported successfully'
+      )
     } catch (error) {
       toast.error('Failed to export clients')
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -435,11 +483,14 @@ export default function Clients() {
             </button> */}
             <button
               onClick={handleExport}
-              className="px-4 md:px-5 py-2 md:py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg md:rounded-xl hover:from-orange-600 hover:to-red-600 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 text-xs md:text-sm tablet-touch-target whitespace-nowrap"
+              disabled={isExporting}
+              className="px-4 md:px-5 py-2 md:py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg md:rounded-xl hover:from-orange-600 hover:to-red-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all font-semibold shadow-lg hover:shadow-xl flex items-center gap-2 text-xs md:text-sm tablet-touch-target whitespace-nowrap"
             >
               <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              <span className="hidden sm:inline">Export Clients</span>
-              <span className="sm:hidden">Export</span>
+              <span className="hidden sm:inline">
+                {isExporting ? 'Exporting...' : selectedMembers.length > 0 ? `Export Selected (${selectedMembers.length})` : 'Export Clients'}
+              </span>
+              <span className="sm:hidden">{isExporting ? '...' : 'Export'}</span>
             </button>
           </div>
         </div>
@@ -561,7 +612,7 @@ export default function Clients() {
                             )}
                             <Link
                               to={`/clients/${member._id}`}
-                              className="min-w-0 truncate font-bold text-orange-600 hover:text-orange-700 hover:underline text-xs md:text-sm tablet-touch-target"
+                              className="min-w-0 truncate font-bold text-orange-600 hover:text-orange-700 hover:underline text-xs md:text-sm tablet-touch-target py-3"
                             >
                               {member.firstName?.toUpperCase()} {member.lastName?.toUpperCase()}
                             </Link>
