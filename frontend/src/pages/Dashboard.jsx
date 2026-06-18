@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { getDashboardStats, getUpcomingRenewals, getPendingPayments } from '../api/dashboard';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
@@ -162,6 +163,25 @@ export default function Dashboard() {
     active: 0,
     inactive: 0
   };
+  const clientOverviewData = [
+    {
+      name: 'Active',
+      status: 'active',
+      value: clientStats.active || 0,
+      color: '#16a34a'
+    },
+    {
+      name: 'Inactive',
+      status: 'inactive',
+      value: clientStats.inactive || 0,
+      color: '#dc2626'
+    }
+  ];
+  const hasClientOverviewData = clientOverviewData.some(item => item.value > 0);
+
+  const navigateToClientsByStatus = (status) => {
+    navigate(`/clients?filter=validity&type=${status}`);
+  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -313,15 +333,15 @@ export default function Dashboard() {
         </div>
 
         <div className="flex gap-9">
-            <button
-              onClick={handleRefreshAll}
-              disabled={isRefreshing}
-              className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-            </button>
-          </div>
+          <button
+            onClick={handleRefreshAll}
+            disabled={isRefreshing}
+            className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+        </div>
 
       </div>
 
@@ -418,59 +438,44 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Client Overview */}
-          <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-lg">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Client Overview</h2>
-                <p className="text-sm text-gray-600">Your membership base</p>
-              </div>
+          {/* Payment Collected */}
+          <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Zap className="w-5 h-5 text-yellow-500" />
+              <h3 className="font-bold text-gray-900 text-lg">Payment Modes</h3>
             </div>
 
-            <div className="space-y-4">
-              <div className="relative p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl border-2 border-blue-200 overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 rounded-full -mr-16 -mt-16 opacity-20"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-200 rounded-full -ml-12 -mb-12 opacity-20"></div>
-                <div className="relative text-center">
-                  <p className="text-6xl font-black text-blue-600 mb-2">{clientStats.total}</p>
-                  <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Total Clients</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600 mb-1">Active</p>
-                      <p className="text-3xl font-bold text-green-600">{clientStats.active}</p>
+            <div className="space-y-2">
+              {paymentCollected?.data?.payments?.map((payment, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-orange-100 to-red-100 rounded-lg flex items-center justify-center text-orange-600 font-bold text-xs">
+                      {payment.sNo}
                     </div>
-                    <div className="p-3 bg-green-100 rounded-lg">
-                      <CheckCircle2 className="w-6 h-6 text-green-600" />
-                    </div>
+                    <span className="text-sm font-medium text-gray-700">{payment.payMode}</span>
                   </div>
+                  <span className="text-sm font-bold text-gray-900">{formatCurrency(payment.amount)}</span>
                 </div>
+              ))}
 
-                <div className="p-5 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border-2 border-red-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600 mb-1">Inactive</p>
-                      <p className="text-3xl font-bold text-red-600">{clientStats.inactive}</p>
-                    </div>
-                    <div className="p-3 bg-red-100 rounded-lg">
-                      <TrendingDown className="w-6 h-6 text-red-600" />
-                    </div>
-                  </div>
+              {(!paymentCollected?.data?.payments || paymentCollected.data.payments.length === 0) && (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  No payments collected
                 </div>
+              )}
+
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border-2 border-orange-200 mt-3">
+                <span className="text-sm font-bold text-gray-900">Total Collected</span>
+                <span className="text-lg font-black text-orange-600">{formatCurrency(paymentCollected?.data?.total || 0)}</span>
               </div>
             </div>
           </div>
+
         </div>
 
         {/* Right Sidebar */}
         <div className="space-y-5">
+
           {/* Quick Actions Tabs */}
           <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
             <div className="grid grid-cols-3 border-b-2 border-gray-200">
@@ -552,44 +557,63 @@ export default function Dashboard() {
                 icon={Gift}
                 onClick={() => navigate(`/reports/client-management/birthday?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
-              {/* <SummaryItem 
-                title="Staff birthdays" 
-                count={summaryData?.data?.staffBirthdays || 0}
-                icon={Gift}
-                onClick={() => navigate(`/reports/staff/birthday?fromDate=${summaryDate}&toDate=${summaryDate}`)}
-              /> */}
             </div>
           </div>
 
-          {/* Payment Collected */}
-          <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Zap className="w-5 h-5 text-yellow-500" />
-              <h3 className="font-bold text-gray-900 text-lg">Payment Modes</h3>
+          {/* Client Overview */}
+          <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-lg">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Client Overview</h2>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              {paymentCollected?.data?.payments?.map((payment, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-orange-100 to-red-100 rounded-lg flex items-center justify-center text-orange-600 font-bold text-xs">
-                      {payment.sNo}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">{payment.payMode}</span>
+            <div className="space-y-5">
+              <div className="relative h-64 rounded-2xl border-2 border-blue-100 bg-blue-50/60 p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={hasClientOverviewData ? clientOverviewData : [{ name: 'No Clients', value: 1, color: '#e5e7eb' }]}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={62}
+                      outerRadius={92}
+                      paddingAngle={hasClientOverviewData ? 3 : 0}
+                      strokeWidth={0}
+                      cursor={hasClientOverviewData ? 'pointer' : 'default'}
+                      onClick={(entry) => {
+                        if (entry?.status) {
+                          navigateToClientsByStatus(entry.status);
+                        }
+                      }}
+                    >
+                      {(hasClientOverviewData ? clientOverviewData : [{ name: 'No Clients', value: 1, color: '#e5e7eb' }]).map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    {hasClientOverviewData && (
+                      <Tooltip
+                        formatter={(value, name) => [`${value} clients`, name]}
+                        contentStyle={{
+                          borderRadius: '12px',
+                          border: '1px solid #e5e7eb',
+                          boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)'
+                        }}
+                      />
+                    )}
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-4xl font-black text-blue-600">{clientStats.total}</p>
+                    <p className="text-xs font-bold uppercase text-gray-600">total clients</p>
                   </div>
-                  <span className="text-sm font-bold text-gray-900">{formatCurrency(payment.amount)}</span>
                 </div>
-              ))}
-
-              {(!paymentCollected?.data?.payments || paymentCollected.data.payments.length === 0) && (
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  No payments collected
-                </div>
-              )}
-
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border-2 border-orange-200 mt-3">
-                <span className="text-sm font-bold text-gray-900">Total Collected</span>
-                <span className="text-lg font-black text-orange-600">{formatCurrency(paymentCollected?.data?.total || 0)}</span>
               </div>
             </div>
           </div>
