@@ -47,6 +47,7 @@ import {
 import { setupSections } from '../data/setupSections'
 import { getOrganizationDetails } from '../api/organization'
 import api from '../api/axios'
+import airfitLogo from '../../images/Airfitlogo.png'
 
 const resolveAssetUrl = (path) => {
   if (!path) return null
@@ -59,7 +60,7 @@ const resolveAssetUrl = (path) => {
       import.meta.env.VITE_BACKEND_URL,
       import.meta.env.VITE_API_ORIGIN
     ].find((value) => typeof value === 'string' && /^https?:\/\//i.test(value))
-    
+
     if (envBase) {
       // Remove /api suffix if present
       return envBase.replace(/\/api\/?$/, '')
@@ -84,7 +85,7 @@ const resolveAssetUrl = (path) => {
       }
       return origin
     }
-    
+
     return ''
   }
 
@@ -163,8 +164,8 @@ export default function Layout() {
 
   const organization = organizationResponse?.organization
   // If logo is already a full URL, use it directly; otherwise resolve it
-  const organizationLogoUrl = organization?.logo?.startsWith('http') 
-    ? organization.logo 
+  const organizationLogoUrl = organization?.logo?.startsWith('http')
+    ? organization.logo
     : resolveAssetUrl(organization?.logo)
   const organizationDisplayName = organization?.name || user?.organizationName || 'Indiranagar'
 
@@ -393,14 +394,14 @@ export default function Layout() {
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
     return segment.name.toLowerCase().includes(query) ||
-           (segment.subItems && segment.subItems.some(item => item.name.toLowerCase().includes(query)))
+      (segment.subItems && segment.subItems.some(item => item.name.toLowerCase().includes(query)))
   })
 
   const filteredReports = reportsCategories.filter(category => {
     if (!reportsSearchQuery) return true
     const query = reportsSearchQuery.toLowerCase()
     return category.name.toLowerCase().includes(query) ||
-           (category.subItems && category.subItems.some(item => item.name.toLowerCase().includes(query)))
+      (category.subItems && category.subItems.some(item => item.name.toLowerCase().includes(query)))
   })
 
   const filteredSetupSections = setupSections.filter(section => {
@@ -440,16 +441,16 @@ export default function Layout() {
 
       const memberResults = memberSearchResponse.status === 'fulfilled'
         ? (memberSearchResponse.value.data?.members || []).map((member) => ({
-            ...member,
-            resultType: 'member'
-          }))
+          ...member,
+          resultType: 'member'
+        }))
         : []
 
       const enquiryResults = enquirySearchResponse.status === 'fulfilled'
         ? (enquirySearchResponse.value.data?.enquiries || []).map((enquiry) => ({
-            ...enquiry,
-            resultType: 'enquiry'
-          }))
+          ...enquiry,
+          resultType: 'enquiry'
+        }))
         : []
 
       const combinedResults = [...memberResults, ...enquiryResults]
@@ -524,7 +525,7 @@ export default function Layout() {
 
   const handleAddOption = (option) => {
     setShowAddMenu(false)
-    
+
     // Special handling for modals
     if (option.name === 'Enquiry') {
       setShowEnquiryModal(true)
@@ -542,7 +543,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden max-w-full w-full">
-        <div className="flex h-screen overflow-x-hidden max-w-full w-full">
+      <div className="flex h-screen overflow-x-hidden max-w-full w-full">
         {/* Sidebar */}
         <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-white shadow-lg transition-all duration-300 relative`}>
           {/* Toggle Button */}
@@ -560,46 +561,24 @@ export default function Layout() {
 
           <div className={`p-6 ${isSidebarCollapsed ? 'px-3' : 'pb-4'} border-b border-gray-100`}>
             <div className="mb-3 flex items-center justify-center">
-              {organizationLogoUrl && !isLogoBroken ? (
+              <a
+                href="https://airfitluxury.in"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <img
-                  src={organizationLogoUrl}
+                  src={airfitLogo}
                   alt={`${organizationDisplayName} logo`}
-                  className="max-w-full h-auto object-contain"
-                  style={{ maxHeight: isSidebarCollapsed ? '56px' : '96px' }}
-                  onError={(e) => {
-                    console.error('❌ Logo failed to load:', {
-                      src: e.target.src,
-                      originalPath: organization?.logo,
-                      resolvedUrl: organizationLogoUrl,
-                      error: e.type
-                    })
-                    setIsLogoBroken(true)
-                  }}
-                  onLoad={(e) => {
-                    console.log('✅ Logo loaded successfully:', {
-                      src: e.target.src,
-                      originalPath: organization?.logo,
-                      naturalWidth: e.target.naturalWidth,
-                      naturalHeight: e.target.naturalHeight
-                    })
-                    setIsLogoBroken(false)
-                  }}
+                  className="max-w-full h-auto object-contain cursor-pointer"
+                  style={{ maxHeight: isSidebarCollapsed ? '72px' : '140px' }}
                 />
-              ) : (
-                <div className={`flex items-center justify-center ${
-                  isSidebarCollapsed ? 'h-14 w-14' : 'h-24 w-24'
-                } rounded-full bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white shadow-lg hover:shadow-xl transition-all ring-4 ring-orange-100`}>
-                  <User 
-                    className={`${isSidebarCollapsed ? 'w-7 h-7' : 'w-11 h-11'} text-white drop-shadow-sm`}
-                    strokeWidth={2.5}
-                  />
-                </div>
-              )}
+              </a>
             </div>
             {!isSidebarCollapsed && (
               <div className="text-center">
                 <p className="text-xs font-bold text-gray-800 uppercase tracking-wide truncate px-2">
-                  {organizationDisplayName}
+                  {/* {organizationDisplayName} */}
+                  Elevate Your Potential
                 </p>
               </div>
             )}
@@ -611,7 +590,7 @@ export default function Layout() {
               const isClientItem = item.name === 'Client'
               const isReportsItem = item.name === 'Reports'
               const isSetupItem = item.name === 'Setup'
-              
+
               if (isClientItem) {
                 return (
                   <div key={item.name} className="relative" ref={clientMenuRef}>
@@ -626,11 +605,10 @@ export default function Layout() {
                         setShowSendMenu(false)
                         setShowProfileMenu(false)
                       }}
-                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${
-                        isActive
-                          ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
-                          : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
-                      }`}
+                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${isActive
+                        ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
+                        : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
+                        }`}
                       title={isSidebarCollapsed ? item.name : ''}
                     >
                       <div className="flex items-center">
@@ -639,7 +617,7 @@ export default function Layout() {
                       </div>
                       {!isSidebarCollapsed && <ChevronRight className="w-4 h-4" />}
                     </button>
-                    
+
                     {/* Client Segments Dropdown */}
                     {showClientMenu && (
                       <div className={`fixed ${isSidebarCollapsed ? 'left-20' : 'left-64'} top-0 ml-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col`} style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
@@ -660,7 +638,7 @@ export default function Layout() {
                           {filteredSegments.map((segment) => {
                             const SegmentIcon = segment.icon
                             const isExpanded = expandedCategories[segment.name]
-                            
+
                             if (!segment.expandable) {
                               return (
                                 <button
@@ -678,7 +656,7 @@ export default function Layout() {
                                 </button>
                               )
                             }
-                            
+
                             return (
                               <div key={segment.name} className="border-b border-gray-100">
                                 <button
@@ -689,10 +667,9 @@ export default function Layout() {
                                     <SegmentIcon className="w-4 h-4 mr-3 text-gray-500" />
                                     {segment.name}
                                   </div>
-                                  <ChevronDown 
-                                    className={`w-4 h-4 text-gray-400 transition-transform ${
-                                      isExpanded ? 'transform rotate-180' : ''
-                                    }`} 
+                                  <ChevronDown
+                                    className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'transform rotate-180' : ''
+                                      }`}
                                   />
                                 </button>
                                 {isExpanded && segment.subItems && (
@@ -735,11 +712,10 @@ export default function Layout() {
                         setShowSendMenu(false)
                         setShowProfileMenu(false)
                       }}
-                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${
-                        isActive
-                          ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
-                          : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
-                      }`}
+                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${isActive
+                        ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
+                        : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
+                        }`}
                       title={isSidebarCollapsed ? item.name : ''}
                     >
                       <div className="flex items-center">
@@ -748,7 +724,7 @@ export default function Layout() {
                       </div>
                       {!isSidebarCollapsed && <ChevronRight className="w-4 h-4" />}
                     </button>
-                    
+
                     {/* Reports Categories Dropdown */}
                     {showReportsMenu && (
                       <div className={`fixed ${isSidebarCollapsed ? 'left-20' : 'left-64'} top-0 ml-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col`} style={{ height: '100vh', maxHeight: '100vh', top: 0 }}>
@@ -769,7 +745,7 @@ export default function Layout() {
                           {filteredReports.map((category) => {
                             const CategoryIcon = category.icon
                             const isExpanded = expandedReportCategories[category.name]
-                            
+
                             if (!category.expandable) {
                               return (
                                 <button
@@ -787,7 +763,7 @@ export default function Layout() {
                                 </button>
                               )
                             }
-                            
+
                             return (
                               <div key={category.name} className="border-b border-gray-100">
                                 <button
@@ -798,10 +774,9 @@ export default function Layout() {
                                     <CategoryIcon className="w-4 h-4 mr-3 text-gray-500" />
                                     {category.name}
                                   </div>
-                                  <ChevronDown 
-                                    className={`w-4 h-4 text-gray-400 transition-transform ${
-                                      isExpanded ? 'transform rotate-180' : ''
-                                    }`} 
+                                  <ChevronDown
+                                    className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'transform rotate-180' : ''
+                                      }`}
                                   />
                                 </button>
                                 {isExpanded && category.subItems && (
@@ -844,11 +819,10 @@ export default function Layout() {
                         setShowSendMenu(false)
                         setShowProfileMenu(false)
                       }}
-                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${
-                        isActive
-                          ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
-                          : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
-                      }`}
+                      className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-xl transition-all group ${isActive
+                        ? 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 font-semibold shadow-sm'
+                        : 'text-gray-700 hover:bg-gray-50 hover:translate-x-0.5'
+                        }`}
                       title={isSidebarCollapsed ? item.name : ''}
                     >
                       <div className="flex items-center">
@@ -894,9 +868,8 @@ export default function Layout() {
                                       <span className="font-medium text-gray-800">{section.title}</span>
                                     </div>
                                     <ChevronDown
-                                      className={`w-4 h-4 text-gray-400 transition-transform ${
-                                        isExpanded ? 'transform rotate-180' : ''
-                                      }`}
+                                      className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'transform rotate-180' : ''
+                                        }`}
                                     />
                                   </button>
                                   {isExpanded && (
@@ -906,11 +879,10 @@ export default function Layout() {
                                           key={itemOption.id}
                                           onClick={() => handleSetupItemAction(section, itemOption)}
                                           disabled={itemOption.comingSoon}
-                                          className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
-                                            itemOption.comingSoon
-                                              ? 'text-gray-400 cursor-not-allowed'
-                                              : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
-                                          }`}
+                                          className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${itemOption.comingSoon
+                                            ? 'text-gray-400 cursor-not-allowed'
+                                            : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
+                                            }`}
                                         >
                                           <span className="font-medium text-left">{itemOption.title}</span>
                                           <ChevronRight className={`h-4 w-4 ${itemOption.comingSoon ? 'text-gray-300' : 'text-orange-400'}`} />
@@ -928,16 +900,15 @@ export default function Layout() {
                   </div>
                 )
               }
-              
+
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-orange-100 text-orange-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                  className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-4'} py-3 rounded-lg transition-colors ${isActive
+                    ? 'bg-orange-100 text-orange-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                   title={isSidebarCollapsed ? item.name : ''}
                 >
                   <div className="flex items-center">
@@ -1006,7 +977,7 @@ export default function Layout() {
                     Search
                   </button>
                 </div>
-                
+
                 {/* Search Results Dropdown */}
                 {showMemberSearchResults && memberSearchResults.length > 0 && (
                   <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
@@ -1024,20 +995,18 @@ export default function Layout() {
                           : `${result.firstName || ''} ${result.lastName || ''}`.trim()
                         const email = result.email || ''
                         const phone = result.phone || ''
-                        
+
                         return (
                           <button
                             key={`${result.resultType}-${result._id || index}`}
                             onClick={() => handleMemberResultClick(result)}
-                            className={`w-full text-left px-4 py-3 text-sm hover:bg-orange-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                              index === 0 ? 'bg-orange-50' : 'bg-white'
-                            }`}
+                            className={`w-full text-left px-4 py-3 text-sm hover:bg-orange-50 transition-colors border-b border-gray-100 last:border-b-0 ${index === 0 ? 'bg-orange-50' : 'bg-white'
+                              }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div className="font-medium text-gray-900">{fullName || (isEnquiry ? 'Unnamed Enquiry' : 'Unnamed Member')}</div>
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                isEnquiry ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
-                              }`}>
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${isEnquiry ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                                }`}>
                                 {isEnquiry ? (
                                   <>
                                     <HelpCircle className="w-3 h-3" />
@@ -1070,7 +1039,7 @@ export default function Layout() {
             <div className="flex items-center space-x-3">
               {/* Add Menu */}
               <div className="relative group" ref={menuRef}>
-                <button 
+                <button
                   onClick={() => {
                     setShowAddMenu(!showAddMenu)
                     setShowCheckInMenu(false)
@@ -1220,7 +1189,7 @@ export default function Layout() {
 
               {/* Profile Menu */}
               <div className="relative group" ref={profileMenuRef}>
-                <button 
+                <button
                   onClick={() => {
                     setShowProfileMenu(!showProfileMenu)
                     setShowAddMenu(false)
@@ -1246,7 +1215,7 @@ export default function Layout() {
                       </p>
                       <p className="text-xs text-gray-600 mt-0.5">{user?.email}</p>
                     </div>
-                    
+
                     {/* Menu Items */}
                     <div className="py-2">
                       <button
@@ -1259,9 +1228,9 @@ export default function Layout() {
                         <UserCircle className="w-4 h-4 mr-3 text-gray-400" />
                         <span className="uppercase tracking-wide">Profile</span>
                       </button>
-                      
+
                       <div className="border-t border-gray-100 my-2"></div>
-                      
+
                       <button
                         onClick={() => {
                           logout()
@@ -1282,7 +1251,7 @@ export default function Layout() {
 
           {/* Main content */}
           <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 w-full max-w-full">
-            <div className="p-6 max-w-full w-full overflow-x-hidden">
+            <div className="h-full min-h-0 p-6 max-w-full w-full overflow-x-hidden">
               <Outlet />
             </div>
           </main>
@@ -1290,14 +1259,14 @@ export default function Layout() {
       </div>
 
       {/* Add Enquiry Modal */}
-      <AddEnquiryModal 
-        isOpen={showEnquiryModal} 
-        onClose={() => setShowEnquiryModal(false)} 
+      <AddEnquiryModal
+        isOpen={showEnquiryModal}
+        onClose={() => setShowEnquiryModal(false)}
       />
 
       {/* Add Member Modal */}
-      <AddMemberModal 
-        isOpen={showMemberModal} 
+      <AddMemberModal
+        isOpen={showMemberModal}
         onClose={() => {
           setShowMemberModal(false)
           setInvoiceMemberData(null)
@@ -1310,14 +1279,14 @@ export default function Layout() {
       />
 
       {/* Add Staff Modal */}
-      <AddStaffModal 
-        isOpen={showStaffModal} 
-        onClose={() => setShowStaffModal(false)} 
+      <AddStaffModal
+        isOpen={showStaffModal}
+        onClose={() => setShowStaffModal(false)}
       />
 
       {/* Add Invoice Modal */}
-      <AddInvoiceModal 
-        isOpen={showInvoiceModal} 
+      <AddInvoiceModal
+        isOpen={showInvoiceModal}
         onClose={() => {
           setShowInvoiceModal(false)
           setInvoiceMemberData(null)
@@ -1329,4 +1298,3 @@ export default function Layout() {
     </div>
   )
 }
-

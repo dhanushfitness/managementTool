@@ -28,6 +28,75 @@ const generateMemberAttendanceId = async (organizationId) => {
   return `MAT${String(count + 1).padStart(6, '0')}`;
 };
 
+const getActiveMembershipMemberIds = async (organizationId) => {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  const activeInvoices = await Invoice.aggregate([
+    {
+      $match: {
+        organizationId,
+        status: { $in: ['paid', 'partial'] },
+        'items.0': { $exists: true }
+      }
+    },
+    {
+      $project: {
+        memberId: 1,
+        itemExpiryDate: { $arrayElemAt: ['$items.expiryDate', 0] }
+      }
+    },
+    {
+      $match: {
+        $or: [
+          { itemExpiryDate: { $exists: true, $ne: null, $gte: now } },
+          {
+            $or: [
+              { itemExpiryDate: { $exists: false } },
+              { itemExpiryDate: null }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      $group: {
+        _id: '$memberId'
+      }
+    }
+  ]);
+
+  return activeInvoices.map(inv => inv._id).filter(Boolean);
+};
+
+const intersectIds = (ids, allowedIds) => {
+  const allowedSet = new Set(allowedIds.map(id => id.toString()));
+  return ids.filter(id => allowedSet.has(id.toString()));
+};
+
+const getEffectiveMembershipStatus = (member, activeMemberIds = []) => {
+  if (member.membershipStatus === 'frozen' || member.membershipStatus === 'cancelled') {
+    return member.membershipStatus;
+  }
+
+  const activeMemberIdSet = new Set(activeMemberIds.map(id => id.toString()));
+  if (activeMemberIdSet.has(member._id.toString())) {
+    return 'active';
+  }
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  if (member.currentPlan?.endDate) {
+    const endDate = new Date(member.currentPlan.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    if (endDate < now || member.membershipStatus === 'active') {
+      return 'expired';
+    }
+  }
+
+  return member.membershipStatus || 'pending';
+};
+
 export const createMember = async (req, res) => {
   try {
     // Check for duplicate phone number
@@ -147,12 +216,30 @@ export const getMembers = async (req, res) => {
 
     const query = { organizationId: req.organizationId, isActive: true };
     
+    let activeMemberIdsForStatus = null;
+    let statusMemberIds = null;
+
     // Handle status filter (support both 'status' and 'membershipStatus' for compatibility)
     const memberStatus = membershipStatus || status;
     if (memberStatus) {
-      if (memberStatus === 'inactive') {
-        // Inactive means not active (expired, frozen, cancelled, pending)
-        query.membershipStatus = { $ne: 'active' };
+      if (memberStatus === 'active' || memberStatus === 'inactive' || memberStatus === 'pending') {
+        const activeMemberIds = await getActiveMembershipMemberIds(req.organizationId);
+        activeMemberIdsForStatus = activeMemberIds;
+        if (memberStatus === 'active') {
+          statusMemberIds = activeMemberIds;
+          query.membershipStatus = { $nin: ['frozen', 'cancelled'] };
+        } else {
+          const inactiveMembers = await Member.find({
+            organizationId: req.organizationId,
+            isActive: true,
+            $or: [
+              { _id: { $nin: activeMemberIds } },
+              { membershipStatus: { $in: ['frozen', 'cancelled'] } }
+            ]
+          }).select('_id').lean();
+          statusMemberIds = inactiveMembers.map(member => member._id);
+        }
+        query._id = { $in: statusMemberIds };
       } else {
         query.membershipStatus = memberStatus;
       }
@@ -221,23 +308,38 @@ export const getMembers = async (req, res) => {
 
     // Filter by invoice status if provided
     if (invoice) {
-      const memberIdsWithInvoice = await Invoice.distinct('memberId', {
+      let memberIdsWithInvoice = await Invoice.distinct('memberId', {
         organizationId: req.organizationId,
         status: invoice
       });
+      if (statusMemberIds) {
+        memberIdsWithInvoice = intersectIds(memberIdsWithInvoice, statusMemberIds);
+      }
       membersQuery = membersQuery.where('_id').in(memberIdsWithInvoice);
     }
 
-    const members = await membersQuery
+    let members = await membersQuery
       .skip(skip)
       .limit(parseInt(limit));
 
+    if (!activeMemberIdsForStatus) {
+      activeMemberIdsForStatus = await getActiveMembershipMemberIds(req.organizationId);
+    }
+
+    members = members.map(member => ({
+      ...member,
+      effectiveMembershipStatus: getEffectiveMembershipStatus(member, activeMemberIdsForStatus)
+    }));
+
     let total;
     if (invoice) {
-      const memberIdsWithInvoice = await Invoice.distinct('memberId', {
+      let memberIdsWithInvoice = await Invoice.distinct('memberId', {
         organizationId: req.organizationId,
         status: invoice
       });
+      if (statusMemberIds) {
+        memberIdsWithInvoice = intersectIds(memberIdsWithInvoice, statusMemberIds);
+      }
       total = await Member.countDocuments({ ...query, _id: { $in: memberIdsWithInvoice } });
     } else {
       total = await Member.countDocuments(query);
@@ -1573,63 +1675,14 @@ export const getMemberStats = async (req, res) => {
     // Get total members
     const total = await Member.countDocuments(query);
     
-    // Calculate active members based on actual invoices (not stored membershipStatus)
-    // A member is active if they have at least one invoice that is:
-    // 1. Status is 'paid' or 'partial'
-    // 2. If invoice has expiryDate, it should be >= today
-    // 3. If invoice has no expiryDate, it's considered active if paid/partial
-    
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    
-    // Find all invoices with active memberships
-    const activeInvoices = await Invoice.aggregate([
-      {
-        $match: {
-          organizationId,
-          status: { $in: ['paid', 'partial'] },
-          'items.0': { $exists: true } // Has at least one item
-        }
-      },
-      {
-        $project: {
-          memberId: 1,
-          status: 1,
-          itemExpiryDate: { $arrayElemAt: ['$items.expiryDate', 0] }
-        }
-      },
-      {
-        $match: {
-          $or: [
-            // Has expiry date and it's in the future or today
-            {
-              itemExpiryDate: { $exists: true, $ne: null, $gte: now }
-            },
-            // No expiry date or null (session-based memberships) - consider active if paid/partial
-            {
-              $or: [
-                { itemExpiryDate: { $exists: false } },
-                { itemExpiryDate: null }
-              ]
-            }
-          ]
-        }
-      },
-      {
-        $group: {
-          _id: '$memberId'
-        }
-      }
-    ]);
-    
-    // Get unique member IDs with active memberships
-    const activeMemberIds = activeInvoices.map(inv => inv._id);
+    const activeMemberIds = await getActiveMembershipMemberIds(organizationId);
     
     // Count active members
     const active = activeMemberIds.length > 0 
       ? await Member.countDocuments({ 
           ...query, 
-          _id: { $in: activeMemberIds } 
+          _id: { $in: activeMemberIds },
+          membershipStatus: { $nin: ['frozen', 'cancelled'] }
         })
       : 0;
     
@@ -1814,4 +1867,3 @@ export const getMemberTimeSlots = async (req, res) => {
     handleError(error, res, 500);
   }
 };
-

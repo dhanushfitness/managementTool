@@ -32,7 +32,8 @@ import Breadcrumbs from '../components/Breadcrumbs'
 import { deleteMember } from '../api/members'
 
 const getMemberStatusMeta = (member) => {
-  const isActive = member?.membershipStatus === 'active'
+  const status = member?.effectiveMembershipStatus || member?.membershipStatus
+  const isActive = status === 'active'
 
   return {
     label: isActive ? 'Active' : 'Inactive',
@@ -235,8 +236,20 @@ export default function Clients() {
   })
 
   const members = data?.members || []
-  const pagination = data?.pagination || { page: 1, pages: 1, total: 0 }
+  const pagination = data?.pagination || { page, pages: 1, total: 0 }
   const stats = statsData?.stats || {}
+  const hasPaginationData = Boolean(data?.pagination)
+  const totalPages = Math.max(pagination.pages || 1, 1)
+  const currentPage = Math.min(Math.max(pagination.page || page, 1), totalPages)
+  const totalMembers = pagination.total || 0
+  const visibleStart = totalMembers > 0 ? (currentPage - 1) * limit + 1 : 0
+  const visibleEnd = totalMembers > 0 ? Math.min(currentPage * limit, totalMembers) : 0
+
+  useEffect(() => {
+    if (hasPaginationData && page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [hasPaginationData, page, totalPages])
 
   // Calculate stats based on current filter
   const getDisplayStats = () => {
@@ -286,7 +299,8 @@ export default function Clients() {
   })
 
   const memberHasActivePlan = (member) => {
-    if (member.membershipStatus !== 'active') return false
+    const status = member.effectiveMembershipStatus || member.membershipStatus
+    if (status !== 'active') return false
     if (!member.currentPlan?.endDate) return true
     return new Date(member.currentPlan.endDate) >= new Date()
   }
@@ -322,15 +336,16 @@ export default function Clients() {
   }
 
   const handlePageChange = (newPage) => {
-    setPage(newPage)
+    const nextPage = Math.min(Math.max(newPage, 1), totalPages)
+    setPage(nextPage)
   }
 
   const handleGoToPage = (e) => {
     e.preventDefault()
     const pageInput = e.target.elements.page.value
     const pageNum = parseInt(pageInput)
-    if (pageNum >= 1 && pageNum <= pagination.pages) {
-      setPage(pageNum)
+    if (!Number.isNaN(pageNum)) {
+      handlePageChange(pageNum)
     }
   }
 
@@ -430,79 +445,18 @@ export default function Clients() {
         </div>
       </div>
 
-      {/* Pagination Bar - Top */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between bg-white rounded-xl md:rounded-2xl border-2 border-gray-200 px-3 md:px-4 py-2 md:py-3 shadow-sm gap-2 sm:gap-0">
-        <div className="flex items-center justify-center sm:justify-start space-x-1 md:space-x-2">
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={page === 1}
-            className="p-1.5 md:p-2 rounded-lg md:rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200 tablet-touch-target"
-            title="First page"
-          >
-            <ChevronsLeft className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page === 1}
-            className="p-1.5 md:p-2 rounded-lg md:rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200 tablet-touch-target"
-            title="Previous page"
-          >
-            <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
-          </button>
-        </div>
-        <div className="flex items-center justify-center space-x-2 md:space-x-3">
-          <span className="text-xs md:text-sm font-semibold text-gray-900">
-            Page {pagination.page} of {pagination.pages}
-          </span>
-          <form onSubmit={handleGoToPage} className="flex items-center space-x-1.5 md:space-x-2">
-            <input
-              type="number"
-              name="page"
-              min="1"
-              max={pagination.pages}
-              defaultValue={page}
-              className="w-12 md:w-16 px-1.5 md:px-2 py-1.5 border-2 border-gray-200 rounded-lg text-center text-xs md:text-sm font-semibold focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all tablet-touch-target"
-            />
-            <button
-              type="submit"
-              className="px-3 md:px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all text-xs md:text-sm font-semibold shadow-md tablet-touch-target"
-            >
-              Go
-            </button>
-          </form>
-        </div>
-        <div className="flex items-center justify-center sm:justify-end space-x-1 md:space-x-2">
-          <button
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= pagination.pages}
-            className="p-1.5 md:p-2 rounded-lg md:rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200 tablet-touch-target"
-            title="Next page"
-          >
-            <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={() => handlePageChange(pagination.pages)}
-            disabled={page >= pagination.pages}
-            className="p-1.5 md:p-2 rounded-lg md:rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200 tablet-touch-target"
-            title="Last page"
-          >
-            <ChevronsRight className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
-          </button>
-        </div>
-      </div>
-
       {/* Members Table */}
       <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         {isLoading ? (
-          <div className="py-12">
+          <div className="flex h-[560px] items-center justify-center">
             <LoadingPage message="Loading members..." fullScreen={false} />
           </div>
         ) : (
-          <div className="overflow-x-auto tablet-table-wrapper tablet-scrollbar-hide" style={{ overflowY: 'visible' }}>
+          <div className="h-[560px] overflow-auto tablet-table-wrapper tablet-scrollbar-hide">
             <table className="w-full min-w-[1080px] table-fixed">
               <colgroup>
                 <col className="w-12" />
-                <col className="w-[240px]" />
+                <col className="w-[200px]" />
                 <col className="w-[120px]" />
                 <col className="w-[100px]" />
                 <col className="w-[120px]" />
@@ -513,7 +467,7 @@ export default function Clients() {
                 <col className="w-[90px]" />
                 <col className="w-[80px]" />
               </colgroup>
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+              <thead className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-gray-100 shadow-sm">
                 <tr>
                   <th className="text-center py-3 md:py-4 px-2 md:px-4">
                     <input
@@ -527,7 +481,7 @@ export default function Clients() {
                   <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Status</th>
                   <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Billing</th>
                   <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Service Card</th>
-                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Attendance ID</th>
+                  <th className="text-left py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Member ID</th>
                   <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Call Log</th>
                   <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Info</th>
                   <th className="text-center py-3 md:py-4 px-2 md:px-4 text-[10px] md:text-xs font-bold text-gray-700 uppercase tracking-wider tablet-responsive-text">Training</th>
@@ -546,11 +500,12 @@ export default function Clients() {
                   members.map((member) => {
                     const hasCallLog = member.callLogs && member.callLogs.length > 0
                     const hasMeeting = false // TODO: Implement meeting tracking
+                    const membershipStatus = member.effectiveMembershipStatus || member.membershipStatus
 
                     // Check if member is expired with no active membership plan
                     const isExpiredNoActivePlan = () => {
                       // Check if membership status is expired
-                      if (member.membershipStatus === 'expired') {
+                      if (membershipStatus === 'expired') {
                         return true
                       }
 
@@ -562,13 +517,13 @@ export default function Clients() {
                         endDate.setHours(0, 0, 0, 0)
 
                         // If endDate is in the past and membership is not active
-                        if (endDate < today && member.membershipStatus !== 'active') {
+                        if (endDate < today && membershipStatus !== 'active') {
                           return true
                         }
                       }
 
                       // If no currentPlan exists and membership is not active
-                      if (!member.currentPlan && member.membershipStatus !== 'active') {
+                      if (!member.currentPlan && membershipStatus !== 'active') {
                         return true
                       }
 
@@ -686,64 +641,74 @@ export default function Clients() {
         )}
       </div>
 
-      {/* Pagination Bar - Bottom */}
-      <div className="flex items-center justify-between bg-white rounded-2xl border-2 border-gray-200 px-4 py-3 shadow-sm">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={page === 1}
-            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
-            title="First page"
-          >
-            <ChevronsLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={() => handlePageChange(page - 1)}
-            disabled={page === 1}
-            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
-            title="Previous page"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
+      {/* Pagination Bar */}
+      <div className="flex flex-col gap-3 bg-white rounded-2xl border-2 border-gray-200 px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="text-xs font-semibold text-gray-500 md:text-sm">
+          Showing {visibleStart.toLocaleString()}-{visibleEnd.toLocaleString()} of {totalMembers.toLocaleString()} clients
         </div>
-        <div className="flex items-center space-x-3">
-          <span className="text-sm font-semibold text-gray-900">
-            Page {pagination.page} of {pagination.pages}
-          </span>
-          <form onSubmit={handleGoToPage} className="flex items-center space-x-2">
+
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1 || totalPages <= 1}
+              className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
+              title="First page"
+            >
+              <ChevronsLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || totalPages <= 1}
+              className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
+              title="Previous page"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+
+          <form onSubmit={handleGoToPage} className="flex items-center space-x-2 rounded-xl bg-gray-50 px-3 py-2">
+            <span className="whitespace-nowrap text-xs font-semibold text-gray-600 md:text-sm">
+              Page
+            </span>
             <input
+              key={currentPage}
               type="number"
               name="page"
               min="1"
-              max={pagination.pages}
-              defaultValue={page}
-              className="w-16 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-center text-sm font-semibold focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all"
+              max={totalPages}
+              defaultValue={currentPage}
+              className="w-14 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-center text-sm font-semibold focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all"
             />
+            <span className="whitespace-nowrap text-xs font-semibold text-gray-600 md:text-sm">
+              of {totalPages}
+            </span>
             <button
               type="submit"
-              className="px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all text-sm font-semibold shadow-md"
+              className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all text-sm font-semibold shadow-md"
             >
               Go
             </button>
           </form>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(page + 1)}
-            disabled={page >= pagination.pages}
-            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
-            title="Next page"
-          >
-            <ChevronRight className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={() => handlePageChange(pagination.pages)}
-            disabled={page >= pagination.pages}
-            className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
-            title="Last page"
-          >
-            <ChevronsRight className="w-5 h-5 text-gray-600" />
-          </button>
+
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages || totalPages <= 1}
+              className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
+              title="Next page"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-600" />
+            </button>
+            <button
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage >= totalPages || totalPages <= 1}
+              className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all border-2 border-transparent hover:border-gray-200"
+              title="Last page"
+            >
+              <ChevronsRight className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
         </div>
       </div>
 
