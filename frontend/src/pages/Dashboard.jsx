@@ -5,15 +5,15 @@ import { getDashboardStats, getUpcomingRenewals, getPendingPayments } from '../a
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
 import { useDateFilterStore } from '../store/dateFilterStore';
-import { 
-  DollarSign, 
-  Users, 
-  TrendingUp, 
-  UserPlus, 
-  RefreshCw, 
-  ChevronRight, 
-  ChevronLeft, 
-  ArrowRight, 
+import {
+  DollarSign,
+  Users,
+  TrendingUp,
+  UserPlus,
+  RefreshCw,
+  ChevronRight,
+  ChevronLeft,
+  ArrowRight,
   AlertCircle,
   CalendarDays,
   Sparkles,
@@ -41,7 +41,7 @@ export default function Dashboard() {
     setToDateValue
   } = useDateFilterStore();
   const [showCustomDateRange, setShowCustomDateRange] = useState(dateFilter === 'custom');
-  
+
   // State for summary date navigation
   const [summaryDate, setSummaryDate] = useState(() => {
     const today = new Date();
@@ -180,7 +180,7 @@ export default function Dashboard() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
       return 'Today';
     } else if (date.toDateString() === tomorrow.toDateString()) {
@@ -258,32 +258,13 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">Dashboard</h1>
-          <p className="text-gray-600">Welcome back! Here's what's happening today.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleRefreshAll}
-            disabled={isRefreshing}
-            className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Date Filter Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex justify-between">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-gray-500" />
             <span className="text-sm font-semibold text-gray-700">Period:</span>
           </div>
-          
+
           <select
             value={dateFilter}
             onChange={(e) => handleDateFilterChange(e.target.value)}
@@ -330,6 +311,18 @@ export default function Dashboard() {
             </button>
           )}
         </div>
+
+        <div className="flex gap-9">
+            <button
+              onClick={handleRefreshAll}
+              disabled={isRefreshing}
+              className="px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all font-medium flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+          </div>
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -389,7 +382,7 @@ export default function Dashboard() {
           </div>
 
           {/* Enquiries Section - Modern Design */}
-          <div 
+          <div
             onClick={() => navigateWithDateFilter('/enquiries')}
             className="group bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-sm border-2 border-gray-200 p-6 hover:shadow-xl hover:border-orange-300 transition-all cursor-pointer"
           >
@@ -405,21 +398,21 @@ export default function Dashboard() {
               </div>
               <ChevronRight className="w-6 h-6 text-gray-400 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
             </div>
-            
+
             <div className="grid grid-cols-3 gap-4">
-              <EnquiryStatBox 
-                label="Open" 
-                value={enquiryStats?.stats?.opened || 0} 
+              <EnquiryStatBox
+                label="Open"
+                value={enquiryStats?.stats?.opened || 0}
                 color="red"
               />
-              <EnquiryStatBox 
-                label="Converted" 
-                value={enquiryStats?.stats?.converted || 0} 
+              <EnquiryStatBox
+                label="Converted"
+                value={enquiryStats?.stats?.converted || 0}
                 color="green"
               />
-              <EnquiryStatBox 
-                label="Lost" 
-                value={enquiryStats?.stats?.archived || 0} 
+              <EnquiryStatBox
+                label="Lost"
+                value={enquiryStats?.stats?.archived || 0}
                 color="gray"
               />
             </div>
@@ -436,7 +429,7 @@ export default function Dashboard() {
                 <p className="text-sm text-gray-600">Your membership base</p>
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <div className="relative p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl border-2 border-blue-200 overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 rounded-full -mr-16 -mt-16 opacity-20"></div>
@@ -446,7 +439,7 @@ export default function Dashboard() {
                   <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Total Clients</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200">
                   <div className="flex items-center justify-between">
@@ -459,7 +452,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="p-5 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border-2 border-red-200">
                   <div className="flex items-center justify-between">
                     <div>
@@ -508,7 +501,7 @@ export default function Dashboard() {
                 <h3 className="font-bold text-gray-900 text-lg">Daily Summary</h3>
               </div>
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                <button 
+                <button
                   onClick={handleSummaryPreviousDay}
                   className={`p-1.5 rounded transition-colors ${summaryDate === yesterdayDateString ? 'cursor-not-allowed opacity-40' : 'hover:bg-white hover:text-orange-600'}`}
                   disabled={summaryDate === yesterdayDateString}
@@ -523,7 +516,7 @@ export default function Dashboard() {
                 >
                   {formatSummaryDate(summaryDate)}
                 </button>
-                <button 
+                <button
                   onClick={handleSummaryNextDay}
                   className={`p-1.5 rounded transition-colors ${summaryDate === tomorrowDateString ? 'cursor-not-allowed opacity-40' : 'hover:bg-white hover:text-orange-600'}`}
                   disabled={summaryDate === tomorrowDateString}
@@ -533,28 +526,28 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <SummaryItem 
-                title="Follow-ups" 
+              <SummaryItem
+                title="Follow-ups"
                 count={summaryData?.data?.followUps || 0}
                 icon={Clock}
                 onClick={() => navigate('/taskboard', { state: { date: summaryDate } })}
               />
-              <SummaryItem 
-                title="Service expiry" 
+              <SummaryItem
+                title="Service expiry"
                 count={summaryData?.data?.serviceExpiry || 0}
                 icon={AlertCircle}
                 onClick={() => navigate(`/reports/client-management/service-expiry?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
-              <SummaryItem 
-                title="Upgrades" 
+              <SummaryItem
+                title="Upgrades"
                 count={summaryData?.data?.upgrades || 0}
                 icon={TrendingUp}
                 onClick={() => navigate(`/reports/client-management/upgrade?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
-              <SummaryItem 
-                title="Client birthdays" 
+              <SummaryItem
+                title="Client birthdays"
                 count={summaryData?.data?.clientBirthdays || 0}
                 icon={Gift}
                 onClick={() => navigate(`/reports/client-management/birthday?fromDate=${summaryDate}&toDate=${summaryDate}`)}
@@ -574,7 +567,7 @@ export default function Dashboard() {
               <Zap className="w-5 h-5 text-yellow-500" />
               <h3 className="font-bold text-gray-900 text-lg">Payment Modes</h3>
             </div>
-            
+
             <div className="space-y-2">
               {paymentCollected?.data?.payments?.map((payment, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
@@ -587,13 +580,13 @@ export default function Dashboard() {
                   <span className="text-sm font-bold text-gray-900">{formatCurrency(payment.amount)}</span>
                 </div>
               ))}
-              
+
               {(!paymentCollected?.data?.payments || paymentCollected.data.payments.length === 0) && (
                 <div className="text-center py-8 text-gray-500 text-sm">
                   No payments collected
                 </div>
               )}
-              
+
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border-2 border-orange-200 mt-3">
                 <span className="text-sm font-bold text-gray-900">Total Collected</span>
                 <span className="text-lg font-black text-orange-600">{formatCurrency(paymentCollected?.data?.total || 0)}</span>
@@ -608,13 +601,13 @@ export default function Dashboard() {
 
 function ModernStatCard({ title, value, icon: Icon, gradient, trend, alert, onClick }) {
   return (
-    <div 
+    <div
       onClick={onClick}
       className="group relative bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-6 hover:shadow-xl hover:scale-105 transition-all cursor-pointer overflow-hidden"
     >
       {/* Gradient Background */}
       <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${gradient} opacity-10 rounded-full -mr-16 -mt-16 group-hover:opacity-20 transition-opacity`}></div>
-      
+
       <div className="relative">
         <div className="flex items-center justify-between mb-4">
           <div className={`p-3 bg-gradient-to-br ${gradient} rounded-xl shadow-lg`}>
@@ -631,10 +624,10 @@ function ModernStatCard({ title, value, icon: Icon, gradient, trend, alert, onCl
             </span>
           )}
         </div>
-        
+
         <p className="text-sm font-semibold text-gray-600 mb-2">{title}</p>
         <p className="text-3xl font-black text-gray-900 mb-3">{value}</p>
-        
+
         <div className="flex items-center text-orange-600 text-sm font-bold group-hover:translate-x-1 transition-transform">
           <span>View details</span>
           <ChevronRight className="w-4 h-4 ml-1" />
@@ -655,7 +648,7 @@ function ActivityCard({ title, value, icon: Icon, color, onClick }) {
   const [gradientFrom, gradientTo, textColor, bgColor, borderColor] = colors.split(' ');
 
   return (
-    <div 
+    <div
       onClick={onClick}
       className={`group bg-white rounded-2xl shadow-sm border-2 ${borderColor} p-5 hover:shadow-lg transition-all cursor-pointer`}
     >
@@ -688,10 +681,9 @@ function EnquiryStatBox({ label, value, color }) {
 
 function SummaryItem({ title, count, icon: Icon, onClick }) {
   return (
-    <div 
-      className={`flex items-center justify-between p-3 rounded-xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all ${
-        onClick ? 'cursor-pointer group' : ''
-      }`}
+    <div
+      className={`flex items-center justify-between p-3 rounded-xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all ${onClick ? 'cursor-pointer group' : ''
+        }`}
       onClick={onClick}
     >
       <div className="flex items-center gap-3">
