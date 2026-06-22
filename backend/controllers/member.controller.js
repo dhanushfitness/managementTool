@@ -503,21 +503,51 @@ export const exportMembers = async (req, res) => {
     }
 
     const members = await Member.find(query)
-      .select('memberId firstName lastName gender createdAt currentPlan.startDate currentPlan.endDate')
+      .select('memberId firstName lastName gender email phone dateOfBirth createdAt currentPlan.startDate currentPlan.endDate')
       .sort({ createdAt: -1 })
       .lean();
 
+    const memberIds = members.map(member => member._id);
+    const invoices = await Invoice.find({
+      organizationId: req.organizationId,
+      memberId: { $in: memberIds }
+    })
+      .select('memberId items createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const invoiceDateMap = new Map();
+    for (const invoice of invoices) {
+      const memberKey = invoice.memberId?.toString();
+      if (!memberKey || invoiceDateMap.has(memberKey)) continue;
+
+      const item = (invoice.items || []).find(item => item?.startDate || item?.expiryDate) || (invoice.items || [])[0];
+      if (item) {
+        invoiceDateMap.set(memberKey, {
+          startDate: item.startDate || null,
+          endDate: item.expiryDate || null
+        });
+      }
+    }
+
     const rows = members.map((member) => {
       const currentPlan = member.currentPlan || {};
+      const memberKey = member._id?.toString();
+      const invoiceDates = invoiceDateMap.get(memberKey) || {};
+      const planStartDate = invoiceDates.startDate || currentPlan.startDate;
+      const planEndDate = invoiceDates.endDate || currentPlan.endDate;
 
       return {
         'Member ID': member.memberId || '',
         'First Name': member.firstName || '',
         'Last Name': member.lastName || '',
-        'Gender': member.gender? member.gender.charAt(0).toUpperCase() + member.gender.slice(1).toLowerCase(): '',
+        'Mobile': member.phone || '',
+        'Email': member.email || '',
+        'Birthday': formatExportDate(member.dateOfBirth),
+        'Gender': member.gender ? member.gender.charAt(0).toUpperCase() + member.gender.slice(1).toLowerCase() : '',
         'Date of Joining': formatExportDate(member.createdAt),
-        'Plan Start Date': formatExportDate(currentPlan.startDate),
-        'Plan End Date': formatExportDate(currentPlan.endDate)
+        'Plan Start Date': formatExportDate(planStartDate),
+        'Plan End Date': formatExportDate(planEndDate)
       };
     });
 
@@ -528,6 +558,9 @@ export const exportMembers = async (req, res) => {
             'Member ID': '',
             'First Name': '',
             'Last Name': '',
+            'Mobile': '',
+            'Email': '',
+            'Birthday': '',
             'Gender': '',
             'Date of Joining': '',
             'Plan Start Date': '',

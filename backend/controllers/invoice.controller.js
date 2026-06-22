@@ -31,6 +31,17 @@ const normalizeInvoiceDate = (value) => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
+const formatExportDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-GB');
+};
+
+const getInvoiceDateItem = (invoice) => {
+  const items = invoice?.items || [];
+  return items.find(item => item?.startDate || item?.expiryDate) || items[0] || {};
+};
+
 const buildInvoiceDateRangeQuery = (startInput, endInput) => {
   const start = startInput ? new Date(startInput) : null;
   const end = endInput ? new Date(endInput) : null;
@@ -2913,7 +2924,12 @@ export const exportInvoices = async (req, res) => {
     let csvContent = headers.join(',') + '\n';
 
     invoices.forEach((invoice, index) => {
-      invoice.items?.forEach((item, itemIndex) => {
+      const fallbackDateItem = getInvoiceDateItem(invoice);
+
+      invoice.items?.forEach((item) => {
+        const startDate = formatExportDate(item.startDate || fallbackDateItem.startDate);
+        const endDate = formatExportDate(item.expiryDate || fallbackDateItem.expiryDate);
+
         const row = [
           index + 1,
           getInvoiceDateValue(invoice) ? new Date(getInvoiceDateValue(invoice)).toLocaleDateString('en-GB') : '',
@@ -2930,8 +2946,8 @@ export const exportInvoices = async (req, res) => {
           'Branch Sequence', // Sequence
           '', // Cancelled Paid Invoice
           item.description || '',
-          item.startDate ? new Date(item.startDate).toLocaleDateString('en-GB') : '',
-          item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('en-GB') : '',
+          startDate,
+          endDate,
           '', // PT Name - would need to be stored or derived
           invoice.createdBy ? `${invoice.createdBy.firstName || ''} ${invoice.createdBy.lastName || ''}`.trim() : '',
           '' // General Trainer
