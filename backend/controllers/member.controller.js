@@ -489,7 +489,7 @@ export const getMembers = async (req, res) => {
 export const exportMembers = async (req, res) => {
   try {
     const query = { organizationId: req.organizationId, isActive: true };
-    const { activeMemberIdsForStatus } = await applyMemberFilters(req, query);
+    await applyMemberFilters(req, query);
 
     const selectedIds = (req.query.ids || '')
       .split(',')
@@ -502,92 +502,38 @@ export const exportMembers = async (req, res) => {
       };
     }
 
-    const activeMemberIds = activeMemberIdsForStatus || await getActiveMembershipMemberIds(req.organizationId);
-
     const members = await Member.find(query)
-      .populate('currentPlan.planId', 'name price type duration billingCycle serviceName')
-      .populate('branchId', 'name code')
-      .populate('memberManager', 'firstName lastName')
-      .populate('salesRep', 'firstName lastName')
-      .populate('generalTrainer', 'firstName lastName')
-      .populate('createdBy', 'firstName lastName email')
+      .select('memberId firstName lastName gender createdAt currentPlan.startDate currentPlan.endDate')
       .sort({ createdAt: -1 })
       .lean();
 
-    const rows = members.map((member, index) => {
-      const effectiveStatus = getEffectiveMembershipStatus(member, activeMemberIds);
+    const rows = members.map((member) => {
       const currentPlan = member.currentPlan || {};
-      const plan = currentPlan.planId || {};
 
       return {
-        'S.No': index + 1,
         'Member ID': member.memberId || '',
-        'Attendance ID': member.attendanceId || '',
-        'Club ID': member.clubId || '',
         'First Name': member.firstName || '',
         'Last Name': member.lastName || '',
-        'Full Name': [member.firstName, member.lastName].filter(Boolean).join(' ').trim(),
-        'Email': member.email || '',
-        'Phone': member.phone || '',
-        'Alternate Phone': member.alternatePhone || '',
-        'Date Of Birth': formatExportDate(member.dateOfBirth),
-        'Gender': member.gender || '',
-        'Customer Type': member.customerType || '',
-        'Effective Membership Status': effectiveStatus,
-        'Stored Membership Status': member.membershipStatus || '',
-        'Current Plan Name': currentPlan.planName || plan.name || '',
-        'Current Plan Service Name': plan.serviceName || '',
-        'Current Plan Type': plan.type || '',
-        'Current Plan Billing Cycle': plan.billingCycle || '',
-        'Current Plan Price': plan.price ?? '',
+        'Gender': member.gender? member.gender.charAt(0).toUpperCase() + member.gender.slice(1).toLowerCase(): '',
+        'Date of Joining': formatExportDate(member.createdAt),
         'Plan Start Date': formatExportDate(currentPlan.startDate),
-        'Plan End Date': formatExportDate(currentPlan.endDate),
-        'Total Sessions': currentPlan.sessions?.total ?? '',
-        'Used Sessions': currentPlan.sessions?.used ?? '',
-        'Remaining Sessions': currentPlan.sessions?.remaining ?? '',
-        'Branch Name': member.branchId?.name || '',
-        'Branch Code': member.branchId?.code || '',
-        'Sales Rep': formatUserName(member.salesRep),
-        'Member Manager': formatUserName(member.memberManager),
-        'General Trainer': formatUserName(member.generalTrainer),
-        'Lead Source': member.source || '',
-        'GST No': member.gstNo || '',
-        'Address': formatAddress(member.address),
-        'Street': member.address?.street || '',
-        'City': member.address?.city || '',
-        'State': member.address?.state || '',
-        'Zip Code': member.address?.zipCode || '',
-        'Country': member.address?.country || '',
-        'Emergency Contact Name': member.emergencyContact?.name || '',
-        'Emergency Contact Country Code': member.emergencyContact?.countryCode || '',
-        'Emergency Contact Phone': member.emergencyContact?.phone || '',
-        'Emergency Contact Relationship': member.emergencyContact?.relationship || '',
-        'Total Check Ins': member.attendanceStats?.totalCheckIns ?? 0,
-        'Last Check In': formatExportDate(member.attendanceStats?.lastCheckIn),
-        'Current Streak': member.attendanceStats?.currentStreak ?? 0,
-        'Longest Streak': member.attendanceStats?.longestStreak ?? 0,
-        'Average Visits Per Week': member.attendanceStats?.averageVisitsPerWeek ?? '',
-        'SMS Preference': member.communicationPreferences?.sms ?? '',
-        'Mail Preference': member.communicationPreferences?.mail ?? '',
-        'Push Preference': member.communicationPreferences?.pushNotification ?? '',
-        'WhatsApp Preference': member.communicationPreferences?.whatsapp ?? '',
-        'Biometric Registered At': formatExportDate(member.biometricData?.registeredAt),
-        'Subscription ID': member.subscription?.subscriptionId || '',
-        'Subscription Status': member.subscription?.status || '',
-        'Subscription Next Billing Date': formatExportDate(member.subscription?.nextBillingDate),
-        'Subscription Auto Renew': member.subscription?.autoRenew ?? '',
-        'Freeze Days Used': member.totalFreezeDaysUsed ?? 0,
-        'Tags': (member.tags || []).join(', '),
-        'Terms Agreement Date': formatExportDate(member.termsAndConditions?.agreementDate),
-        'Diet Plan': member.dietPlan || '',
-        'Profile Picture': member.profilePicture || '',
-        'Created By': formatUserName(member.createdBy) || member.createdBy?.email || '',
-        'Created At': formatExportDate(member.createdAt),
-        'Updated At': formatExportDate(member.updatedAt)
+        'Plan End Date': formatExportDate(currentPlan.endDate)
       };
     });
 
-    const worksheetRows = rows.length > 0 ? rows : [{ 'No Clients': 'No clients found for this export' }];
+    const worksheetRows = rows.length > 0
+      ? rows
+      : [
+          {
+            'Member ID': '',
+            'First Name': '',
+            'Last Name': '',
+            'Gender': '',
+            'Date of Joining': '',
+            'Plan Start Date': '',
+            'Plan End Date': ''
+          }
+        ];
     const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
     worksheet['!cols'] = Object.keys(worksheetRows[0]).map(key => ({
       wch: Math.min(Math.max(key.length + 2, 14), 34)
