@@ -102,7 +102,17 @@ const formatExportDate = (value) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('en-GB');
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const cleanMobileNumber = (phone) => {
+  if (!phone) return '';
+  return phone.replace(/^\+91/, '').replace(/^0/, '').trim();
 };
 
 const formatUserName = (user) => {
@@ -538,16 +548,23 @@ export const exportMembers = async (req, res) => {
       const planEndDate = invoiceDates.endDate || currentPlan.endDate;
 
       return {
-        'Member ID': member.memberId || '',
+        'Employee Id': member.memberId || '',
         'First Name': member.firstName || '',
         'Last Name': member.lastName || '',
-        'Mobile': member.phone || '',
-        'Email': member.email || '',
-        'Birthday': formatExportDate(member.dateOfBirth),
-        'Gender': member.gender ? member.gender.charAt(0).toUpperCase() + member.gender.slice(1).toLowerCase() : '',
+        'Department Id': '1',
+        'Department Name': 'AirFit Indiranagar',
+        'Position Code': '1',
+        'Position Name': 'Member',
         'Date of Joining': formatExportDate(member.createdAt),
-        'Plan Start Date': formatExportDate(planStartDate),
-        'Plan End Date': formatExportDate(planEndDate)
+        'Card No.': '',
+        'Area Code': '2,GYM',
+        'Gender': member.gender ? member.gender.charAt(0).toUpperCase() + member.gender.slice(1).toLowerCase() : '',
+        'Mobile': cleanMobileNumber(member.phone),
+        'Birthday': formatExportDate(member.dateOfBirth),
+        'Email': member.email || '',
+        'Aadhaar No.': '',
+        'Validity Start Date': formatExportDate(planStartDate),
+        'Validity End Date': formatExportDate(planEndDate)
       };
     });
 
@@ -555,16 +572,23 @@ export const exportMembers = async (req, res) => {
       ? rows
       : [
           {
-            'Member ID': '',
+            'Employee Id': '',
             'First Name': '',
             'Last Name': '',
-            'Mobile': '',
-            'Email': '',
-            'Birthday': '',
-            'Gender': '',
+            'Department Id': '',
+            'Department Name': '',
+            'Position Code': '',
+            'Position Name': '',
             'Date of Joining': '',
-            'Plan Start Date': '',
-            'Plan End Date': ''
+            'Card No.': '',
+            'Area Code': '',
+            'Gender': '',
+            'Mobile': '',
+            'Birthday': '',
+            'Email': '',
+            'Aadhaar No.': '',
+            'Validity Start Date': '',
+            'Validity End Date': ''
           }
         ];
     const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
