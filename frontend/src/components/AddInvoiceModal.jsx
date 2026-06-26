@@ -38,6 +38,7 @@ export default function AddInvoiceModal({
       numberOfSessions: ''
     }],
     discountReason: '',
+    pendingDueDate: '',
     paymentModes: [{
       method: '',
       amount: ''
@@ -308,6 +309,7 @@ export default function AddInvoiceModal({
       toast.success('Invoice created successfully')
       queryClient.invalidateQueries(['invoices'])
       queryClient.invalidateQueries(['dashboard-stats'])
+      queryClient.invalidateQueries(['dashboard-summary'])
       handleClose(true)
     },
     onError: (error) => {
@@ -340,6 +342,7 @@ export default function AddInvoiceModal({
       customerNotes: '',
       internalNotes: '',
       termsAndConditions: '',
+      pendingDueDate: '',
       paymentModes: [{
         method: '',
         amount: ''
@@ -440,7 +443,8 @@ export default function AddInvoiceModal({
       rounding: 0,
       discountReason: formData.discountReason || undefined,
       paymentModes: validPaymentModes,
-      status: totalPaid >= total ? 'paid' : (totalPaid > 0 ? 'partial' : 'draft')
+      status: totalPaid >= total ? 'paid' : (totalPaid > 0 ? 'partial' : 'draft'),
+      ...(pending > 0 && formData.pendingDueDate ? { dueDate: formData.pendingDueDate } : {})
     }
 
     createInvoiceMutation.mutate(invoiceData)
@@ -1148,8 +1152,20 @@ export default function AddInvoiceModal({
                     </div>
                     <div className="flex justify-between items-center py-2">
                       <span className="text-sm font-medium text-gray-700">Pending</span>
-                      <span className="text-sm font-semibold text-gray-900">₹{totals.pending.toFixed(2)}</span>
+                      <span className={`text-sm font-semibold ${totals.pending > 0 ? 'text-red-500' : 'text-gray-900'}`}>₹{totals.pending.toFixed(2)}</span>
                     </div>
+                    {totals.pending > 0 && (
+                      <div className="pt-3 border-t border-dashed border-gray-200">
+                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Promise to Pay Date</label>
+                        <DateInput
+                          value={formData.pendingDueDate}
+                          onChange={(e) => setFormData(prev => ({ ...prev, pendingDueDate: e.target.value }))}
+                          className="px-3 py-2 text-sm w-full"
+                          placeholder="Select date"
+                        />
+                        <p className="mt-1 text-xs text-gray-400">Date when customer promised to pay the pending amount</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1219,10 +1235,10 @@ export default function AddInvoiceModal({
             <button
               type="submit"
               form="invoice-create-form"
-              disabled={createInvoiceMutation.isLoading || !!activeInvoiceWarning || !isFormValid}
+              disabled={createInvoiceMutation.isPending || !!activeInvoiceWarning || !isFormValid}
               className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-md flex items-center space-x-2"
             >
-              {createInvoiceMutation.isLoading ? (
+              {createInvoiceMutation.isPending ? (
                 <>
                   <LoadingSpinner size="sm" className="text-white" />
                   <span>Creating...</span>

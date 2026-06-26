@@ -557,6 +557,12 @@ export default function Dashboard() {
                 icon={Gift}
                 onClick={() => navigate(`/reports/client-management/birthday?fromDate=${summaryDate}&toDate=${summaryDate}`)}
               />
+              <SummaryItem
+                title="Pending Collections"
+                count={summaryData?.data?.pendingCollections || 0}
+                icon={DollarSign}
+                onClick={() => navigate(`/reports/finance/pending-collections?dueDateFrom=${summaryDate}&dueDateTo=${summaryDate}`)}
+              />
             </div>
           </div>
 

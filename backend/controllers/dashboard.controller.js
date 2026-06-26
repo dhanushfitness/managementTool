@@ -422,6 +422,13 @@ export const getDashboardSummary = async (req, res) => {
 
     const staffBirthdays = staffBirthdayCount[0]?.count || 0;
 
+    // Pending collections (invoices with pending amount and dueDate today)
+    const pendingCollections = await Invoice.countDocuments({
+      organizationId: req.organizationId,
+      pending: { $gt: 0 },
+      dueDate: { $gte: today, $lt: tomorrow }
+    });
+
     res.json({
       success: true,
       data: {
@@ -430,7 +437,8 @@ export const getDashboardSummary = async (req, res) => {
         serviceExpiry,
         upgrades,
         clientBirthdays,
-        staffBirthdays
+        staffBirthdays,
+        pendingCollections
       }
     });
   } catch (error) {

@@ -129,6 +129,59 @@ function InfoPopup({ member }) {
   )
 }
 
+function MembershipProgressBar({ member }) {
+  const status = member.effectiveMembershipStatus || member.membershipStatus
+  const isActive = status === 'active'
+  const endDate = member.currentPlan?.endDate
+  const startDate = member.currentPlan?.startDate
+
+  const now = new Date()
+  const end = endDate ? new Date(endDate) : null
+  const start = startDate ? new Date(startDate) : null
+  const isExpired = !isActive || !end || end < now
+
+  let percentage = 0
+  let daysRemaining = 0
+
+  if (!isExpired && end) {
+    daysRemaining = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+    if (start && start <= now) {
+      const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+      percentage = totalDays > 0 ? Math.min(100, Math.max(2, (daysRemaining / totalDays) * 100)) : 100
+    } else {
+      percentage = 100
+    }
+  }
+
+  const barColor =
+    percentage > 50
+      ? 'from-green-400 to-green-500'
+      : percentage > 20
+      ? 'from-yellow-400 to-orange-400'
+      : 'from-orange-400 to-red-500'
+
+  return (
+    <div className="flex flex-col items-center gap-1.5 w-full px-2">
+      <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+        {!isExpired ? (
+          <div
+            style={{ width: `${percentage}%` }}
+            className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-700`}
+          />
+        ) : (
+          <div className="w-full h-full rounded-full bg-red-100" />
+        )}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className={`w-2 h-2 flex-shrink-0 rounded-full ${isExpired ? 'bg-red-500' : 'bg-green-500'}`} />
+        <span className={`text-[10px] font-semibold whitespace-nowrap ${isExpired ? 'text-red-400' : 'text-green-600'}`}>
+          {isExpired ? 'Expired' : `${daysRemaining}d left`}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export default function Clients() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -497,7 +550,7 @@ export default function Clients() {
       </div>
 
       {/* Members Table */}
-      <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
+      <div className="rounded-xl md:rounded-2xl shadow-sm border-2 border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="flex h-[560px] items-center justify-center">
             <LoadingPage message="Loading members..." fullScreen={false} />
@@ -543,7 +596,7 @@ export default function Clients() {
               <tbody className="bg-white divide-y divide-gray-100">
                 {members.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
                       No members found
                     </td>
                   </tr>

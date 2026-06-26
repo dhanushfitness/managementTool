@@ -42,8 +42,13 @@ export default function PendingCollectionsReport() {
     ptId: '',
     generalTrainerId: ''
   }
+  const urlParams = new URLSearchParams(location.search)
+  const urlDueDateFrom = urlParams.get('dueDateFrom') || ''
+  const urlDueDateTo = urlParams.get('dueDateTo') || ''
+
   const [filters, setFilters] = useState(defaultFilters)
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters)
+  const [dueDateFilter, setDueDateFilter] = useState({ from: urlDueDateFrom, to: urlDueDateTo })
   const [search, setSearch] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -81,7 +86,10 @@ export default function PendingCollectionsReport() {
       ptId: appliedFilters.ptId || undefined,
       generalTrainerId: appliedFilters.generalTrainerId || undefined
     }
-    if (appliedFilters.dateRange === 'custom' && appliedFilters.startDate && appliedFilters.endDate) {
+    if (dueDateFilter.from && dueDateFilter.to) {
+      params.dueDateFrom = dueDateFilter.from
+      params.dueDateTo = dueDateFilter.to
+    } else if (appliedFilters.dateRange === 'custom' && appliedFilters.startDate && appliedFilters.endDate) {
       params.startDate = appliedFilters.startDate
       params.endDate = appliedFilters.endDate
     } else if (appliedFilters.dateRange !== 'custom') {

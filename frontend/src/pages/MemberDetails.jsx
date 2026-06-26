@@ -53,7 +53,48 @@ import {
   Loader
 } from 'lucide-react'
 
-// EMPTY
+function MembershipProgressBar({ member }) {
+  const status = member.effectiveMembershipStatus || member.membershipStatus
+  const isActive = status === 'active'
+  const endDate = member.currentPlan?.endDate
+  const startDate = member.currentPlan?.startDate
+  const now = new Date()
+  const end = endDate ? new Date(endDate) : null
+  const start = startDate ? new Date(startDate) : null
+  const isExpired = !isActive || !end || end < now
+  let percentage = 0
+  let daysRemaining = 0
+  if (!isExpired && end) {
+    daysRemaining = Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+    if (start && start <= now) {
+      const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+      percentage = totalDays > 0 ? Math.min(100, Math.max(2, (daysRemaining / totalDays) * 100)) : 100
+    } else {
+      percentage = 100
+    }
+  }
+  const barColor = percentage > 50 ? 'from-green-400 to-green-500' : percentage > 20 ? 'from-yellow-400 to-orange-400' : 'from-orange-400 to-red-500'
+  return (
+    <div className="flex flex-col gap-1.5 min-w-[180px] max-w-[220px]">
+      <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
+        {!isExpired ? (
+          <div style={{ width: `${percentage}%` }} className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-700`} />
+        ) : (
+          <div className="w-full h-full rounded-full bg-red-100" />
+        )}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className={`w-2 h-2 flex-shrink-0 rounded-full ${isExpired ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`} />
+        <span className={`text-xs font-semibold whitespace-nowrap ${isExpired ? 'text-red-500' : 'text-green-600'}`}>
+          {isExpired ? 'Membership Expired' : `${daysRemaining}d left`}
+        </span>
+        {!isExpired && end && (
+          <span className="text-xs text-gray-400 whitespace-nowrap">· {end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function DietTab({ member }) {
   const [dietPlan, setDietPlan] = useState(member?.dietPlan || '')
@@ -480,14 +521,17 @@ export default function MemberDetails() {
 
   return (
     <div className="space-y-4 md:space-y-6 tablet-container">
-      {/* Breadcrumb */}
-      <Breadcrumbs
-        items={[
-          { label: 'Home', to: '/' },
-          { label: 'Clients', to: '/clients' },
-          { label: `Profile - ${member.firstName?.toUpperCase()} ${member.lastName?.toUpperCase()}`.trim() }
-        ]}
-      />
+      {/* Breadcrumb + Membership Status */}
+      <div className="flex items-center justify-between gap-4">
+        <Breadcrumbs
+          items={[
+            { label: 'Home', to: '/' },
+            { label: 'Clients', to: '/clients' },
+            { label: `Profile - ${member.firstName?.toUpperCase()} ${member.lastName?.toUpperCase()}`.trim() }
+          ]}
+        />
+        <MembershipProgressBar member={member} />
+      </div>
 
       {/* Main Tabs */}
       <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-200 overflow-hidden">

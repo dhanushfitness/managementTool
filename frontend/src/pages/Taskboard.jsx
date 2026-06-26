@@ -643,7 +643,19 @@ export default function Taskboard() {
                       </td>
                     </tr>
                     {group.items.map((followUp) => (
-                      <tr key={followUp._id} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all">
+                      <tr
+                        key={followUp._id}
+                        onClick={() => {
+                          if (followUp.entityType === 'member') {
+                            navigate(`/clients/${followUp.entityId}?tab=call-log`);
+                          } else {
+                            navigate(`/enquiries/${followUp.entityId}/update-call`, {
+                              state: { from: `${location.pathname}${location.search}` || '/taskboard' }
+                            });
+                          }
+                        }}
+                        className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all cursor-pointer"
+                      >
                         <td className="px-4 py-4 text-sm font-semibold text-gray-900">{followUp.sNo}</td>
                         <td className="px-4 py-4 text-sm text-gray-700 font-medium">{followUp.time || followUp.timeLabel}</td>
                         <td className="px-4 py-4 text-sm text-gray-700">
@@ -664,7 +676,7 @@ export default function Taskboard() {
                             <Info className="w-4 h-4" />
                           </button>
                         </td>
-                        <td className="px-4 py-4 text-sm">
+                        <td className="px-4 py-4 text-sm" onClick={(e) => e.stopPropagation()}>
                           <ActionDropdown
                             followUp={followUp}
                             onUpdateCall={handleUpdateCallAction}
@@ -784,8 +796,6 @@ function ActionDropdown({
       ]
     : [
         { label: 'Update Call', icon: PhoneCallIcon, handler: onUpdateCall },
-        { label: 'Service Card', icon: CreditCardIcon, handler: onServiceCard },
-        { label: 'Payments', icon: Wallet, handler: onPayments },
         { label: 'New Invoice', icon: FileText, handler: onNewInvoice }
       ];
 

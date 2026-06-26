@@ -46,6 +46,7 @@ export default function RecordPaymentModal({ invoice, isOpen, onClose, onSuccess
       queryClient.invalidateQueries(['member-invoices'])
       queryClient.invalidateQueries(['pending-collections'])
       queryClient.invalidateQueries(['dashboard-stats'])
+      queryClient.invalidateQueries(['dashboard-summary'])
       onClose()
       if (onSuccess) onSuccess()
       // Reset form

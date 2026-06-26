@@ -536,7 +536,7 @@ export const createInvoice = async (req, res) => {
   try {
     const {
       memberId, planId, items, discount, type, invoiceType, isProForma,
-      sacCode, discountReason, customerNotes, internalNotes, paymentModes, rounding, dateOfInvoice, invoiceDate
+      sacCode, discountReason, customerNotes, internalNotes, paymentModes, rounding, dateOfInvoice, invoiceDate, dueDate
     } = req.body;
 
     console.log('=== Invoice Creation Started ===');
@@ -677,6 +677,7 @@ export const createInvoice = async (req, res) => {
       total,
       pending,
       dateOfInvoice: normalizeInvoiceDate(dateOfInvoice || invoiceDate),
+      dueDate: dueDate || undefined,
       sacCode: sacCode || undefined,
       discountReason: discountReason || undefined,
       customerNotes: customerNotes || undefined,
@@ -1887,6 +1888,8 @@ export const getPendingCollections = async (req, res) => {
       startDate,
       endDate,
       dateRange = 'last-30-days',
+      dueDateFrom,
+      dueDateTo,
       search,
       billType,
       branchId,
@@ -1942,6 +1945,15 @@ export const getPendingCollections = async (req, res) => {
       pending: { $gt: 0 } // Only invoices with pending amount
     };
     applyDateQuery(query, dateQuery);
+
+    // Filter by dueDate (promise to pay date) if provided
+    if (dueDateFrom && dueDateTo) {
+      const dueDateStart = new Date(dueDateFrom);
+      dueDateStart.setHours(0, 0, 0, 0);
+      const dueDateEnd = new Date(dueDateTo);
+      dueDateEnd.setHours(23, 59, 59, 999);
+      query.dueDate = { $gte: dueDateStart, $lte: dueDateEnd };
+    }
 
     if (branchId) query.branchId = branchId;
     if (invoiceType && invoiceType !== 'all') query.invoiceType = invoiceType;
