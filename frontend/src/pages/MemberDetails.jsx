@@ -84,12 +84,33 @@ function MembershipProgressBar({ member }) {
         )}
       </div>
       <div className="flex items-center gap-1.5">
-        <span className={`w-2 h-2 flex-shrink-0 rounded-full ${isExpired ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`} />
-        <span className={`text-xs font-semibold whitespace-nowrap ${isExpired ? 'text-red-500' : 'text-green-600'}`}>
-          {isExpired ? 'Membership Expired' : `${daysRemaining}d left`}
+        <span
+          className={`w-2 h-2 flex-shrink-0 rounded-full ${isExpired ? 'bg-red-500' : 'bg-green-500 animate-pulse'
+            }`}
+        />
+
+        <span
+          className={`text-xs font-semibold whitespace-nowrap ${isExpired ? 'text-red-500' : 'text-green-600'
+            }`}
+        >
+          {isExpired
+            ? `Expired${end ? ` on ${end.toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}` : ''}`
+            : `${daysRemaining}d left`}
         </span>
+
         {!isExpired && end && (
-          <span className="text-xs text-gray-400 whitespace-nowrap">· {end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            ·{' '}
+            {end.toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </span>
         )}
       </div>
     </div>
