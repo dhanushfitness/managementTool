@@ -77,6 +77,29 @@ class WatchDogClient {
         return data;
     }
 
+    async createEmployee(payload) {
+
+        await this.login();
+
+        const { data } = await this.client.post(
+            "/personnel/api/employees/",
+            payload
+        );
+
+        return data;
+    }
+
+    async deleteEmployee(empCode) {
+
+        await this.login();
+
+        const { data } = await this.client.delete(
+            `/personnel/api/employees/${empCode}/`
+        );
+
+        return data;
+    }
+
 }
 
 export default new WatchDogClient();

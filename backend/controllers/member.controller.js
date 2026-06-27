@@ -10,6 +10,7 @@ import AuditLog from '../models/AuditLog.js';
 import XLSX from 'xlsx';
 import { sendWelcomeMessage } from '../utils/whatsapp.js';
 import { handleError } from '../utils/errorHandler.js';
+import watchDogClient from '../services/watchDogClient.js';
 
 // Normalize phone number for comparison (remove spaces, dashes, and other special characters)
 const normalizePhone = (phone) => {
@@ -238,7 +239,7 @@ export const createMember = async (req, res) => {
     // Check for duplicate phone number
     if (req.body.phone) {
       const normalizedPhone = normalizePhone(req.body.phone);
-      
+
       if (normalizedPhone) {
         // Check all members in the organization for duplicate phone
         const allMembers = await Member.find({
@@ -263,7 +264,7 @@ export const createMember = async (req, res) => {
     // Check for duplicate email
     if (req.body.email && req.body.email.trim()) {
       const normalizedEmail = req.body.email.toLowerCase().trim();
-      
+
       const existingMember = await Member.findOne({
         organizationId: req.organizationId,
         email: normalizedEmail,
@@ -280,7 +281,7 @@ export const createMember = async (req, res) => {
 
     const memberId = await generateMemberId(req.organizationId);
     const attendanceId = await generateMemberAttendanceId(req.organizationId);
-    
+
     // Process member data
     const memberData = {
       ...req.body,
@@ -305,6 +306,49 @@ export const createMember = async (req, res) => {
     }
 
     const member = await Member.create(memberData);
+
+    // Sync newly created member to WatchDog
+    try {
+      const payload = {
+        emp_code: member.memberId,
+        first_name: member.firstName,
+        last_name: member.lastName || '',
+        mobile: (member.phone || '').replace(/^\+91/, ''),
+        email: member.email || '',
+        gender: member.gender?.toLowerCase() === 'female' ? 'F' : 'M',
+        hire_date: new Date().toISOString().split('T')[0],
+        verify_mode: -1,
+        emp_type: 1,
+        enable_att: true,
+        department: "1",
+        position: "1",
+        area: ["2,GYM"],
+      };
+
+      const response = await watchDogClient.createEmployee(payload);
+
+      member.watchDog = {
+        synced: true,
+        syncedAt: new Date(),
+        employeeId: response?.id || response?.data?.id || null,
+        empCode: payload.emp_code,
+        error: null
+      };
+
+      await member.save();
+    } catch (err) {
+      console.error('WatchDog employee sync failed:', err.response?.data || err.message);
+
+      member.watchDog = {
+        synced: false,
+        syncedAt: null,
+        employeeId: null,
+        empCode: member.attendanceId || member.memberId,
+        error: JSON.stringify(err.response?.data || err.message)
+      };
+
+      await member.save();
+    }
 
     await AuditLog.create({
       organizationId: req.organizationId,
@@ -331,12 +375,12 @@ export const createMember = async (req, res) => {
 
 export const getMembers = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      status, 
-      membershipStatus, 
-      branchId, 
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      membershipStatus,
+      branchId,
       search,
       service,
       ageGroup,
@@ -351,7 +395,7 @@ export const getMembers = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const query = { organizationId: req.organizationId, isActive: true };
-    
+
     let activeMemberIdsForStatus = null;
     let statusMemberIds = null;
 
@@ -380,7 +424,7 @@ export const getMembers = async (req, res) => {
         query.membershipStatus = memberStatus;
       }
     }
-    
+
     // Advanced filters
     if (service) query['currentPlan.planId'] = service;
     if (memberManager) query.memberManager = memberManager;
@@ -391,7 +435,7 @@ export const getMembers = async (req, res) => {
       const genders = gender.split(',').map(g => g.trim());
       query.gender = { $in: genders };
     }
-    
+
     // Age group filter
     if (ageGroup) {
       const [minAge, maxAge] = ageGroup.split('-').map(a => parseInt(a.trim()));
@@ -406,13 +450,13 @@ export const getMembers = async (req, res) => {
         query.dateOfBirth = { $lte: maxDate };
       }
     }
-    
+
     // Service category filter (filter by serviceType from Plan collection)
     if (serviceCategory) {
       const Plan = (await import('../models/Plan.js')).default;
-      const plansWithCategory = await Plan.find({ 
-        organizationId: req.organizationId, 
-        serviceType: serviceCategory 
+      const plansWithCategory = await Plan.find({
+        organizationId: req.organizationId,
+        serviceType: serviceCategory
       }).select('_id');
       const planIds = plansWithCategory.map(p => p._id);
       if (planIds.length > 0) {
@@ -422,7 +466,7 @@ export const getMembers = async (req, res) => {
         query['currentPlan.planId'] = null;
       }
     }
-    
+
     if (branchId) query.branchId = branchId;
     if (search) {
       query.$or = [
@@ -571,26 +615,26 @@ export const exportMembers = async (req, res) => {
     const worksheetRows = rows.length > 0
       ? rows
       : [
-          {
-            'Employee Id': '',
-            'First Name': '',
-            'Last Name': '',
-            'Department Id': '',
-            'Department Name': '',
-            'Position Code': '',
-            'Position Name': '',
-            'Date of Joining': '',
-            'Card No.': '',
-            'Area Code': '',
-            'Gender': '',
-            'Mobile': '',
-            'Birthday': '',
-            'Email': '',
-            'Aadhaar No.': '',
-            'Validity Start Date': '',
-            'Validity End Date': ''
-          }
-        ];
+        {
+          'Employee Id': '',
+          'First Name': '',
+          'Last Name': '',
+          'Department Id': '',
+          'Department Name': '',
+          'Position Code': '',
+          'Position Name': '',
+          'Date of Joining': '',
+          'Card No.': '',
+          'Area Code': '',
+          'Gender': '',
+          'Mobile': '',
+          'Birthday': '',
+          'Email': '',
+          'Aadhaar No.': '',
+          'Validity Start Date': '',
+          'Validity End Date': ''
+        }
+      ];
     const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
     worksheet['!cols'] = Object.keys(worksheetRows[0]).map(key => ({
       wch: Math.min(Math.max(key.length + 2, 14), 34)
@@ -647,7 +691,7 @@ export const searchMembers = async (req, res) => {
     let members;
     const now = new Date();
     now.setHours(0, 0, 0, 0); // Start of today
-    
+
     // For member-name, use aggregation to also search full name
     if (searchType === 'member-name' || !searchType) {
       members = await Member.aggregate([
@@ -659,12 +703,12 @@ export const searchMembers = async (req, res) => {
         },
         {
           $addFields: {
-            fullName: { 
+            fullName: {
               $concat: [
-                { $ifNull: ['$firstName', ''] }, 
-                ' ', 
+                { $ifNull: ['$firstName', ''] },
+                ' ',
                 { $ifNull: ['$lastName', ''] }
-              ] 
+              ]
             }
           }
         },
@@ -691,7 +735,7 @@ export const searchMembers = async (req, res) => {
         },
         { $limit: 10 }
       ]);
-      
+
       // Convert aggregation results and calculate actual membership status
       members = members.map(m => {
         // Check if membership has actually expired based on endDate
@@ -704,7 +748,7 @@ export const searchMembers = async (req, res) => {
             actualStatus = 'expired';
           }
         }
-        
+
         return {
           _id: m._id,
           firstName: m.firstName,
@@ -721,7 +765,7 @@ export const searchMembers = async (req, res) => {
         .select('firstName lastName phone email memberId membershipStatus profilePicture currentPlan.endDate')
         .limit(10)
         .lean();
-      
+
       // Calculate actual membership status for each member
       members = members.map(m => {
         let actualStatus = m.membershipStatus;
@@ -982,6 +1026,18 @@ export const deleteMember = async (req, res) => {
       }
     );
     deletionResults.enquiries = enquiryResult.modifiedCount;
+
+    // Delete the member from WatchDog
+    try {
+      console.log(`Attempting to delete ${member.memberId} from WatchDog`);
+      await watchDogClient.deleteEmployee(member.memberId);
+      console.log(`Deleted ${member.firstName} ${member.lastName} from WatchDog`);
+    } catch (err) {
+      console.error(
+        "WatchDog delete failed:",
+        err.response?.data || err.message
+      );
+    }
 
     // Finally, delete the member
     await Member.deleteOne({ _id: memberId });
@@ -1257,7 +1313,7 @@ export const calculateUpgradeProration = async (req, res) => {
 
     const currentPlan = member.currentPlan.planId;
     const newPlan = await Plan.findById(newPlanId);
-    
+
     if (!newPlan) {
       return res.status(404).json({ success: false, message: 'New plan not found' });
     }
@@ -1268,12 +1324,12 @@ export const calculateUpgradeProration = async (req, res) => {
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    
+
     const startDate = new Date(member.currentPlan.startDate);
     startDate.setHours(0, 0, 0, 0);
     const endDate = new Date(member.currentPlan.endDate);
     endDate.setHours(23, 59, 59, 999);
-    
+
     // Calculate remaining days
     const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
     const remainingDays = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
@@ -1363,7 +1419,7 @@ export const upgradeMembership = async (req, res) => {
 
     const currentPlan = member.currentPlan.planId;
     const newPlan = await Plan.findById(newPlanId);
-    
+
     if (!newPlan || newPlan.organizationId.toString() !== req.organizationId.toString()) {
       return res.status(404).json({ success: false, message: 'New plan not found' });
     }
@@ -1378,12 +1434,12 @@ export const upgradeMembership = async (req, res) => {
 
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    
+
     const currentStartDate = new Date(member.currentPlan.startDate);
     currentStartDate.setHours(0, 0, 0, 0);
     const currentEndDate = new Date(member.currentPlan.endDate);
     currentEndDate.setHours(23, 59, 59, 999);
-    
+
     // Calculate remaining days
     const totalDays = Math.ceil((currentEndDate - currentStartDate) / (1000 * 60 * 60 * 24));
     const remainingDays = Math.max(0, Math.ceil((currentEndDate - now) / (1000 * 60 * 60 * 24)));
@@ -1403,7 +1459,7 @@ export const upgradeMembership = async (req, res) => {
     let upgradeStartDate = new Date(currentEndDate);
     upgradeStartDate.setDate(upgradeStartDate.getDate() + 1); // Day after expiry
     upgradeStartDate.setHours(0, 0, 0, 0);
-    
+
     // If startDate was provided, use it directly
     if (startDate) {
       upgradeStartDate = new Date(startDate);
@@ -1438,12 +1494,12 @@ export const upgradeMembership = async (req, res) => {
     const maxRetries = 10;
     let attempts = 0;
     let invoiceNumber;
-    
+
     while (attempts < maxRetries) {
       const prefix = organization.invoiceSettings?.prefix || 'INV';
       let number = organization.invoiceSettings?.nextNumber || 1;
       invoiceNumber = `${prefix}-${String(number).padStart(6, '0')}`;
-      
+
       const existingInvoice = await Invoice.findOne({ invoiceNumber });
       if (!existingInvoice) {
         organization.invoiceSettings = organization.invoiceSettings || {};
@@ -1456,7 +1512,7 @@ export const upgradeMembership = async (req, res) => {
       await organization.save();
       attempts++;
     }
-    
+
     if (!invoiceNumber) {
       return res.status(500).json({ success: false, message: 'Failed to generate invoice number' });
     }
@@ -1515,7 +1571,7 @@ export const upgradeMembership = async (req, res) => {
     // Create payment records if payment modes provided
     if (paymentModes && paymentModes.length > 0) {
       const Payment = (await import('../models/Payment.js')).default;
-      
+
       for (const pm of paymentModes) {
         const method = pm?.method;
         const amount = parseFloat(pm?.amount) || 0;
@@ -1549,7 +1605,7 @@ export const upgradeMembership = async (req, res) => {
       const paidAmount = totalPaid[0]?.total || 0;
       const pendingAmount = Math.max(0, total - paidAmount);
       invoice.pending = pendingAmount;
-      
+
       if (paidAmount >= total) {
         invoice.status = 'paid';
         invoice.paidDate = new Date();
@@ -1568,14 +1624,14 @@ export const upgradeMembership = async (req, res) => {
     if (invoice.status === 'paid') {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
-      
+
       // Get start date from invoice item
       const invoiceItem = invoice.items && invoice.items[0];
       const invoiceStartDate = invoiceItem?.startDate ? new Date(invoiceItem.startDate) : null;
-      
+
       if (invoiceStartDate) {
         invoiceStartDate.setHours(0, 0, 0, 0);
-        
+
         // Only activate if start date has arrived
         if (invoiceStartDate <= now) {
           try {
@@ -1782,7 +1838,7 @@ export const updateMemberCall = async (req, res) => {
   try {
     const { callId } = req.params;
     const { callType, status, notes, scheduledAt, durationMinutes } = req.body;
-    
+
     const callLog = await MemberCallLog.findOne({
       _id: callId,
       organizationId: req.organizationId,
@@ -1823,7 +1879,7 @@ export const updateMemberCall = async (req, res) => {
       { path: 'calledBy', select: 'firstName lastName' },
       { path: 'createdBy', select: 'firstName lastName' }
     ]);
-    
+
     res.json({ success: true, call: populated });
   } catch (error) {
     handleError(error, res, 500);
@@ -1884,13 +1940,13 @@ export const getMemberInvoicesWithPayments = async (req, res) => {
       const totalPaid = invoicePayments
         .filter(p => p.status === 'completed')
         .reduce((sum, p) => sum + p.amount, 0);
-      
+
       // Calculate TDS (Tax Deducted at Source) if applicable
       // TDS is typically applicable for professional services or specific payment types
       // For gym memberships, TDS is usually not applicable
       // However, if invoice has a TDS field, use it; otherwise it's 0
       const tdsAmount = invoice.tds?.amount || 0;
-      
+
       return {
         ...invoice.toObject(),
         payments: invoicePayments,
@@ -1921,21 +1977,21 @@ export const getMemberStats = async (req, res) => {
   try {
     const organizationId = req.organizationId;
     const query = { organizationId, isActive: true };
-    
+
     // Get total members
     const total = await Member.countDocuments(query);
-    
+
     const activeMemberIds = await getActiveMembershipMemberIds(organizationId);
-    
+
     // Count active members
-    const active = activeMemberIds.length > 0 
-      ? await Member.countDocuments({ 
-          ...query, 
-          _id: { $in: activeMemberIds },
-          membershipStatus: { $nin: ['frozen', 'cancelled'] }
-        })
+    const active = activeMemberIds.length > 0
+      ? await Member.countDocuments({
+        ...query,
+        _id: { $in: activeMemberIds },
+        membershipStatus: { $nin: ['frozen', 'cancelled'] }
+      })
       : 0;
-    
+
     // Inactive = total - active
     const inactive = total - active;
 
@@ -1966,7 +2022,7 @@ export const importMembers = async (req, res) => {
 export const getMemberReferrals = async (req, res) => {
   try {
     const { referralType = 'referred-by' } = req.query;
-    
+
     const query = {
       organizationId: req.organizationId,
       memberId: req.params.memberId,
@@ -1989,16 +2045,16 @@ export const getMemberReferrals = async (req, res) => {
 export const createMemberReferral = async (req, res) => {
   try {
     const { referralType, name, email, countryCode, phone, notes, referredMemberId } = req.body;
-    
+
     if (!referralType) {
       return res.status(400).json({ success: false, message: 'referralType is required' });
     }
 
     // Validate: either referredMemberId (for existing member) or name+phone (for external referral)
     if (!referredMemberId && (!name || !phone)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Either referredMemberId or name and phone are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Either referredMemberId or name and phone are required'
       });
     }
 
@@ -2016,7 +2072,7 @@ export const createMemberReferral = async (req, res) => {
     });
 
     const populated = await referral.populate('referredMemberId', 'firstName lastName memberId phone email');
-    
+
     res.status(201).json({ success: true, referral: populated });
   } catch (error) {
     handleError(error, res, 500);
@@ -2042,23 +2098,23 @@ export const setMemberTimeSlots = async (req, res) => {
     if (timeSlots && Array.isArray(timeSlots)) {
       for (const slot of timeSlots) {
         if (slot.dayOfWeek === undefined || slot.dayOfWeek < 0 || slot.dayOfWeek > 6) {
-          return res.status(400).json({ 
-            success: false, 
-            message: 'Invalid dayOfWeek. Must be between 0 (Sunday) and 6 (Saturday)' 
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid dayOfWeek. Must be between 0 (Sunday) and 6 (Saturday)'
           });
         }
-        
+
         if (!slot.startTime || !/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(slot.startTime)) {
-          return res.status(400).json({ 
-            success: false, 
-            message: 'Invalid startTime format. Must be HH:MM (24-hour format)' 
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid startTime format. Must be HH:MM (24-hour format)'
           });
         }
-        
+
         if (!slot.endTime || !/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(slot.endTime)) {
-          return res.status(400).json({ 
-            success: false, 
-            message: 'Invalid endTime format. Must be HH:MM (24-hour format)' 
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid endTime format. Must be HH:MM (24-hour format)'
           });
         }
 
@@ -2067,11 +2123,11 @@ export const setMemberTimeSlots = async (req, res) => {
         const [endHour, endMin] = slot.endTime.split(':').map(Number);
         const startMinutes = startHour * 60 + startMin;
         const endMinutes = endHour * 60 + endMin;
-        
+
         if (startMinutes >= endMinutes) {
-          return res.status(400).json({ 
-            success: false, 
-            message: 'startTime must be before endTime' 
+          return res.status(400).json({
+            success: false,
+            message: 'startTime must be before endTime'
           });
         }
       }
@@ -2108,8 +2164,8 @@ export const getMemberTimeSlots = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       timeSlots: member.timeSlots || [],
       membershipStatus: member.membershipStatus
     });

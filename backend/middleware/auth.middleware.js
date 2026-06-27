@@ -7,37 +7,37 @@ export const authenticate = async (req, res, next) => {
     const authHeader = req.header('Authorization');
     const token = authHeader?.replace('Bearer ', '');
 
-    console.log('Auth header received:', {
-      hasHeader: !!authHeader,
-      headerLength: authHeader?.length,
-      tokenLength: token?.length,
-      tokenPrefix: token?.substring(0, 20),
-      url: req.url
-    });
+    // console.log('Auth header received:', {
+    //   hasHeader: !!authHeader,
+    //   headerLength: authHeader?.length,
+    //   tokenLength: token?.length,
+    //   tokenPrefix: token?.substring(0, 20),
+    //   url: req.url
+    // });
 
     if (!token) {
       return res.status(401).json({ success: false, message: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Token decoded:', { 
-      userId: decoded.userId, 
-      hasUserId: !!decoded.userId,
-      decodedKeys: Object.keys(decoded),
-      fullDecoded: decoded
-    });
+    // console.log('Token decoded:', { 
+    //   userId: decoded.userId, 
+    //   hasUserId: !!decoded.userId,
+    //   decodedKeys: Object.keys(decoded),
+    //   fullDecoded: decoded
+    // });
     
     const user = await User.findById(decoded.userId)
       .select('-password')
       .populate('organizationId', 'name email isActive');
 
-    console.log('User lookup result:', { 
-      found: !!user, 
-      isActive: user?.isActive,
-      hasOrganizationId: !!user?.organizationId,
-      organizationId: user?.organizationId?._id,
-      organizationIsActive: user?.organizationId?.isActive
-    });
+    // console.log('User lookup result:', { 
+    //   found: !!user, 
+    //   isActive: user?.isActive,
+    //   hasOrganizationId: !!user?.organizationId,
+    //   organizationId: user?.organizationId?._id,
+    //   organizationIsActive: user?.organizationId?.isActive
+    // });
 
     if (!user) {
       console.error('User not found for userId:', decoded.userId);

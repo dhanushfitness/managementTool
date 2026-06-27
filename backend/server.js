@@ -7,7 +7,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
 import path from 'path';
-import "./scheduler.js";
+// import "./scheduler.js";
 
 // Routes
 import authRoutes from './routes/auth.routes.js';
