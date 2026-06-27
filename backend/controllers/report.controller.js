@@ -1330,9 +1330,10 @@ export const getBirthdayReport = async (req, res) => {
       limit = 20
     } = req.query;
 
-    const start = fromDate ? new Date(fromDate) : new Date();
+    const parseLocalDate = (str) => { const [y, m, d] = str.split('-').map(Number); return new Date(y, m - 1, d); };
+    const start = fromDate ? parseLocalDate(fromDate) : new Date();
     start.setHours(0, 0, 0, 0);
-    const end = toDate ? new Date(toDate) : new Date();
+    const end = toDate ? parseLocalDate(toDate) : new Date();
     end.setHours(23, 59, 59, 999);
 
     // Get all members
@@ -1457,9 +1458,10 @@ export const exportBirthdayReport = async (req, res) => {
   try {
     const { fromDate, toDate, birthdayMonth } = req.query;
 
-    const start = fromDate ? new Date(fromDate) : new Date();
+    const parseLocalDate = (str) => { const [y, m, d] = str.split('-').map(Number); return new Date(y, m - 1, d); };
+    const start = fromDate ? parseLocalDate(fromDate) : new Date();
     start.setHours(0, 0, 0, 0);
-    const end = toDate ? new Date(toDate) : new Date();
+    const end = toDate ? parseLocalDate(toDate) : new Date();
     end.setHours(23, 59, 59, 999);
 
     const members = await Member.find({

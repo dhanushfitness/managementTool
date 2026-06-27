@@ -207,6 +207,7 @@ export default function MemberDetails() {
 
   // Image upload and camera states
   const [showCamera, setShowCamera] = useState(false)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const fileInputRef = useRef(null)
 
   const { data, isLoading } = useQuery({
@@ -359,8 +360,10 @@ export default function MemberDetails() {
       const reader = new FileReader()
       reader.onloadend = () => {
         const imageData = reader.result
-        // Save profile picture immediately
-        updateMutation.mutate({ profilePicture: imageData })
+        setIsUploadingImage(true)
+        updateMutation.mutate({ profilePicture: imageData }, {
+          onSettled: () => setIsUploadingImage(false)
+        })
       }
       reader.onerror = () => {
         toast.error('Failed to read image file')
@@ -371,7 +374,10 @@ export default function MemberDetails() {
 
   // Handle camera photo capture
   const handleCameraCapture = (imageData) => {
-    updateMutation.mutate({ profilePicture: imageData })
+    setIsUploadingImage(true)
+    updateMutation.mutate({ profilePicture: imageData }, {
+      onSettled: () => setIsUploadingImage(false)
+    })
   }
 
   const calculateAgeFromDOB = (dobString) => {
@@ -628,24 +634,34 @@ export default function MemberDetails() {
                         </div>
                       )}
                       <div className="mt-3 md:mt-4 space-y-2">
-                        <label className="w-full px-3 md:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs md:text-sm font-medium flex items-center justify-center space-x-2 cursor-pointer tablet-touch-target">
-                          <Upload className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                          <span>Upload Image</span>
+                        <label className={`w-full px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium flex items-center justify-center space-x-2 transition-colors tablet-touch-target ${isUploadingImage ? 'bg-orange-400 cursor-not-allowed opacity-70' : 'bg-orange-500 hover:bg-orange-600 cursor-pointer'} text-white`}>
+                          {isUploadingImage ? (
+                            <Loader className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                          )}
+                          <span>{isUploadingImage ? 'Uploading...' : 'Upload Image'}</span>
                           <input
                             ref={fileInputRef}
                             type="file"
                             accept="image/*"
                             onChange={handleImageUpload}
+                            disabled={isUploadingImage}
                             className="hidden"
                           />
                         </label>
                         <button
                           type="button"
                           onClick={() => setShowCamera(true)}
-                          className="w-full px-3 md:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-xs md:text-sm font-medium flex items-center justify-center space-x-2 tablet-touch-target"
+                          disabled={isUploadingImage}
+                          className={`w-full px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium flex items-center justify-center space-x-2 transition-colors tablet-touch-target ${isUploadingImage ? 'bg-orange-400 cursor-not-allowed opacity-70' : 'bg-orange-500 hover:bg-orange-600'} text-white`}
                         >
-                          <Camera className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                          <span>Capture Image</span>
+                          {isUploadingImage ? (
+                            <Loader className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" />
+                          ) : (
+                            <Camera className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                          )}
+                          <span>{isUploadingImage ? 'Uploading...' : 'Capture Image'}</span>
                         </button>
                       </div>
                     </div>

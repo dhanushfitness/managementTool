@@ -10,16 +10,15 @@ import User from '../models/User.js';
 const getDateRange = (fromDate, toDate, dateFilter) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   if (fromDate && toDate) {
-    // Custom date range
     const from = new Date(fromDate);
     from.setHours(0, 0, 0, 0);
     const to = new Date(toDate);
     to.setHours(23, 59, 59, 999);
     return { start: from, end: to };
   }
-  
+
   switch (dateFilter) {
     case 'today':
       const tomorrow = new Date(today);
@@ -34,14 +33,81 @@ const getDateRange = (fromDate, toDate, dateFilter) => {
       last30Days.setDate(last30Days.getDate() - 30);
       return { start: last30Days, end: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1) };
     case 'all-time':
-      // Return null to indicate no date filter
       return null;
     default:
-      // Default to today
       const defaultTomorrow = new Date(today);
       defaultTomorrow.setDate(defaultTomorrow.getDate() + 1);
       return { start: today, end: defaultTomorrow };
   }
+};
+
+// Returns the period immediately before the current date range (same duration)
+const getPreviousDateRange = (fromDate, toDate, dateFilter) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (fromDate && toDate) {
+    const from = new Date(fromDate);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(toDate);
+    to.setHours(23, 59, 59, 999);
+    const durationMs = to.getTime() - from.getTime() + 1;
+    return {
+      start: new Date(from.getTime() - durationMs),
+      end: new Date(from.getTime() - 1)
+    };
+  }
+
+  switch (dateFilter) {
+    case 'today': {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return { start: yesterday, end: new Date(today.getTime() - 1) };
+    }
+    case 'last7days': {
+      const prevEnd = new Date(today);
+      prevEnd.setDate(prevEnd.getDate() - 7);
+      const prevStart = new Date(today);
+      prevStart.setDate(prevStart.getDate() - 14);
+      return { start: prevStart, end: prevEnd };
+    }
+    case 'last30days': {
+      const prevEnd = new Date(today);
+      prevEnd.setDate(prevEnd.getDate() - 30);
+      const prevStart = new Date(today);
+      prevStart.setDate(prevStart.getDate() - 60);
+      return { start: prevStart, end: prevEnd };
+    }
+    case 'all-time':
+      return null;
+    default: {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return { start: yesterday, end: new Date(today.getTime() - 1) };
+    }
+  }
+};
+
+const buildSalesMatch = (organizationId, dateRange) => {
+  const dateCondition = dateRange ? {
+    $or: [
+      { dateOfInvoice: { $gte: dateRange.start, $lte: dateRange.end } },
+      { dateOfInvoice: { $exists: false }, createdAt: { $gte: dateRange.start, $lte: dateRange.end } },
+      { dateOfInvoice: null, createdAt: { $gte: dateRange.start, $lte: dateRange.end } }
+    ]
+  } : {};
+  return { organizationId, ...dateCondition };
+};
+
+const buildPaymentsMatch = (organizationId, dateRange) => {
+  const match = { organizationId, status: 'completed' };
+  if (dateRange) {
+    match.$or = [
+      { paidAt: { $gte: dateRange.start, $lte: dateRange.end } },
+      { paidAt: null, createdAt: { $gte: dateRange.start, $lte: dateRange.end } }
+    ];
+  }
+  return match;
 };
 
 export const getDashboardStats = async (req, res) => {
@@ -49,68 +115,34 @@ export const getDashboardStats = async (req, res) => {
     const organizationId = req.organizationId;
     const { fromDate, toDate, dateFilter = 'today' } = req.query;
     const dateRange = getDateRange(fromDate, toDate, dateFilter);
+    const prevDateRange = getPreviousDateRange(fromDate, toDate, dateFilter);
 
-    // Build date match condition
-    const salesDateMatch = dateRange ? {
-      createdAt: {
-        $gte: dateRange.start,
-        $lte: dateRange.end
-      }
-    } : {};
-
-    const paymentsDateMatch = dateRange ? {
-      paidAt: {
-        $gte: dateRange.start,
-        $lte: dateRange.end
-      }
-    } : {};
-
-    // Sales (total invoice amount in date range)
-    const sales = await Invoice.aggregate([
-      {
-        $match: {
-          organizationId,
-          ...salesDateMatch
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$total' }
-        }
-      }
+    // Current period
+    const [sales, paymentsCollected, prevSales, prevCollected] = await Promise.all([
+      Invoice.aggregate([
+        { $match: buildSalesMatch(organizationId, dateRange) },
+        { $group: { _id: null, total: { $sum: '$total' } } }
+      ]),
+      Payment.aggregate([
+        { $match: buildPaymentsMatch(organizationId, dateRange) },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      // Previous period
+      prevDateRange
+        ? Invoice.aggregate([
+            { $match: buildSalesMatch(organizationId, prevDateRange) },
+            { $group: { _id: null, total: { $sum: '$total' } } }
+          ])
+        : Promise.resolve([]),
+      prevDateRange
+        ? Payment.aggregate([
+            { $match: buildPaymentsMatch(organizationId, prevDateRange) },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+          ])
+        : Promise.resolve([])
     ]);
 
-    // Payments Collected (in date range)
-    // If paidAt is null, use createdAt as fallback
-    const paymentsMatch = {
-      organizationId,
-      status: 'completed'
-    };
-    
-    if (dateRange) {
-      paymentsMatch.$or = [
-        { paidAt: { $gte: dateRange.start, $lte: dateRange.end } },
-        { 
-          paidAt: null,
-          createdAt: { $gte: dateRange.start, $lte: dateRange.end }
-        }
-      ];
-    }
-    
-    const paymentsCollected = await Payment.aggregate([
-      {
-        $match: paymentsMatch
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$amount' }
-        }
-      }
-    ]);
-
-    // Payments Pending (all pending invoices)
+    // Payments Pending (all outstanding invoices — not period-filtered)
     const dues = await Invoice.aggregate([
       {
         $match: {
@@ -182,7 +214,9 @@ export const getDashboardStats = async (req, res) => {
         renewals,
         checkIns,
         activeMembers,
-        duesCount: dues[0]?.count || 0
+        duesCount: dues[0]?.count || 0,
+        previousSales: prevDateRange ? (prevSales[0]?.total ?? null) : null,
+        previousCollected: prevDateRange ? (prevCollected[0]?.total ?? null) : null
       }
     });
   } catch (error) {
@@ -331,7 +365,9 @@ export const getQuickStats = async (req, res) => {
 
 export const getDashboardSummary = async (req, res) => {
   try {
-    const today = req.query.date ? new Date(req.query.date) : new Date();
+    const today = req.query.date
+      ? (() => { const [y, m, d] = req.query.date.split('-').map(Number); return new Date(y, m - 1, d); })()
+      : new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -364,63 +400,24 @@ export const getDashboardSummary = async (req, res) => {
       'currentPlan.endDate': { $gte: today, $lt: tomorrow }
     });
 
-    // Client birthdays (today only - using MongoDB aggregation for better performance)
+    // Client birthdays — use JS local date methods (same as birthday report) to avoid UTC vs local mismatch
     const todayMonth = today.getMonth();
     const todayDate = today.getDate();
-    
-    // Use aggregation to count birthdays in MongoDB instead of fetching all records
-    const clientBirthdayCount = await Member.aggregate([
-      {
-        $match: {
-          organizationId: req.organizationId,
-          dateOfBirth: { $exists: true, $ne: null }
-        }
-      },
-      {
-        $project: {
-          birthMonth: { $month: '$dateOfBirth' },
-          birthDay: { $dayOfMonth: '$dateOfBirth' }
-        }
-      },
-      {
-        $match: {
-          birthMonth: todayMonth + 1, // MongoDB month is 1-12, JS month is 0-11
-          birthDay: todayDate
-        }
-      },
-      {
-        $count: 'count'
-      }
+
+    const [clientsWithDOB, staffWithDOB] = await Promise.all([
+      Member.find({ organizationId: req.organizationId, dateOfBirth: { $exists: true, $ne: null } })
+        .select('dateOfBirth').lean(),
+      User.find({ organizationId: req.organizationId, dateOfBirth: { $exists: true, $ne: null } })
+        .select('dateOfBirth').lean()
     ]);
 
-    const clientBirthdays = clientBirthdayCount[0]?.count || 0;
+    const matchesBirthday = (dob) => {
+      const d = new Date(dob);
+      return !isNaN(d.getTime()) && d.getMonth() === todayMonth && d.getDate() === todayDate;
+    };
 
-    // Staff birthdays (today only - using MongoDB aggregation for better performance)
-    const staffBirthdayCount = await User.aggregate([
-      {
-        $match: {
-          organizationId: req.organizationId,
-          dateOfBirth: { $exists: true, $ne: null }
-        }
-      },
-      {
-        $project: {
-          birthMonth: { $month: '$dateOfBirth' },
-          birthDay: { $dayOfMonth: '$dateOfBirth' }
-        }
-      },
-      {
-        $match: {
-          birthMonth: todayMonth + 1, // MongoDB month is 1-12, JS month is 0-11
-          birthDay: todayDate
-        }
-      },
-      {
-        $count: 'count'
-      }
-    ]);
-
-    const staffBirthdays = staffBirthdayCount[0]?.count || 0;
+    const clientBirthdays = clientsWithDOB.filter(m => matchesBirthday(m.dateOfBirth)).length;
+    const staffBirthdays = staffWithDOB.filter(u => matchesBirthday(u.dateOfBirth)).length;
 
     // Pending collections (invoices with pending amount and dueDate today)
     const pendingCollections = await Invoice.countDocuments({

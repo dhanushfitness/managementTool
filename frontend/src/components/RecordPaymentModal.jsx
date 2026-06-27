@@ -206,10 +206,10 @@ export default function RecordPaymentModal({ invoice, isOpen, onClose, onSuccess
               </button>
               <button
                 type="submit"
-                disabled={paymentMutation.isLoading}
+                disabled={paymentMutation.isPending}
                 className="px-5 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                {paymentMutation.isLoading ? (
+                {paymentMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>Recording...</span>
