@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
@@ -19,6 +20,7 @@ import {
   CalendarDays,
   Sparkles,
   TrendingDown,
+  Minus,
   Activity,
   Target,
   Clock,
@@ -44,15 +46,19 @@ export default function Dashboard() {
   const [showCustomDateRange, setShowCustomDateRange] = useState(dateFilter === 'custom');
 
   // State for summary date navigation
-  const [summaryDate, setSummaryDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const toLocalDateString = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [summaryDate, setSummaryDate] = useState(() => toLocalDateString(new Date()));
 
   const getRelativeDateString = (offset) => {
     const baseDate = new Date();
     baseDate.setDate(baseDate.getDate() + offset);
-    return baseDate.toISOString().split('T')[0];
+    return toLocalDateString(baseDate);
   };
 
   const todayDateString = getRelativeDateString(0);
@@ -158,6 +164,18 @@ export default function Dashboard() {
   };
 
   const statsData = stats?.stats || {};
+
+  const calcTrend = (current, previous) => {
+    if (previous === null || previous === undefined) return null; // all-time: no comparison
+    if (previous === 0 && current === 0) return { type: 'zero' };
+    if (previous === 0 && current > 0) return { type: 'new' };
+    const pct = ((current - previous) / previous) * 100;
+    if (Math.abs(pct) < 0.1) return { type: 'flat', value: '0.0' };
+    return { type: pct > 0 ? 'up' : 'down', value: Math.abs(pct).toFixed(1) };
+  };
+
+  const salesTrend = calcTrend(statsData.sales, statsData.previousSales);
+  const collectedTrend = calcTrend(statsData.paymentsCollected, statsData.previousCollected);
   const clientStats = clientStatsData?.stats || {
     total: 0,
     active: 0,
@@ -234,8 +252,7 @@ export default function Dashboard() {
   };
 
   const handleSummaryToday = () => {
-    const today = new Date();
-    setSummaryDate(today.toISOString().split('T')[0]);
+    setSummaryDate(toLocalDateString(new Date()));
   };
 
   useEffect(() => {
@@ -253,15 +270,15 @@ export default function Dashboard() {
 
   const handleApplyCustomDate = () => {
     if (!fromDate || !toDate) {
-      alert('Please select both from and to dates');
+      toast.error('Please select both from and to dates');
       return;
     }
     if (new Date(fromDate) > new Date(toDate)) {
-      alert('From date cannot be greater than To date');
+      toast.error('From date cannot be greater than To date');
       return;
     }
     setAppliedQueryParams(getQueryParams());
-    setShowCustomDateRange(false);
+    toast.success('Filter applied');
   };
 
   if (statsLoading || renewalsLoading || pendingLoading) {
@@ -342,7 +359,6 @@ export default function Dashboard() {
             <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
-
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -355,7 +371,7 @@ export default function Dashboard() {
               value={formatCurrency(statsData.sales)}
               icon={DollarSign}
               gradient="from-orange-500 to-red-500"
-              trend="+12.5%"
+              trend={salesTrend}
               onClick={() => navigateWithDateFilter('/reports/sales/service-sales')}
             />
             <ModernStatCard
@@ -363,7 +379,7 @@ export default function Dashboard() {
               value={formatCurrency(statsData.paymentsCollected)}
               icon={TrendingUp}
               gradient="from-green-500 to-emerald-500"
-              trend="+8.2%"
+              trend={collectedTrend}
               onClick={() => navigateWithDateFilter('/reports/finance/service-payments-collected')}
             />
             <ModernStatCard
@@ -629,6 +645,36 @@ export default function Dashboard() {
   );
 }
 
+function TrendBadge({ trend }) {
+  if (!trend) return null;
+  if (trend.type === 'zero') return (
+    <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">
+      — No data
+    </span>
+  );
+  if (trend.type === 'new') return (
+    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+      ✦ New
+    </span>
+  );
+  if (trend.type === 'flat') return (
+    <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-lg flex items-center gap-0.5">
+      <Minus className="w-3 h-3" /> Flat
+    </span>
+  );
+  if (trend.type === 'up') return (
+    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg flex items-center gap-0.5">
+      <TrendingUp className="w-3 h-3" /> +{trend.value}%
+    </span>
+  );
+  if (trend.type === 'down') return (
+    <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-lg flex items-center gap-0.5">
+      <TrendingDown className="w-3 h-3" /> -{trend.value}%
+    </span>
+  );
+  return null;
+}
+
 function ModernStatCard({ title, value, icon: Icon, gradient, trend, alert, onClick }) {
   return (
     <div
@@ -643,24 +689,21 @@ function ModernStatCard({ title, value, icon: Icon, gradient, trend, alert, onCl
           <div className={`p-3 bg-gradient-to-br ${gradient} rounded-xl shadow-lg`}>
             <Icon className="w-6 h-6 text-white" />
           </div>
-          {trend && !alert && (
-            <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-              {trend}
-            </span>
-          )}
-          {alert && (
+          {alert ? (
             <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg animate-pulse">
               Action needed
             </span>
+          ) : (
+            <TrendBadge trend={trend} />
           )}
         </div>
 
         <p className="text-sm font-semibold text-gray-600 mb-2">{title}</p>
         <p className="text-3xl font-black text-gray-900 mb-3">{value}</p>
 
-        <div className="flex items-center text-orange-600 text-sm font-bold group-hover:translate-x-1 transition-transform">
-          <span>View details</span>
-          <ChevronRight className="w-4 h-4 ml-1" />
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100 group-hover:border-orange-100 transition-colors">
+          <span className="text-sm font-semibold text-orange-600">View details</span>
+          <ArrowRight className="w-4 h-4 text-orange-500 group-hover:translate-x-1 transition-transform" />
         </div>
       </div>
     </div>
@@ -712,8 +755,7 @@ function EnquiryStatBox({ label, value, color }) {
 function SummaryItem({ title, count, icon: Icon, onClick }) {
   return (
     <div
-      className={`flex items-center justify-between p-3 rounded-xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all ${onClick ? 'cursor-pointer group' : ''
-        }`}
+      className={`flex items-center justify-between p-3 rounded-xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all ${onClick ? 'cursor-pointer group' : ''}`}
       onClick={onClick}
     >
       <div className="flex items-center gap-3">
