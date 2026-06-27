@@ -1,81 +1,42 @@
-import dotenv from 'dotenv';
-import { sendEmail } from '../utils/email.js';
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 
-// Load environment variables
-dotenv.config({ path: './.env' });
+dotenv.config();
 
-async function testEmail() {
-  console.log('🧪 Testing Email Configuration...\n');
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD,
+  },
+});
 
-  // Check configuration
-  console.log('📋 Configuration Check:');
-  console.log(`   SMTP_HOST: ${process.env.SMTP_HOST || 'NOT SET'}`);
-  console.log(`   SMTP_PORT: ${process.env.SMTP_PORT || 'NOT SET'}`);
-  console.log(`   SMTP_USER: ${process.env.SMTP_USER || 'NOT SET'}`);
-  console.log(`   SMTP_PASSWORD: ${process.env.SMTP_PASSWORD ? '***SET***' : 'NOT SET'}`);
-  console.log('');
-
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-    console.error('❌ Email configuration is incomplete!');
-    console.error('   Please check your .env file and ensure all SMTP variables are set.');
-    process.exit(1);
-  }
-
-  // Validate SendGrid configuration
-  if (process.env.SMTP_HOST === 'smtp.sendgrid.net') {
-    if (process.env.SMTP_USER !== 'apikey') {
-      console.error('❌ For SendGrid, SMTP_USER must be exactly "apikey"');
-      console.error(`   Current value: "${process.env.SMTP_USER}"`);
-      process.exit(1);
-    }
-    if (!process.env.SMTP_PASSWORD.startsWith('SG.')) {
-      console.warn('⚠️  Warning: SendGrid API key should start with "SG."');
-      console.warn(`   Current value starts with: "${process.env.SMTP_PASSWORD.substring(0, 3)}"`);
-    }
-  }
-
-  // Get test email from user or use a default
-  const testEmail = process.argv[2] || process.env.TEST_EMAIL || 'test@example.com';
-  
-  console.log(`📧 Sending test email to: ${testEmail}\n`);
-
+async function sendTestEmail() {
   try {
-    const result = await sendEmail({
-      to: testEmail,
-      subject: 'Test Email from Gym Management System',
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: process.env.TEST_EMAIL,
+      subject: "Welcome to AirFit Luxury Club",
+      text: "Welcome to AirFit Luxury Club!",
       html: `
-        <h2>✅ Email Test Successful!</h2>
-        <p>If you received this email, your SendGrid configuration is working correctly.</p>
-        <p><strong>Configuration:</strong></p>
-        <ul>
-          <li>SMTP Host: ${process.env.SMTP_HOST}</li>
-          <li>SMTP Port: ${process.env.SMTP_PORT}</li>
-          <li>SMTP User: ${process.env.SMTP_USER}</li>
-        </ul>
-        <p>Your email system is ready to send invoice notifications and membership expiry reminders!</p>
+        <h2>Welcome to AirFit Luxury Club! 🎉</h2>
+        <p>Thank you for choosing <b>AirFit Luxury Club</b>.</p>
+        <p>Your email notifications are now working successfully.</p>
+
+        <br>
+
+        <p>Regards,</p>
+        <p><b>AirFit Luxury Club</b></p>
       `,
-      text: 'Test Email from Gym Management System - If you received this, your email configuration is working!'
     });
 
-    if (result.success) {
-      console.log('✅ Email sent successfully!');
-      console.log(`   Message ID: ${result.messageId}`);
-      console.log('\n🎉 Your email configuration is working correctly!');
-      console.log('   Check your inbox (and spam folder) for the test email.');
-    } else {
-      console.error('❌ Failed to send email:');
-      console.error(`   Error: ${result.error}`);
-      process.exit(1);
-    }
-  } catch (error) {
-    console.error('❌ Error sending test email:');
-    console.error(`   ${error.message}`);
-    if (error.response) {
-      console.error(`   Response: ${JSON.stringify(error.response, null, 2)}`);
-    }
-    process.exit(1);
+    console.log("✅ Email sent successfully");
+    console.log(info.messageId);
+  } catch (err) {
+    console.error("❌ Error:", err);
   }
 }
 
-testEmail();
-
+sendTestEmail();

@@ -8,15 +8,17 @@ const __dirname = path.dirname(__filename);
 
 // Create reusable transporter
 const createTransporter = () => {
-  // Use SMTP settings from environment variables
+  // Use SMTP settings from environment variables only
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT),
     secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASSWORD
-    }
+    },
+    // Enable proper headers for better deliverability
+    authMethod: process.env.SMTP_AUTH_METHOD || 'login'
   });
 
   return transporter;
@@ -35,25 +37,34 @@ const createTransporter = () => {
  */
 export const sendEmail = async ({ to, subject, html, text, attachments = [], from }) => {
   try {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-      console.warn('SMTP credentials not configured. Email sending disabled.');
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !process.env.SMTP_HOST || !process.env.SMTP_PORT) {
+      console.warn('SMTP credentials not fully configured. Email sending disabled.');
       return {
         success: false,
-        error: 'SMTP credentials not configured'
+        error: 'SMTP credentials not fully configured'
       };
     }
 
     const transporter = createTransporter();
 
-    // For SendGrid, use the verified sender email as 'from'
-    let fromEmail = from || process.env.SMTP_USER;
+    // Use verified sender email from .env SMTP_FROM (required for SendGrid and best practices)
+    let fromEmail = from || process.env.SMTP_FROM;
     
-    // If using SendGrid (apikey), we need to set 'from' to a verified sender email
-    // The SMTP_USER is 'apikey' for SendGrid, so we need a different 'from' address
-    if (process.env.SMTP_USER === 'apikey' && process.env.SMTP_HOST === 'smtp.sendgrid.net') {
-      // Use SMTP_FROM if set, otherwise try to get from organization or use a default
-      fromEmail = from || process.env.SMTP_FROM || process.env.SMTP_USER;
+    // Fallback to SMTP_USER only if SMTP_USER is not 'apikey'
+    if (!fromEmail && process.env.SMTP_USER !== 'apikey') {
+      fromEmail = process.env.SMTP_USER;
     }
+
+    if (!fromEmail) {
+      console.warn('No valid "from" email address configured. Please set SMTP_FROM in .env');
+      return {
+        success: false,
+        error: 'No valid "from" email address configured'
+      };
+    }
+
+    // Generate Message-ID for better email deliverability
+    const messageId = `<${Date.now()}-${Math.random().toString(36).substring(2, 15)}@${process.env.SMTP_FROM?.split('@')[1] || 'airfit.local'}>`;
 
     const mailOptions = {
       from: fromEmail,
@@ -61,7 +72,17 @@ export const sendEmail = async ({ to, subject, html, text, attachments = [], fro
       subject,
       html,
       text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
-      attachments
+      attachments,
+      // Add headers for spam prevention and proper email handling
+      headers: {
+        'Message-ID': messageId,
+        'X-Mailer': 'AirFit Gym Management System v1.0',
+        'X-Priority': '3',
+        'Importance': 'normal',
+        'Reply-To': process.env.SMTP_FROM || fromEmail,
+        'List-Unsubscribe': `<mailto:${process.env.SMTP_USER}?subject=unsubscribe>`,
+        'X-Originating-IP': '[127.0.0.1]'
+      }
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -103,14 +124,24 @@ export const sendInvoiceEmail = async (invoice, member, organization, pdfBuffer)
 
   const emailSubject = `Invoice ${invoiceNumber} - ${organization.name || 'Gym Management'}`;
   
-  // Get sender email for SendGrid
+  // Get sender email from .env SMTP_FROM (must be verified sender)
   let senderEmail = process.env.SMTP_FROM;
-  if (!senderEmail && organization.email) {
-    senderEmail = organization.email;
+  
+  if (!senderEmail) {
+    console.warn('SMTP_FROM not configured in .env. Using fallback.');
+    senderEmail = process.env.SMTP_USER !== 'apikey' ? process.env.SMTP_USER : null;
   }
-  if (!senderEmail && process.env.SMTP_USER && process.env.SMTP_USER !== 'apikey') {
-    senderEmail = process.env.SMTP_USER;
+
+  if (!senderEmail) {
+    return {
+      ...results,
+      memberEmail: { success: false, error: 'Sender email not configured' },
+      ownerEmail: { success: false, error: 'Sender email not configured' }
+    };
   }
+
+  // Get brand color from .env, default to orange
+  const brandColor = process.env.EMAIL_BRAND_COLOR || '#f97316';
   
   const emailHtml = `
     <!DOCTYPE html>
@@ -119,11 +150,11 @@ export const sendInvoiceEmail = async (invoice, member, organization, pdfBuffer)
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #f97316; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .header { background-color: ${brandColor}; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
         .content { background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
         .invoice-details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
-        .button { display: inline-block; padding: 10px 20px; background-color: #f97316; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; }
+        .button { display: inline-block; padding: 10px 20px; background-color: ${brandColor}; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; }
       </style>
     </head>
     <body>
@@ -197,7 +228,7 @@ export const sendInvoiceEmail = async (invoice, member, organization, pdfBuffer)
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #f97316; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+          .header { background-color: ${brandColor}; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
           .content { background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
           .invoice-details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
         </style>
@@ -256,6 +287,12 @@ export const sendExpiryNotificationEmail = async (member, organization, expiryDa
     ? `Your ${planName} has Expired - ${organization.name || 'Gym Management'}`
     : `Your ${planName} Expires in ${daysUntilExpiry} Day${daysUntilExpiry > 1 ? 's' : ''}`;
 
+  // Get colors from .env
+  const brandColor = process.env.EMAIL_BRAND_COLOR || '#f97316';
+  const alertColor = process.env.EMAIL_ALERT_COLOR || '#dc2626';
+  const warningBgColor = process.env.EMAIL_WARNING_BG || '#fef3c7';
+  const alertBgColor = process.env.EMAIL_ALERT_BG || '#fee2e2';
+
   const emailHtml = `
     <!DOCTYPE html>
     <html>
@@ -263,10 +300,10 @@ export const sendExpiryNotificationEmail = async (member, organization, expiryDa
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: ${daysUntilExpiry === 0 ? '#dc2626' : '#f97316'}; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .header { background-color: ${daysUntilExpiry === 0 ? alertColor : brandColor}; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
         .content { background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; }
-        .alert-box { background-color: ${daysUntilExpiry === 0 ? '#fee2e2' : '#fef3c7'}; padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid ${daysUntilExpiry === 0 ? '#dc2626' : '#f97316'}; }
-        .button { display: inline-block; padding: 10px 20px; background-color: #f97316; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; }
+        .alert-box { background-color: ${daysUntilExpiry === 0 ? alertBgColor : warningBgColor}; padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid ${daysUntilExpiry === 0 ? alertColor : brandColor}; }
+        .button { display: inline-block; padding: 10px 20px; background-color: ${brandColor}; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px; }
       </style>
     </head>
     <body>
