@@ -7,6 +7,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
 import path from 'path';
+// import "./scheduler.js";
 
 // Routes
 import authRoutes from './routes/auth.routes.js';
@@ -71,12 +72,12 @@ app.use((req, res, next) => {
 // Get allowed origins from environment or use defaults
 const getAllowedOrigins = () => {
   const origins = [];
-  
+
   // Add from environment variable (comma-separated)
   if (process.env.ALLOWED_ORIGINS) {
     origins.push(...process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()));
   }
-  
+
   // Add from FRONTEND_URL if set
   if (process.env.FRONTEND_URL) {
     origins.push(process.env.FRONTEND_URL);
@@ -85,19 +86,19 @@ const getAllowedOrigins = () => {
       origins.push(process.env.FRONTEND_URL.replace('https://', 'http://'));
     }
   }
-  
+
   // Add default origins
   const defaultOrigins = [
     "https://app.airfitluxury.in",          // Production frontend
-    "http://app.airfitluxury.in",   
+    "http://app.airfitluxury.in",
     "https://dhanushcrmfrontend.netlify.app/",        // Production frontend (http fallback)
     'http://localhost:8080',                // CRA
     'http://localhost:5173',                // Vite
     'http://localhost:3000',                // Alternative dev port
   ];
-  
+
   origins.push(...defaultOrigins);
-  
+
   // Remove duplicates and filter out empty values
   return [...new Set(origins.filter(Boolean))];
 };

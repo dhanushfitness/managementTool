@@ -56,7 +56,12 @@ const attendanceSchema = new mongoose.Schema({
   synced: {
     type: Boolean,
     default: true
-  }
+  },
+  externalTransactionId: {
+    type: Number,
+    unique: true,
+    sparse: true
+  },
 }, {
   timestamps: true
 });
