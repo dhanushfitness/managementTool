@@ -11,7 +11,7 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
 import watchDogClient from '../services/watchDogClient.js';
-import { getWatchDogEmpCode, buildWatchDogValidityPayload } from '../utils/watchDog.js';
+import { getWatchDogEmpCode, buildWatchDogEmployeePayload, buildWatchDogValidityPayload } from '../utils/watchDog.js';
 import { handleError } from '../utils/errorHandler.js';
 
 const normalizeInvoiceDate = (value) => {
@@ -549,12 +549,10 @@ export const createInvoice = async (req, res) => {
     } = req.body;
 
     console.log('=== Invoice Creation Started ===');
-    console.log('memberId:', memberId);
-    console.log('isProForma:', isProForma);
-    console.log('items from request:', JSON.stringify(items, null, 2));
 
     const invoiceNumber = await generateInvoiceNumber(req.organizationId);
     const organization = await Organization.findById(req.organizationId);
+    let member = null;
 
     // Check if this is the first invoice for this member (before creating the invoice)
     let isFirstInvoice = false;
@@ -569,7 +567,7 @@ export const createInvoice = async (req, res) => {
 
     // Prevent duplicate overlap for active members
     if (memberId) {
-      const member = await Member.findOne({
+      member = await Member.findOne({
         _id: memberId,
         organizationId: req.organizationId
       }).lean();
@@ -632,14 +630,6 @@ export const createInvoice = async (req, res) => {
 
       return processedItem;
     });
-
-    console.log('Processed invoiceItems (checking dates):', invoiceItems.map(item => ({
-      description: item.description,
-      startDate: item.startDate,
-      expiryDate: item.expiryDate,
-      startDateType: typeof item.startDate,
-      expiryDateType: typeof item.expiryDate
-    })));
 
     // Apply invoice-level discount
     let discountAmount = 0;
@@ -753,12 +743,6 @@ export const createInvoice = async (req, res) => {
     // Note: We schedule calls for all invoices (including pro-forma) as they represent actual memberships
     if (memberId) {
       try {
-        console.log('Attempting to schedule automatic calls...');
-        console.log('isProForma:', isProForma);
-        console.log('memberId:', memberId);
-        console.log('Invoice created with ID:', invoice._id);
-        console.log('Invoice items from saved invoice:', JSON.stringify(invoice.items, null, 2));
-
         // Use the saved invoice items (with proper Date objects) instead of processed invoiceItems
         await scheduleAutomaticCalls(
           memberId,
@@ -782,7 +766,6 @@ export const createInvoice = async (req, res) => {
     // Send invoice via email and SMS after creation
     if (memberId) {
       try {
-        const member = await Member.findById(memberId);
         if (member) {
           // Populate invoice for PDF generation
           const populatedInvoice = await Invoice.findById(invoice._id)
@@ -858,6 +841,33 @@ export const createInvoice = async (req, res) => {
         console.error('Failed to send invoice notifications:', notificationError);
         // Don't fail invoice creation if notifications fail
       }
+    }
+
+    try {
+      if (memberId && member) {
+        const watchDogEmpCode = getWatchDogEmpCode(member);
+        if (watchDogEmpCode) {
+          const startDateForWatchDog = member.currentPlan?.startDate || (invoice.items || []).find(item => item.startDate)?.startDate;
+          const endDateForWatchDog = member.currentPlan?.endDate || (invoice.items || []).find(item => item.expiryDate)?.expiryDate;
+
+          console.log(`Attempting to update validity for ${watchDogEmpCode} in WatchDog`);
+          const payload = buildWatchDogValidityPayload({
+            empCode: watchDogEmpCode,
+            validityStart: startDateForWatchDog,
+            validityEnd: endDateForWatchDog
+          });
+
+          if (payload.validity_start || payload.validity_end) {
+            await watchDogClient.updateEmployeeValidity(payload);
+            console.log(`Updated validity for ${member.firstName} ${member.lastName} in WatchDog`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(
+        "WatchDog update failed:",
+        err.response?.data || err.message
+      );
     }
 
     res.status(201).json({ success: true, invoice });
@@ -1188,9 +1198,9 @@ export const changeInvoiceItemDate = async (req, res) => {
     }
 
     // Validate dates
-    // if (item.startDate && item.expiryDate && item.startDate >= item.expiryDate) {
-    //   return res.status(400).json({ success: false, message: 'Start date must be before expiry date' });
-    // }
+    if (item.startDate && item.expiryDate && item.startDate >= item.expiryDate) {
+      return res.status(400).json({ success: false, message: 'Start date must be before expiry date' });
+    }
 
     await invoice.save();
 
