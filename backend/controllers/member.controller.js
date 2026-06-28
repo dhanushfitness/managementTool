@@ -11,6 +11,7 @@ import XLSX from 'xlsx';
 import { sendWelcomeMessage } from '../utils/whatsapp.js';
 import { handleError } from '../utils/errorHandler.js';
 import watchDogClient from '../services/watchDogClient.js';
+import { getWatchDogEmpCode, buildWatchDogEmployeePayload, buildWatchDogValidityPayload } from '../utils/watchDog.js';
 
 // Normalize phone number for comparison (remove spaces, dashes, and other special characters)
 const normalizePhone = (phone) => {
@@ -309,22 +310,7 @@ export const createMember = async (req, res) => {
 
     // Sync newly created member to WatchDog
     try {
-      const payload = {
-        emp_code: member.memberId,
-        first_name: member.firstName,
-        last_name: member.lastName || '',
-        mobile: (member.phone || '').replace(/^\+91/, ''),
-        email: member.email || '',
-        gender: member.gender?.toLowerCase() === 'female' ? 'F' : 'M',
-        hire_date: new Date().toISOString().split('T')[0],
-        verify_mode: -1,
-        emp_type: 1,
-        enable_att: true,
-        department: "1",
-        position: "1",
-        area: ["2,GYM"],
-      };
-
+      const payload = buildWatchDogEmployeePayload(member);
       const response = await watchDogClient.createEmployee(payload);
 
       member.watchDog = {
@@ -343,7 +329,7 @@ export const createMember = async (req, res) => {
         synced: false,
         syncedAt: null,
         employeeId: null,
-        empCode: member.attendanceId || member.memberId,
+        empCode: member.memberId,
         error: JSON.stringify(err.response?.data || err.message)
       };
 
@@ -1027,11 +1013,15 @@ export const deleteMember = async (req, res) => {
     );
     deletionResults.enquiries = enquiryResult.modifiedCount;
 
+    const watchDogEmpCode = getWatchDogEmpCode(member);
+
     // Delete the member from WatchDog
     try {
-      console.log(`Attempting to delete ${member.memberId} from WatchDog`);
-      await watchDogClient.deleteEmployee(member.memberId);
-      console.log(`Deleted ${member.firstName} ${member.lastName} from WatchDog`);
+      if (watchDogEmpCode) {
+        console.log(`Attempting to delete ${watchDogEmpCode} from WatchDog`);
+        await watchDogClient.deleteEmployee(watchDogEmpCode);
+        console.log(`Deleted ${member.firstName} ${member.lastName} from WatchDog`);
+      }
     } catch (err) {
       console.error(
         "WatchDog delete failed:",
@@ -1121,6 +1111,28 @@ export const enrollMember = async (req, res) => {
     };
     member.membershipStatus = 'active';
     await member.save();
+
+    try {
+      const watchDogEmpCode = getWatchDogEmpCode(member);
+      if (watchDogEmpCode) {
+        console.log(`Attempting to update validity for ${watchDogEmpCode} in WatchDog`);
+        const payload = buildWatchDogValidityPayload({
+          empCode: watchDogEmpCode,
+          validityStart: member.currentPlan.startDate,
+          validityEnd: member.currentPlan.endDate
+        });
+
+        if (payload.validity_start || payload.validity_end) {
+          await watchDogClient.updateEmployeeValidity(payload);
+          console.log(`Updated validity for ${member.firstName} ${member.lastName} in WatchDog`);
+        }
+      }
+    } catch (err) {
+      console.error(
+        "WatchDog update failed:",
+        err.response?.data || err.message
+      );
+    }
 
     // Create invoice (will be handled by invoice controller)
     res.json({ success: true, member, message: 'Member enrolled successfully' });

@@ -10,6 +10,8 @@ import MemberCallLog from '../models/MemberCallLog.js';
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import watchDogClient from '../services/watchDogClient.js';
+import { getWatchDogEmpCode, buildWatchDogValidityPayload } from '../utils/watchDog.js';
 import { handleError } from '../utils/errorHandler.js';
 
 const normalizeInvoiceDate = (value) => {
@@ -35,6 +37,13 @@ const formatExportDate = (value) => {
   if (!value) return '';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-GB');
+};
+
+const formatWatchDogDate = (value) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().split('T')[0];
 };
 
 const getInvoiceDateItem = (invoice) => {
@@ -1179,9 +1188,9 @@ export const changeInvoiceItemDate = async (req, res) => {
     }
 
     // Validate dates
-    if (item.startDate && item.expiryDate && item.startDate >= item.expiryDate) {
-      return res.status(400).json({ success: false, message: 'Start date must be before expiry date' });
-    }
+    // if (item.startDate && item.expiryDate && item.startDate >= item.expiryDate) {
+    //   return res.status(400).json({ success: false, message: 'Start date must be before expiry date' });
+    // }
 
     await invoice.save();
 
@@ -1192,6 +1201,28 @@ export const changeInvoiceItemDate = async (req, res) => {
         item.expiryDate,
         req.organizationId
       );
+    }
+
+    // Sync updated membership validity to WatchDog when a member is linked
+    try {
+      if (invoice.memberId && (item.startDate || item.expiryDate)) {
+        const member = await Member.findById(invoice.memberId).select('firstName lastName attendanceId memberId watchDog');
+        const watchDogEmpCode = getWatchDogEmpCode(member);
+
+        if (watchDogEmpCode) {
+          const payload = buildWatchDogValidityPayload({
+            empCode: watchDogEmpCode,
+            validityStart: item.startDate,
+            validityEnd: item.expiryDate
+          });
+
+          if (payload.validity_start || payload.validity_end) {
+            await watchDogClient.updateEmployeeValidity(payload);
+          }
+        }
+      }
+    } catch (watchDogError) {
+      console.error('WatchDog date sync failed:', watchDogError.response?.data || watchDogError.message);
     }
 
     // Create audit log

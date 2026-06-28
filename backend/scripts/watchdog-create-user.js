@@ -3,7 +3,7 @@ import watchDogClient from "../services/watchDogClient.js";
 
 dotenv.config();
 
-async function test() {
+async function createtest() {
     console.log("Creating employee in WatchDog...");
     try {
 
@@ -30,10 +30,38 @@ async function test() {
     } catch (err) {
 
         console.error("FAILED");
-
         console.error(err.response?.data || err.message);
 
     }
 }
 
-test();
+async function updatetest() {
+    console.log("Updating employee in WatchDog...");
+    await watchDogClient.login();
+    try {
+
+        const payload = {
+            emp_code: "MEM000756",
+            validity_start: "2026-06-28",
+            validity_end: "2026-06-28",
+            department: "1",
+            position: "1",
+            area: ["2,GYM"],
+        }
+        const response = await watchDogClient.updateEmployeeValidity(payload);
+
+        // const response = await watchDogClient.client.get("/personnel/api/employees/MEM000756/");
+
+        console.log("SUCCESS");
+        console.log(response);
+
+    } catch (err) {
+
+        console.error("FAILED");
+        console.error(err.response?.data || err.message);
+
+    }
+}
+
+// createtest();
+updatetest();

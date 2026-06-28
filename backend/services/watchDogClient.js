@@ -8,7 +8,7 @@ class WatchDogClient {
     constructor() {
 
         this.client = axios.create({
-            baseURL: process.env.WATCHDOG_URL,
+            baseURL: process.env.WATCHDOG_URL || "http://watchdog.airfitluxury.in",
             timeout: 10000
         });
 
@@ -21,8 +21,8 @@ class WatchDogClient {
             return;
 
         const params = new URLSearchParams();
-        params.append("username", process.env.WATCHDOG_USER);
-        params.append("password", process.env.WATCHDOG_PASSWORD);
+        params.append("username", process.env.WATCHDOG_USER || 'admin');
+        params.append("password", process.env.WATCHDOG_PASSWORD || 'Airfit@2026');
 
         const { data } = await this.client.post(
             "/api/api-token-auth/",
@@ -56,7 +56,12 @@ class WatchDogClient {
         for (const trx of data.data) {
 
             const appMember = await Member.findOne({
-                memberId: trx.emp_code
+              isActive: true,
+              $or: [
+                { attendanceId: trx.emp_code },
+                { memberId: trx.emp_code },
+                { "biometricData.fingerprint": trx.emp_code }
+              ]
             }).select("firstName lastName attendanceId memberId");
 
             if (!appMember) {
@@ -98,6 +103,25 @@ class WatchDogClient {
         );
 
         return data;
+    }
+
+    async updateEmployeeValidity(payload) {
+        await this.login();
+
+        try {
+            const { data } = await this.client.patch(
+                `/personnel/api/employees/${payload.emp_code}/`,
+                payload
+            );
+            return data;
+            console.log(`Successfully updated validity for ${payload.emp_code} in WatchDog`);
+
+        } catch (err) {
+            console.log("Status:", err.response?.status);
+            console.log("Response:", err.response?.data);
+            throw err;
+        }
+
     }
 
 }
