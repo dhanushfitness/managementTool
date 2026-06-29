@@ -1447,6 +1447,8 @@ function ServiceCardTab({ member, invoices, isLoading, activeServiceTab, setActi
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['member-invoices', member?._id])
+      queryClient.invalidateQueries(['member-invoices'])
+      queryClient.invalidateQueries(['member', member?._id])
       toast.success('Date changed successfully')
       setDateChangeModal({ isOpen: false, invoice: null, itemIndex: 0 })
     },
@@ -1955,6 +1957,11 @@ function DateChangeModal({ invoice, itemIndex, onClose, onSave, isLoading }) {
   const item = invoice.items?.[itemIndex]
   const [startDate, setStartDate] = useState(item?.startDate ? new Date(item.startDate).toISOString().split('T')[0] : '')
   const [expiryDate, setExpiryDate] = useState(item?.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '')
+
+  useEffect(() => {
+    setStartDate(item?.startDate ? new Date(item.startDate).toISOString().split('T')[0] : '')
+    setExpiryDate(item?.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '')
+  }, [invoice, itemIndex])
 
   const handleSubmit = (e) => {
     e.preventDefault()

@@ -3,6 +3,8 @@ import Member from '../models/Member.js';
 import Invoice from '../models/Invoice.js';
 import AuditLog from '../models/AuditLog.js';
 import Appointment from '../models/Appointment.js';
+import watchDogClient from '../services/watchDogClient.js';
+import { buildWatchDogEmployeePayload, getWatchDogEmpCode } from '../utils/watchDog.js';
 import { handleError } from '../utils/errorHandler.js';
 
 // Normalize phone number for comparison (remove spaces, dashes, and other special characters)
@@ -541,6 +543,33 @@ export const convertToMember = async (req, res) => {
       membershipStatus: 'pending',
       createdBy: req.user._id
     });
+
+    try {
+      const payload = buildWatchDogEmployeePayload(member);
+      const response = await watchDogClient.createEmployee(payload);
+
+      member.watchDog = {
+        synced: true,
+        syncedAt: new Date(),
+        employeeId: response?.id || response?.data?.id || null,
+        empCode: payload.emp_code,
+        error: null
+      };
+
+      await member.save();
+    } catch (err) {
+      console.error('WatchDog employee sync failed for converted enquiry:', err.response?.data || err.message);
+
+      member.watchDog = {
+        synced: false,
+        syncedAt: null,
+        employeeId: null,
+        empCode: getWatchDogEmpCode(member),
+        error: JSON.stringify(err.response?.data || err.message)
+      };
+
+      await member.save();
+    }
 
     // Add call log entry for conversion
     const conversionMessage = comments
